@@ -1,0 +1,103 @@
+.book-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 28rpx 30rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.cover {
+  width: 90rpx;
+  height: 100rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx;
+  margin-right: 24rpx;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.cover.blue { background: linear-gradient(135deg, #3182CE, #2B6CB0); }
+.cover.green { background: linear-gradient(135deg, #38A169, #2F855A); }
+.cover.orange { background: linear-gradient(135deg, #DD6B20, #C05621); }
+
+.cover-title {
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.info {
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #2D3748;
+}
+
+.action-icons {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-icons .icon {
+  font-size: 26rpx;
+  opacity: 0.6;
+  padding: 4rpx;
+}
+
+.info .meta {
+  font-size: 24rpx;
+  color: #718096;
+  margin-bottom: 12rpx;
+  display: flex;
+  align-items: center;
+}
+
+.info .tag {
+  background: #EDF2F7;
+  color: #718096;
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  margin-left: 12rpx;
+}
+
+/* 进度条轨道与填充 */
+.progress-bar-bg {
+  width: 100%;
+  height: 10rpx;
+  background-color: #EDF2F7;
+  border-radius: 10rpx;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #2B6CB0;
+  border-radius: 10rpx;
+  transition: width 0.3s ease;
+}
+
+.arrow {
+  color: #CBD5E0;
+  font-size: 32rpx;
+  flex-shrink: 0;
+}

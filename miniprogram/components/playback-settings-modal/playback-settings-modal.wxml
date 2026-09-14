@@ -1,0 +1,72 @@
+<view class="modal-wrapper {{visible ? 'show' : ''}}">
+  <!-- 遮罩层 -->
+  <view class="mask" bindtap="onClose"></view>
+  
+  <!-- 底部抽屉主体 -->
+  <view class="drawer">
+    <view class="drawer-header">
+      <text class="drawer-title">听句子播放设置</text>
+      <text class="close-btn" bindtap="onClose">✕</text>
+    </view>
+
+    <scroll-view scroll-y class="drawer-content">
+      <!-- 播放顺序 -->
+      <view class="setting-group">
+        <text class="group-title">播放顺序</text>
+        <view class="segment">
+          <view 
+            class="segment-item {{settings.order === 'EN_ZH' ? 'active' : ''}}"
+            bindtap="onSelect" data-key="order" data-value="EN_ZH"
+          >先英后中</view>
+          <view 
+            class="segment-item {{settings.order === 'ZH_EN' ? 'active' : ''}}"
+            bindtap="onSelect" data-key="order" data-value="ZH_EN"
+          >先中后英</view>
+        </view>
+      </view>
+
+      <!-- 单次播放条数 -->
+      <view class="setting-group">
+        <text class="group-title">单次播放条数</text>
+        <view class="options-grid">
+          <block wx:for="{{[5, 10, 20, 50]}}" wx:key="*this">
+            <view 
+              class="option-card {{settings.count === item ? 'active' : ''}}"
+              bindtap="onSelect" data-key="count" data-value="{{item}}"
+            >{{item}}条</view>
+          </block>
+        </view>
+      </view>
+
+      <!-- 英文重复次数 -->
+      <view class="setting-group">
+        <text class="group-title">英文重复次数</text>
+        <view class="options-grid">
+          <block wx:for="{{[1, 2, 3, 5]}}" wx:key="*this">
+            <view 
+              class="option-card {{settings.repeatCount === item ? 'active' : ''}}"
+              bindtap="onSelect" data-key="repeatCount" data-value="{{item}}"
+            >{{item}}次</view>
+          </block>
+        </view>
+      </view>
+
+      <!-- 句子间隔时间 -->
+      <view class="setting-group">
+        <text class="group-title">句子间隔时间</text>
+        <view class="options-grid">
+          <block wx:for="{{[1, 2, 3, 5]}}" wx:key="*this">
+            <view 
+              class="option-card {{settings.interval === item ? 'active' : ''}}"
+              bindtap="onSelect" data-key="interval" data-value="{{item}}"
+            >{{item}}秒</view>
+          </block>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="drawer-footer">
+      <button class="save-btn" bindtap="onSave">保存并应用</button>
+    </view>
+  </view>
+</view>

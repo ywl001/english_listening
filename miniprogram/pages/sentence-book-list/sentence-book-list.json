@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "playback-settings-modal": "/components/playback-settings-modal/playback-settings-modal",
+    "sentence-book-card": "/components/sentence-book-card/sentence-book-card"
+  }
+}
