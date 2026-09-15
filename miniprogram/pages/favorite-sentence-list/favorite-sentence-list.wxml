@@ -1,0 +1,54 @@
+<view class="container">
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜索收藏的句子" bindinput="onSearchInput" value="{{keyword}}" />
+  </view>
+
+  <!-- 骨架屏 -->
+  <view wx:if="{{loading}}" class="skeleton-list">
+    <view wx:for="{{[0,1,2,3,4]}}" wx:key="*this" class="skeleton-card">
+      <view class="skeleton-line skeleton-en"></view>
+      <view class="skeleton-line skeleton-zh"></view>
+    </view>
+  </view>
+
+  <view class="list-wrapper">
+    <!-- 正常列表 -->
+    <block wx:if="{{displayList.length > 0}}">
+      <block wx:for="{{displayList}}" wx:key="_id">
+        <van-swipe-cell right-width="{{80}}" custom-class="swipe-item">
+          <view class="sentence-card {{isPlayingAll && currentIndex === index ? 'playing-card' : ''}}">
+            <view class="card-left">
+              <view class="en-text">
+                <text class="index-num">{{index + 1}}. </text>{{item.en || item.english}}
+              </view>
+              <view class="zh-text">{{item.zh || item.chinese}}</view>
+            </view>
+
+            <view class="play-btn" catchtap="playSingleAudio" data-index="{{index}}">
+              <view class="play-triangle"></view>
+            </view>
+          </view>
+
+          <view slot="right" class="delete-btn" bindtap="onDelete" data-id="{{item._id || item.id}}" data-index="{{index}}">
+            取消收藏
+          </view>
+        </van-swipe-cell>
+      </block>
+
+      <view class="loading-status">
+        <!-- <text wx:if="{{!hasMore}}">没有更多句子了</text> -->
+      </view>
+    </block>
+
+    <view wx:else class="empty-box">
+      <text>暂无相关句子</text>
+    </view>
+  </view>
+
+  <view class="bottom-floating-bar" wx:if="{{sentenceList.length > 0}}">
+    <button class="play-all-btn" bindtap="togglePlayAll">
+      <text class="icon">🎧</text>
+      <text>{{isPlayingAll ? '暂停播放' : '全部播放收藏 (' + sentenceList.length + ')'}}</text>
+    </button>
+  </view>
+</view>

@@ -26,8 +26,8 @@ export class BookService {
 
   async getUserBooks() {
     const books = await this.getBooks()
-    const openid = getApp().globalData.openid
-    return books.filter(item => item.openid === openid);
+    const _openid = getApp().globalData._openid
+    return books.filter(item => item._openid === _openid);
   }
 
   /**

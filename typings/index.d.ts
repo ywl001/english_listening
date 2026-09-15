@@ -3,7 +3,7 @@
 interface IAppOption {
   globalData: {
     userInfo?: WechatMiniprogram.UserInfo,
-    openid?: string,
+    _openid?: string,
     playConfig?: PlayConfig
     favoriteBookId?: string;
     originBookId?: string
@@ -17,10 +17,10 @@ interface IAppOption {
 
 
 
-type PlayMode = 'sequence' | 'favorites' | 'test'
+type PlayMode = 'sequence' | 'test'
 
 type SentenceListMode = 'smart' | 'fav' | 'reviewOnly';
-type PlayOrder = 'zh_first' | 'en_first'
+type PlayOrder = 'zh_first' | 'en_first' | 'zh_only' | 'en_only'
 
 type WordBoundary = { text: string; start: number; duration: number }
 
@@ -45,12 +45,12 @@ interface Sentence {
   mark?: SentenceMark | null
   isNew?: boolean
 
-  isFavorite?:boolean
+  isFavorite?: boolean
 }
 
 interface SentenceMark {
   _id?: string
-  openid?: string
+  _openid?: string
   bookId?: string
   sentenceId: string
   // favorite: boolean
@@ -61,7 +61,7 @@ interface SentenceMark {
 
 interface SentenceFavorite {
   _id: string
-  openid: string
+  _openid: string
   bookId: string
   createdAt: number
 }
@@ -86,6 +86,15 @@ interface PlayListResult {
   list: Sentence[]
   nextCursor: PlayListCursor
   hasMore: boolean
+}
+
+interface FavoriteSentenceResult {
+  list: Sentence[];
+  nextCursor: {
+    lastCreatedAt: number;
+    lastId: string;
+  } | null;
+  hasMore: boolean;
 }
 
 interface SentenceStats {
@@ -151,7 +160,7 @@ interface Book {
   _id: string;
   name: string;
   type?: string;
-  openid?: string;
+  _openid?: string;
   itemCount?: number
 }
 

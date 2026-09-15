@@ -26,7 +26,7 @@ async function fetchAll(query, batchSize = 100) {
 }
 
 // 2. 批量获取并注入收藏状态 (突破 100 条查询限制)
-async function attachFavorites(openid, bookId, list) {
+async function attachFavorites(_openid, bookId, list) {
   if (!list || list.length === 0) return list
 
   const sentenceIds = list.map(item => item._id).filter(Boolean)
@@ -36,7 +36,7 @@ async function attachFavorites(openid, bookId, list) {
     // 使用 fetchAll 替代普通 get，防止 sentenceIds 过多导致数据截断
     const favDocs = await fetchAll(
       db.collection('sentenceFavorite').where({
-        openid: openid,
+        _openid: _openid,
         sentenceId: _.in(sentenceIds)
       })
     )
@@ -98,10 +98,10 @@ async function getAudioUrls(list) {
 }
 
 // 获取到期复习句子
-async function getReviewList(openid, bookId, cursor, targetCount) {
+async function getReviewList(_openid, bookId, cursor, targetCount) {
   const reviewCursor = cursor?.reviewCursor || null
   let where = {
-    openid,
+    _openid,
     bookId,
     nextReviewAt: _.lte(Date.now())
   }
@@ -177,7 +177,7 @@ async function getReviewList(openid, bookId, cursor, targetCount) {
 }
 
 // 获取新句子
-async function getNewSentenceList(openid, bookId, cursor, targetCount) {
+async function getNewSentenceList(_openid, bookId, cursor, targetCount) {
   const newCursor = cursor?.newSentenceCursor || null
 
   if (targetCount <= 0) {
@@ -191,7 +191,7 @@ async function getNewSentenceList(openid, bookId, cursor, targetCount) {
   const marks = await fetchAll(
     db.collection('sentenceMark')
     .where({
-      openid,
+      _openid,
       bookId
     })
     .field({

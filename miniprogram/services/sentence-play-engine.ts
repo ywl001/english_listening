@@ -43,7 +43,7 @@ export class PlayEngine {
   ) {
     // 监听音频自然播放结束
     this.audioCtx.onEnded(() => this.handleAudioEnded());
-    
+
     // 监听音频播放异常
     this.audioCtx.onError(err => {
       console.error('[PlayEngine] 播放出错:', err);
@@ -206,28 +206,71 @@ export class PlayEngine {
     const current = this.currentSentence;
     if (!current) return;
 
-    // 测试模式：只播放单侧音频 (中文或英文)
-    if (this.config.playMode === 'test') {
-      const isListenZh = this.config.playOrder === 'zh_first';
-      this.callbacks.onStatusChange(isListenZh ? '听中文' : '听英文');
-      this.audioCtx.src = isListenZh ? current.audio_zh : current.audio;
+    // 1. 只听英文模式
+    if (this.config.playOrder === 'en_only') {
+      if (!current.audio) {
+        console.warn('当前句子无英文音频，跳过');
+        this.handleAudioEnded(); // 兜底：若无音频直接触发结束，走向下一句
+        return;
+      }
+      this.callbacks.onStatusChange('听英文');
+      this.audioCtx.src = current.audio;
       this.audioCtx.play();
       return;
     }
 
-    // 学习模式：根据 repeatCount 和 order 进行中英文组合
+    // 2. 只听中文模式
+    if (this.config.playOrder === 'zh_only') {
+      if (!current.audio_zh) {
+        console.warn('当前句子无中文音频，跳过');
+        this.handleAudioEnded(); // 兜底：若无音频直接触发结束，走向下一句
+        return;
+      }
+      this.callbacks.onStatusChange('听中文');
+      this.audioCtx.src = current.audio_zh;
+      this.audioCtx.play();
+      return;
+    }
+
+    // 3. 测试模式：只播放单侧音频 (中文或英文)
+    if (this.config.playMode === 'test') {
+      const isListenZh = this.config.playOrder === 'zh_first';
+      const audioUrl = isListenZh ? current.audio_zh : current.audio;
+
+      if (!audioUrl) {
+        this.handleAudioEnded();
+        return;
+      }
+
+      this.callbacks.onStatusChange(isListenZh ? '听中文' : '听英文');
+      this.audioCtx.src = audioUrl;
+      this.audioCtx.play();
+      return;
+    }
+
+    // 4. 学习/全量模式：根据 repeatCount 和 order 进行中英文组合
     const isZhFirst = this.config.playOrder === 'zh_first';
     const zhStep = isZhFirst ? 0 : this.config.repeatCount;
 
     if (this.step === zhStep) {
+      if (!current.audio_zh) {
+        // 如果没有中文音频，跳过当前步骤
+        this.handleAudioEnded();
+        return;
+      }
       this.callbacks.onStatusChange('中文');
       this.audioCtx.src = current.audio_zh;
     } else {
+      if (!current.audio) {
+        // 如果没有英文音频，跳过当前步骤
+        this.handleAudioEnded();
+        return;
+      }
       const enIndex = isZhFirst ? this.step : this.step + 1;
       this.callbacks.onStatusChange(`英文 (${enIndex}/${this.config.repeatCount})`);
       this.audioCtx.src = current.audio;
     }
-    
+
     this.audioCtx.play();
   }
 
@@ -240,12 +283,12 @@ export class PlayEngine {
    */
   private async handleAudioEnded(): Promise<void> {
     if (!this.playing) return;
-    
+
     const token = this.playToken;
     this.awaitingNextStep = true;
 
     // 如果配置了句间/步骤间停顿
-    if (this.config.gapMs > 0 && this.config.playMode !== 'test') {
+    if (this.config.gapMs > 0 ) {
       await this.sleep(this.config.gapMs);
     }
 
@@ -260,10 +303,10 @@ export class PlayEngine {
    * 推进至单句内的下一个步骤或直接进入下一句
    */
   private advanceStep(): void {
-    if (this.config.playMode === 'test') {
-      this.next(true);
-      return;
-    }
+    // if (this.config.playMode === 'test') {
+    //   this.next(true);
+    //   return;
+    // }
 
     this.step += 1;
     // 当步骤数超过 repeatCount（即中英文均已播放完毕）时切到下一句

@@ -3,5 +3,5 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 exports.main = async () => {
   const { OPENID } = cloud.getWXContext()
-  return { openid: OPENID }
+  return { _openid: OPENID }
 }

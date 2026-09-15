@@ -12,9 +12,13 @@ Component({
       type: Boolean,
       value: false
     },
-    isMastered: {
+    isLearned: {
       type: Boolean,
       value: false
+    },
+    stage: {
+      type: Number,
+      value: 0
     }
   },
 

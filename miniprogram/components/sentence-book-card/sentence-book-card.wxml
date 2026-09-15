@@ -10,8 +10,8 @@
     <view class="title-row">
       <text class="title">{{book.name}}</text>
       <view class="action-icons" wx:if="{{isUserBook}}">
-        <text class="icon" catchtap="onEdit">✏️</text>
-        <text class="icon" catchtap="onDelete">🗑️</text>
+        <!-- <text class="icon" catchtap="onEdit">✏️</text>
+        <text class="icon" catchtap="onDelete">🗑️</text> -->
       </view>
     </view>
 

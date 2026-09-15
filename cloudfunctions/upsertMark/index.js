@@ -38,7 +38,7 @@ exports.main = async (event, context) => {
       _id: id,
       sentenceId,
       bookId,
-      openid: OPENID,
+      _openid: OPENID,
       favorite: false,
       stage: 0,
       nextReviewAt: 0,

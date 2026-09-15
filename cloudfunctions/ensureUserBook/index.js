@@ -42,7 +42,7 @@ exports.main = async (event, context) => {
         name: config.name,
         type: config.type,
         role: config.role,
-        openid: OPENID,
+        _openid: OPENID,
         itemCount: 0,
         createdAt: now,
         updatedAt: now,

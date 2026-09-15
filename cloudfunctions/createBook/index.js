@@ -17,7 +17,7 @@ exports.main = async (event) => {
   try {
     // 避免用户手抖重复点击 / 网络重试导致创建出多本同名词书
     const existed = await db.collection('book')
-      .where({ openid: OPENID, name: bookName, type })
+      .where({ _openid: OPENID, name: bookName, type })
       .limit(1)
       .get()
 
@@ -30,7 +30,7 @@ exports.main = async (event) => {
       data: {
         name: bookName,
         type,
-        openid: OPENID,
+        _openid: OPENID,
         createdAt: now
       }
     })
@@ -42,7 +42,7 @@ exports.main = async (event) => {
         _id: addRes._id,
         name: bookName,
         type,
-        openid: OPENID,
+        _openid: OPENID,
         createdAt: now
       }
     }

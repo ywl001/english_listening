@@ -2536,7 +2536,7 @@ backgroundAudioManager.src = 'http://ws.stream.qqmusic.qq.com/M500001VfvsJ21xFqb
         signature: string
         /** [UserInfo](https://developers.weixin.qq.com/miniprogram/dev/api/open-api/user-info/UserInfo.html)
          *
-         * 用户信息对象，不包含 openid 等敏感信息 */
+         * 用户信息对象，不包含 _openid 等敏感信息 */
         userInfo: UserInfo
         errMsg: string
     }
@@ -3091,7 +3091,7 @@ innerAudioContext.onError((res) => {
         timeout?: number
     }
     interface LoginSuccessCallbackResult {
-        /** 用户登录凭证（有效期五分钟）。开发者需要在开发者服务器后台调用 [auth.code2Session](https://developers.weixin.qq.com/miniprogram/dev/api-backend/open-api/login/auth.code2Session.html)，使用 code 换取 openid 和 session_key 等信息 */
+        /** 用户登录凭证（有效期五分钟）。开发者需要在开发者服务器后台调用 [auth.code2Session](https://developers.weixin.qq.com/miniprogram/dev/api-backend/open-api/login/auth.code2Session.html)，使用 code 换取 _openid 和 session_key 等信息 */
         code: string
         errMsg: string
     }
@@ -12261,10 +12261,10 @@ wx.addCard({
   cardList: [
     {
       cardId: '',
-      cardExt: '{"code": "", "openid": "", "timestamp": "", "signature":""}'
+      cardExt: '{"code": "", "_openid": "", "timestamp": "", "signature":""}'
     }, {
       cardId: '',
-      cardExt: '{"code": "", "openid": "", "timestamp": "", "signature":""}'
+      cardExt: '{"code": "", "_openid": "", "timestamp": "", "signature":""}'
     }
   ],
   success (res) {
@@ -13906,7 +13906,7 @@ wx.loadFontFace({
         ): PromisifySuccessResult<T, LoadFontFaceOption>
         /** [wx.login(Object object)](https://developers.weixin.qq.com/miniprogram/dev/api/open-api/login/wx.login.html)
 *
-* 调用接口获取登录凭证（code）。通过凭证进而换取用户登录态信息，包括用户的唯一标识（openid）及本次登录的会话密钥（session_key）等。用户数据的加解密通讯需要依赖会话密钥完成。更多使用方法详见 [小程序登录](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/login.html)。
+* 调用接口获取登录凭证（code）。通过凭证进而换取用户登录态信息，包括用户的唯一标识（_openid）及本次登录的会话密钥（session_key）等。用户数据的加解密通讯需要依赖会话密钥完成。更多使用方法详见 [小程序登录](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/login.html)。
 *
 * **示例代码**
 *

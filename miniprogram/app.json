@@ -2,7 +2,8 @@
   "pages": [
     "pages/sentence-book-list/sentence-book-list",
     "pages/index/index",
-    "pages/sentence-play/sentence-play"
+    "pages/sentence-play/sentence-play",
+    "pages/favorite-sentence-list/favorite-sentence-list"
   ],
   "window": {
     "navigationBarTextStyle": "black",

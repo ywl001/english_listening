@@ -17,9 +17,9 @@ exports.main = async (event) => {
   } = event;
 
   try {
-    // 1. 查出当前用户可见的所有书籍 (自己的 + 公共无 openid 的)
+    // 1. 查出当前用户可见的所有书籍 (自己的 + 公共无 _openid 的)
     const whereCondition = {
-      openid: _.or([
+      _openid: _.or([
         _.eq(OPENID),
         _.exists(false),
         _.eq(''),
@@ -41,7 +41,7 @@ exports.main = async (event) => {
     const statTasks = books.map(async (book) => {
       let itemCount = 0;
       try {
-        if (book.openid && book.openid === OPENID) {
+        if (book._openid && book._openid === OPENID) {
           const countUserInput = await db.collection('sentence')
           .where({
             bookId: book._id

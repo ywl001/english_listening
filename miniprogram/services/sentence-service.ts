@@ -9,14 +9,6 @@ export class SentenceService {
   }
 
   /**
-   * 提交标记/阶段更新
-   */
-  static async updateMark(sentenceId: string, bookId: string, patch: Partial<SentenceMark>): Promise<SentenceMark> {
-    const data = { sentenceId, bookId, patch }
-    return callCloudFunction(cloudFunctionName.upsertMark, data)
-  }
-
-  /**
    * 录入一条新句子。
    * - 不管传入的 bookId 是哪本词书，句子物理内容都会被存进用户的默认库"用户句子"；
    * - 如果 bookId 不是默认库本身，云函数会在同一个事务里顺手建一条引用，
@@ -40,12 +32,12 @@ export class SentenceService {
 
   /**
    * 获取指定词书/收藏夹中的句子列表
-   * @param bookId 词书ID（可以是系统收藏夹 fav_${openid}，也可以是自建词书ID）
+   * @param bookId 词书ID（可以是系统收藏夹 fav_${_openid}，也可以是自建词书ID）
    * @param page 页码（可选，用于分页）
    * @param pageSize 每页条数（可选，默认 20）
    */
-  async getFavoriteSentences(bookId: string, page = 1, pageSize = 20): Promise<Sentence[]> {
-    return callCloudFunction<Sentence[]>(
+  async getFavoriteSentences(bookId: string, page = 1, pageSize = 20): Promise<FavoriteSentenceResult> {
+    return callCloudFunction<FavoriteSentenceResult>(
       cloudFunctionName.getFavoriteSentences, // 确保你的 enum 中定义了对应的云函数名
       { bookId, page, pageSize }
     );
@@ -68,10 +60,10 @@ export class SentenceService {
     const db = wx.cloud.database();
     const collection = db.collection('sentenceMark');
 
-    // 小程序端使用 set 时，云数据库安全性机制会自动在写入时绑定当前用户的 openid
-    // 但 ID 规则仍与云函数保持一致：${openid}__${sentenceId}
-    // 注：在前端 SDK 中，可通过 wx.cloud.database() 提供的全局机制或通过本地存储获取 openid，
-    // 如果没有全局 openid，可以直接使用 docId 格式，或查询已有记录。
+    // 小程序端使用 set 时，云数据库安全性机制会自动在写入时绑定当前用户的 _openid
+    // 但 ID 规则仍与云函数保持一致：${_openid}__${sentenceId}
+    // 注：在前端 SDK 中，可通过 wx.cloud.database() 提供的全局机制或通过本地存储获取 _openid，
+    // 如果没有全局 _openid，可以直接使用 docId 格式，或查询已有记录。
 
     const now = Date.now();
 
@@ -144,7 +136,6 @@ export class SentenceService {
       if (res && res.data) {
         // 2. 存在 -> 删掉 (取消收藏)
         await docRef.remove();
-
         return {
           isFavorite: false,
           sentenceId,
@@ -152,7 +143,7 @@ export class SentenceService {
         };
       } else {
         // 3. 不存在 -> 插入 (添加收藏)
-        // 在前端直接写入时，云数据库会自动把当前用户的 openid 加到 doc 属性中
+        // 在前端直接写入时，云数据库会自动把当前用户的 _openid 加到 doc 属性中
         await collection.add({
           data: {
             _id: docId,

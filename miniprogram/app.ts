@@ -16,17 +16,17 @@ App<IAppOption>({
       keepScreenOn: true
     })
 
-    const cached = wx.getStorageSync('openid')
+    const cached = wx.getStorageSync('_openid')
     if (cached) {
-      this.globalData.openid = cached
+      this.globalData._openid = cached
     } else {
       try {
         const res = await wx.cloud.callFunction({ name: 'getOpenId' })
-        const openid = (res.result as { openid: string }).openid
-        this.globalData.openid = openid
-        wx.setStorageSync('openid', openid)
+        const _openid = (res.result as { _openid: string })._openid
+        this.globalData._openid = _openid
+        wx.setStorageSync('_openid', _openid)
       } catch (e) {
-        console.error('获取 openid 失败', e)
+        console.error('获取 _openid 失败', e)
       }
     }
 

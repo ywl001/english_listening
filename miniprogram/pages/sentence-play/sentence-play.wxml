@@ -1,7 +1,7 @@
 <view class="container">
   <!-- 1. 顶部 Header 与进度条 -->
   <view class="header">
-    <view class="back-btn" bindtap="onBack">⟨</view>
+    <!-- <view class="back-btn" bindtap="onBack">＜</view> -->
     <view class="header-center">
       <text class="header-title">Playback Player</text>
       <text class="book-subtitle">{{bookTitle || 'My Mistakes'}} | {{currentIndex + 1}}/{{totalCount}}</text>
@@ -10,7 +10,7 @@
   </view>
 
   <view class="progress-bar-bg">
-    <view class="progress-bar-fill" style="width: {{((currentIndex + 1) / (totalCount || 1)) * 100}};"></view>
+    <view class="progress-bar-fill" style="width: {{ totalCount ? (((currentIndex + 1) / totalCount) * 100) + '%' : '0%' }};"></view>
   </view>
 
   <!-- 2. 中央卡片区域（替换为组件） -->
@@ -19,9 +19,9 @@
       sentence="{{currentSentence}}" 
       hideZh="{{hideZh}}"
       isFavorite="{{isFavorite}}"
-      isMastered="{{isMastered}}"
+      stage ="{{stage}}"
       bind:toggleFavorite="onToggleFavorite"
-      bind:toggleMastered="onToggleMastered"
+      bind:toggleMastered="onMarkLearned"
     />
   </view>
 

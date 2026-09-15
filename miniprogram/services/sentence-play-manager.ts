@@ -15,8 +15,6 @@ export class SentencePlayListManager {
 
   /**
    * 初始化播放队列
-   * @param bookId 句子书ID
-   * @param initialData 首次调用 getPlayList 接口返回的数据
    */
   public init(bookId: string, initialData: PlayListResult): void {
     this.bookId = bookId;
@@ -52,13 +50,19 @@ export class SentencePlayListManager {
   }
 
   /**
+   * 获取当前句子的快捷属性（解决没有 currentSentence 的问题）
+   */
+  public get currentSentence(): Sentence | null {
+    return this.getCurrent();
+  }
+
+  /**
    * 播放下一句（附带自动预加载判定）
    */
   public next(): Sentence | null {
     if (this.currentIndex < this.playQueue.length - 1) {
       this.currentIndex++;
 
-      // 自动预加载触发逻辑：检查剩余量是否达到阈值
       const remainCount = this.playQueue.length - 1 - this.currentIndex;
       if (remainCount <= this.PRELOAD_THRESHOLD && this.hasMore && !this.isLoading) {
         this.loadMore();
@@ -66,7 +70,7 @@ export class SentencePlayListManager {
 
       return this.getCurrent();
     }
-    return null; // 队列播放结束
+    return null; 
   }
 
   /**
@@ -81,8 +85,7 @@ export class SentencePlayListManager {
   }
 
   /**
-   * 偷看当前指针前后第 offset 个位置的句子，不移动 currentIndex
-   * offset = -1 表示上一句，offset = 1 表示下一句
+   * 偷看当前指针前后第 offset 个位置的句子
    */
   public peek(offset: number): Sentence | null {
     const idx = this.currentIndex + offset;
@@ -93,10 +96,19 @@ export class SentencePlayListManager {
   }
 
   /**
+   * 更新队列中指定句子的额外属性（例如修改收藏状态/掌握状态）
+   */
+  public updateSentence(sentenceId: string, partialData: Partial<Sentence>): void {
+    const target = this.playQueue.find(s => s._id === sentenceId);
+    if (target) {
+      Object.assign(target, partialData);
+    }
+  }
+
+  /**
    * 静默预加载更多句子追加到队列末尾
    */
   public async loadMore(targetCount = 20): Promise<boolean> {
-    // 防重复请求锁与无更多数据拦截
     if (this.isLoading || !this.hasMore || !this.bookId) {
       return false;
     }
@@ -106,7 +118,6 @@ export class SentencePlayListManager {
       const res = await sentenceService.getPlayList(this.bookId, targetCount, this.nextCursor);
       
       if (res && res.list && res.list.length > 0) {
-        // 追加新句子到数组末尾
         this.playQueue = [...this.playQueue, ...res.list];
         this.nextCursor = res.nextCursor;
         this.hasMore = res.hasMore;

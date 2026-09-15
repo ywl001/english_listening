@@ -7,7 +7,7 @@ const db = cloud.database()
  *
  * 规则（对应产品侧的约定）：
  * - 不管用户在录入页选的是哪本词书，句子的物理内容永远存进
- *   当前用户的默认库 `origin_${openid}`（"用户句子"）。
+ *   当前用户的默认库 `origin_${_openid}`（"用户句子"）。
  * - 如果选的不是默认库本身，再额外建一条 sentenceBookRef 引用，
  *   让这句话"看起来"出现在用户选的那本词书里。
  * - 这两步放在同一个事务里：要么都成功，要么都不成功，
@@ -28,7 +28,7 @@ exports.main = async (event) => {
   }
 
   if (!OPENID) {
-    return { code: 400, msg: 'openid 不能为空' }
+    return { code: 400, msg: '_openid 不能为空' }
   }
 
   const originBookId = `origin_${OPENID}`
@@ -37,7 +37,7 @@ exports.main = async (event) => {
   if (bookId !== originBookId) {
     const bookDoc = await db.collection('book').doc(bookId).get().catch(() => null)
     const book = bookDoc && bookDoc.data
-    if (!book || book.openid !== OPENID) {
+    if (!book || book._openid !== OPENID) {
       return { code: 403, msg: '无权在该词书中录入句子' }
     }
   }
@@ -54,7 +54,8 @@ exports.main = async (event) => {
         zh,
         audio: audio || '',
         audio_zh: audio_zh || '',
-        createdAt: now
+        createdAt: now,
+        _openid:OPENID
       }
     })
 
@@ -68,7 +69,7 @@ exports.main = async (event) => {
           _id: refId,
           bookId,
           sentenceId,
-          openid: OPENID,
+          _openid: OPENID,
           addedAt: now
         }
       })

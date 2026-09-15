@@ -1,5 +1,4 @@
-import { Pages } from "../../enums/app-enums";
-import { callCloudFunction } from "../../services/cloud-client";
+
 
 // pages/index/index.ts
 Page({

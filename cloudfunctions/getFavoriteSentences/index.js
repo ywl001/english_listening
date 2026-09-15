@@ -76,7 +76,7 @@ exports.main = async event => {
   try {
     // 1. 构造 sentenceFavorite 的查询条件
     let where = {
-      openid: OPENID,
+      _openid: OPENID,
       bookId: bookId
     }
 
@@ -127,7 +127,7 @@ exports.main = async event => {
       }).limit(MAX_LIMIT).get() : { data: [] },
 
       sentenceIds.length ? db.collection('sentenceMark').where({
-        openid: OPENID,
+        _openid: OPENID,
         bookId: bookId,
         sentenceId: _.in(sentenceIds)
       }).limit(MAX_LIMIT).get() : { data: [] }

@@ -8,7 +8,7 @@ page {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 0 32rpx 40rpx 32rpx;
+  padding: 0 32rpx 80rpx 32rpx;
   box-sizing: border-box;
   justify-content: space-between;
 }
@@ -70,9 +70,10 @@ page {
 .card-wrapper {
   flex: 1;
   display: flex;
+  /* background-color: beige; */
   align-items: center;
   justify-content: center;
-  margin: 30rpx 0;
+  margin: 30rpx 0 60rpx 0;
   width: 100%;
 }
 

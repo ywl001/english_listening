@@ -142,7 +142,7 @@ async function fetchByIdsIn(collectionName, ids) {
 /**
  * 按用户 + 一批 sentenceId 拉取 mark（同样分片规避 command.in 限制）
  */
-async function fetchMarksBySentenceIds(openid, sentenceIds) {
+async function fetchMarksBySentenceIds(_openid, sentenceIds) {
   const chunks = []
   for (let i = 0; i < sentenceIds.length; i += IN_CHUNK_SIZE) {
     chunks.push(sentenceIds.slice(i, i + IN_CHUNK_SIZE))
@@ -150,7 +150,7 @@ async function fetchMarksBySentenceIds(openid, sentenceIds) {
 
   const tasks = chunks.map(chunkIds =>
     db.collection('sentenceMark')
-      .where({ openid, sentenceId: _.in(chunkIds) })
+      .where({ _openid, sentenceId: _.in(chunkIds) })
       .get()
   )
 

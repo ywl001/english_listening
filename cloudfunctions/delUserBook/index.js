@@ -19,7 +19,7 @@ exports.main = async (event) => {
       const bookRes = await transaction.collection('book')
         .where({
           _id: bookId,
-          openid: OPENID
+          _openid: OPENID
         })
         .get()
 
@@ -31,7 +31,7 @@ exports.main = async (event) => {
       const favoriteRes = await transaction.collection('sentenceFavorite')
         .where({
           bookid: bookId,
-          openid: OPENID
+          _openid: OPENID
         })
         .remove()
 

@@ -27,10 +27,10 @@ Page({
     const allSentenceBooks = await bookService.getSentenceBooks();
     const userBooks = await bookService.getUserBooks();
     const userSentenceBooks = userBooks.filter(b => b.type === BookType.sentence);
-    const openid = getApp().globalData.openid;
+    const _openid = getApp().globalData._openid;
 
     this.setData({
-      systemBooks: allSentenceBooks.filter(b => b.openid !== openid),
+      systemBooks: allSentenceBooks.filter(b => b._openid !== _openid),
       userBooks: userSentenceBooks
     });
   },
@@ -60,9 +60,14 @@ Page({
   onTapBook(e: any) {
     const { book } = e.detail;
     console.log(book)
-    const url = `${Pages.sentencePlay}?bookId=${book._id}`
+    let url = '';
+    if (book._openid) {
+      url = Pages.favoriteSentenceList+'?bookId='+book._id
+    } else {
+      url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
+    }
     console.log(url)
-    wx.navigateTo({url});
+    wx.navigateTo({ url });
   },
 
   onEditBook(e: any) {

@@ -31,7 +31,7 @@ exports.main = async (event) => {
     if (!book) {
       return { code: 404, msg: '词书不存在' }
     }
-    if (book.openid && book.openid !== OPENID) {
+    if (book._openid && book._openid !== OPENID) {
       return { code: 403, msg: '无权操作该词书' }
     }
 
@@ -51,7 +51,7 @@ exports.main = async (event) => {
       data: {
         bookId,
         sentenceId,
-        openid: OPENID,
+        _openid: OPENID,
         addedAt: Date.now()
       }
     })

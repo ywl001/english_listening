@@ -40,7 +40,7 @@ exports.main = async (event) => {
   try {
     const bookRes = await db.collection('book')
       .where({
-        openid: _.or([_.eq(OPENID), _.exists(false), _.eq(''), _.eq(null)])
+        _openid: _.or([_.eq(OPENID), _.exists(false), _.eq(''), _.eq(null)])
       })
       .limit(MAX_VISIBLE_BOOKS)
       .get()
