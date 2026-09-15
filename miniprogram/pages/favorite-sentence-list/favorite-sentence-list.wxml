@@ -12,32 +12,22 @@
   </view>
 
   <view class="list-wrapper">
-    <!-- 正常列表 -->
     <block wx:if="{{displayList.length > 0}}">
-      <block wx:for="{{displayList}}" wx:key="_id">
-        <van-swipe-cell right-width="{{80}}" custom-class="swipe-item">
-          <view class="sentence-card {{isPlayingAll && currentIndex === index ? 'playing-card' : ''}}">
-            <view class="card-left">
-              <view class="en-text">
-                <text class="index-num">{{index + 1}}. </text>{{item.en || item.english}}
-              </view>
-              <view class="zh-text">{{item.zh || item.chinese}}</view>
-            </view>
-
-            <view class="play-btn" catchtap="playSingleAudio" data-index="{{index}}">
-              <view class="play-triangle"></view>
-            </view>
+      <view wx:for="{{displayList}}" wx:key="_id" class="sentence-card {{currentIndex === index && isPlayingAll ? 'playing-card' : ''}}" bindtap="playSingleAudio" data-index="{{index}}">
+        <view class="card-left">
+          <view class="en-text">
+            <text class="index-num">{{index + 1}}. </text>{{item.en || item.english}}
           </view>
+          <view class="zh-text">{{item.zh || item.chinese}}</view>
+        </view>
 
-          <view slot="right" class="delete-btn" bindtap="onDelete" data-id="{{item._id || item.id}}" data-index="{{index}}">
-            取消收藏
-          </view>
-        </van-swipe-cell>
-      </block>
-
-      <view class="loading-status">
-        <!-- <text wx:if="{{!hasMore}}">没有更多句子了</text> -->
+        <!-- 收藏小红心 -->
+        <view class="favorite-btn " catchtap="onDelete"  data-id="{{item._id || item.id}}" data-index="{{index}}">
+          <view class="heart"></view>
+        </view>
       </view>
+
+      <view class="loading-status"></view>
     </block>
 
     <view wx:else class="empty-box">

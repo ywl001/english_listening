@@ -56,10 +56,8 @@ Page({
         hasMore: res.list.length === this.data.pageSize,
         loading: false
       });
-      // wx.hideLoading();
     } catch (err) {
       this.setData({ loading: false });
-      // wx.hideLoading();
     }
   },
 

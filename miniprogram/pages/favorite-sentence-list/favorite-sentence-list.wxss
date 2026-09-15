@@ -41,6 +41,7 @@ page {
   box-sizing: border-box;
   background: #ffffff;
   padding: 32rpx;
+  margin-bottom: 20rpx;
   border-radius: 20rpx;
   display: flex;
   justify-content: space-between;
@@ -78,39 +79,93 @@ page {
   color: #666666;
 }
 
-.play-btn {
+/* 句子卡片 */
+.sentence-card {
+  width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  padding: 32rpx;
+  margin-bottom: 20rpx;
+  border-radius: 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.03);
+  border: 2rpx solid transparent;
+  transition: all 0.2s ease;
+}
+
+/* 当前选中的句子 */
+.playing-card {
+  background-color: #eef6ff;
+  border-color: #2f80ed;
+  box-shadow: 0 4rpx 16rpx rgba(47, 128, 237, 0.08);
+}
+
+/* 左侧文字 */
+.card-left {
+  flex: 1;
+  padding-right: 24rpx;
+}
+
+.en-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.4;
+  margin-bottom: 12rpx;
+}
+
+.index-num {
+  color: #1a1a1a;
+}
+
+.zh-text {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+/* 收藏按钮 */
+.favorite-btn {
   width: 64rpx;
   height: 64rpx;
-  background-color: #2f80ed;
+  flex-shrink: 0;
   border-radius: 50%;
+  background-color: rgb(38, 134, 236);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   box-shadow: 0 4rpx 12rpx rgba(47, 128, 237, 0.3);
 }
 
-.play-triangle {
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 10rpx 0 10rpx 18rpx;
-  border-color: transparent transparent transparent #ffffff;
-  margin-left: 4rpx;
+.heart {
+  width: 16rpx;
+  height: 16rpx;
+  background: #fff;
+  position: relative;
+  transform: rotate(-45deg);
 }
 
-.delete-btn {
-  background-color: #ee0a24;
-  color: #ffffff;
-  width: 160rpx;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
-  border-top-right-radius: 20rpx;
-  border-bottom-right-radius: 20rpx;
+.heart::before,
+.heart::after {
+  content: "";
+  width: 16rpx;
+  height: 16rpx;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
 }
+
+.heart::before {
+  top: -8rpx;
+  left: 0;
+}
+
+.heart::after {
+  top: 0;
+  left: 8rpx;
+}
+
 
 /* 2. 底部悬浮容器：调整宽度占满卡片两端 */
 .bottom-floating-bar {

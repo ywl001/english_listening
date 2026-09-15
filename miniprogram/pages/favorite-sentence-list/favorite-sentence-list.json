@@ -4,6 +4,5 @@
   "navigationBarTextStyle": "black",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "van-swipe-cell": "@vant/weapp/swipe-cell/index"
   }
 }
