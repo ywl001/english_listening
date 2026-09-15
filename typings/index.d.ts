@@ -42,8 +42,10 @@ interface Sentence {
   createdAt: number
 
   // 下面附加属性表示句子的学习记录
-  mark: SentenceMark | null
-  isNew: boolean
+  mark?: SentenceMark | null
+  isNew?: boolean
+
+  isFavorite?:boolean
 }
 
 interface SentenceMark {
@@ -102,9 +104,9 @@ interface PlayConfig {
   gapMs: number          // 每段音频之间的间隔(毫秒)
   playOrder: PlayOrder  //播放顺序-->先英后中或先中后英
   limitCount: number    // 0 表示不限
-  startId: string
-  bookId: string
-  bookName: string
+  startId?: string
+  bookId?: string
+  bookName?: string
 }
 
 interface Article {

@@ -9,7 +9,7 @@ const _ = db.command
 const MAX_LIMIT = 100
 const STORAGE_PREFIX = 'cloud://cloud1-d0gyvvq93ab34b8b7.636c-cloud1-d0gyvvq93ab34b8b7-1333600691/'
 
-// 分批获取，突破云数据库单次 100 条限制
+// 1. 通用分批获取（突破数据库单次 100 条限制）
 async function fetchAll(query, batchSize = 100) {
   const result = []
   let skip = 0
@@ -25,6 +25,78 @@ async function fetchAll(query, batchSize = 100) {
   return result
 }
 
+// 2. 批量获取并注入收藏状态 (突破 100 条查询限制)
+async function attachFavorites(openid, bookId, list) {
+  if (!list || list.length === 0) return list
+
+  const sentenceIds = list.map(item => item._id).filter(Boolean)
+  if (!sentenceIds.length) return list
+
+  try {
+    // 使用 fetchAll 替代普通 get，防止 sentenceIds 过多导致数据截断
+    const favDocs = await fetchAll(
+      db.collection('sentenceFavorite').where({
+        openid: openid,
+        sentenceId: _.in(sentenceIds)
+      })
+    )
+
+    const favSet = new Set(favDocs.map(item => item.sentenceId))
+
+    return list.map(item => ({
+      ...item,
+      isFavorite: favSet.has(item._id)
+    }))
+  } catch (err) {
+    console.error('获取收藏状态失败:', err)
+    return list.map(item => ({
+      ...item,
+      isFavorite: false
+    }))
+  }
+}
+
+// 3. 将 cloud:// 文件 ID 分批转成临时 URL（突破 getTempFileURL 50 条限制）
+async function getAudioUrls(list) {
+  // 提取去重后的 cloud:// 文件地址
+  const ids = [...new Set(
+    list.flatMap(x => [x.audio, x.audio_zh])
+    .filter(x => typeof x === 'string' && x.startsWith('cloud://'))
+  )]
+
+  if (!ids.length) return list
+
+  // 拆分为每组最多 50 个的二维数组
+  const chunkedIds = []
+  const CHUNK_SIZE = 50
+  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+    chunkedIds.push(ids.slice(i, i + CHUNK_SIZE))
+  }
+
+  // 并行分批调用 getTempFileURL
+  const map = new Map()
+  await Promise.all(
+    chunkedIds.map(async (chunk) => {
+      try {
+        const res = await cloud.getTempFileURL({ fileList: chunk })
+        ;(res.fileList || []).forEach(x => {
+          if (x.status === 0) {
+            map.set(x.fileID, x.tempFileURL)
+          }
+        })
+      } catch (err) {
+        console.error('获取临时链接批处理失败:', err)
+      }
+    })
+  )
+
+  return list.map(x => ({
+    ...x,
+    audio: map.get(x.audio) || x.audio || '',
+    audio_zh: map.get(x.audio_zh) || x.audio_zh || ''
+  }))
+}
+
 // 获取到期复习句子
 async function getReviewList(openid, bookId, cursor, targetCount) {
   const reviewCursor = cursor?.reviewCursor || null
@@ -34,7 +106,6 @@ async function getReviewList(openid, bookId, cursor, targetCount) {
     nextReviewAt: _.lte(Date.now())
   }
 
-  // 游标分页：时间相同再用 _id 保证唯一顺序
   if (typeof reviewCursor?.lastNextReviewAt === 'number' && reviewCursor.lastId) {
     where = _.and([
       where,
@@ -49,7 +120,6 @@ async function getReviewList(openid, bookId, cursor, targetCount) {
     ])
   }
 
-  // 多取 1 条，用于判断是否还有更多
   const res = await db.collection('sentenceMark')
     .where(where)
     .orderBy('nextReviewAt', 'asc')
@@ -69,7 +139,6 @@ async function getReviewList(openid, bookId, cursor, targetCount) {
     }
   }
 
-  // 根据 sentenceId 批量获取句子
   const ids = validMarks.map(x => x.sentenceId).filter(Boolean)
   const sentenceRes = ids.length ?
     await db.collection('sentence').where({
@@ -95,7 +164,6 @@ async function getReviewList(openid, bookId, cursor, targetCount) {
     }
   }).filter(Boolean)
 
-  // 注意：cursor 使用实际返回的最后一条，而不是多取的第 N+1 条
   const last = validMarks[validMarks.length - 1]
 
   return {
@@ -108,7 +176,7 @@ async function getReviewList(openid, bookId, cursor, targetCount) {
   }
 }
 
-// 获取新句子，用于不足 targetCount 时补齐
+// 获取新句子
 async function getNewSentenceList(openid, bookId, cursor, targetCount) {
   const newCursor = cursor?.newSentenceCursor || null
 
@@ -120,7 +188,6 @@ async function getNewSentenceList(openid, bookId, cursor, targetCount) {
     }
   }
 
-  // 获取用户已经学习过的句子，避免重复返回
   const marks = await fetchAll(
     db.collection('sentenceMark')
     .where({
@@ -139,7 +206,6 @@ async function getNewSentenceList(openid, bookId, cursor, targetCount) {
 
   if (learnedIds.length) where._id = _.nin(learnedIds)
 
-  // 新句游标分页：createdAt + _id
   if (typeof newCursor?.lastCreatedAt === 'number' && newCursor.lastId) {
     where = _.and([
       where,
@@ -154,7 +220,6 @@ async function getNewSentenceList(openid, bookId, cursor, targetCount) {
     ])
   }
 
-  // 多取 1 条，用于判断是否还有更多
   const res = await db.collection('sentence')
     .where(where)
     .orderBy('createdAt', 'asc')
@@ -190,31 +255,6 @@ async function getNewSentenceList(openid, bookId, cursor, targetCount) {
   }
 }
 
-// 将 cloud:// 文件 ID 转成临时 URL
-async function getAudioUrls(list) {
-  const ids = [...new Set(
-    list.flatMap(x => [x.audio, x.audio_zh])
-    .filter(x => typeof x === 'string' && x.startsWith('cloud://'))
-  )]
-
-  if (!ids.length) return list
-
-  const res = await cloud.getTempFileURL({
-    fileList: ids
-  })
-  const map = new Map(
-    (res.fileList || [])
-    .filter(x => x.status === 0)
-    .map(x => [x.fileID, x.tempFileURL])
-  )
-
-  return list.map(x => ({
-    ...x,
-    audio: map.get(x.audio) || x.audio || '',
-    audio_zh: map.get(x.audio_zh) || x.audio_zh || ''
-  }))
-}
-
 function toFullFileId(path) {
   if (!path) return ''
   if (path.startsWith('cloud://') || path.startsWith('http')) return path
@@ -222,17 +262,10 @@ function toFullFileId(path) {
   return `${STORAGE_PREFIX}${cleanPath}`
 }
 
-
-// 主流程：复习优先，不足部分用新句补齐
+// 主流程
 exports.main = async event => {
-  const {
-    OPENID
-  } = cloud.getWXContext()
-  const {
-    bookId,
-    cursor = null,
-    targetCount = 20
-  } = event
+  const { OPENID } = cloud.getWXContext()
+  const { bookId, cursor = null, targetCount = 20 } = event
 
   if (!bookId) {
     return {
@@ -245,21 +278,21 @@ exports.main = async event => {
   const count = Math.min(Math.max(Number(targetCount) || 20, 1), MAX_LIMIT)
 
   try {
-    // 先取复习句
     const review = await getReviewList(OPENID, bookId, cursor, count)
-
-    // 复习不足时，用新句补齐
     const need = count - review.list.length
     const fresh = await getNewSentenceList(OPENID, bookId, cursor, need)
 
-    // 合并后先统一文件路径，再转换临时 URL
     let list = [...review.list, ...fresh.list].map(item => ({
       ...item,
       audio: toFullFileId(item.audio),
       audio_zh: toFullFileId(item.audio_zh)
     }))
-    // 合并并转换音频 URL
+
+    // 1. 安全分批转换临时音频 URL (按 50 切片)
     list = await getAudioUrls(list)
+
+    // 2. 安全分批关联收藏状态 (突破 100 条限制)
+    list = await attachFavorites(OPENID, bookId, list)
 
     return {
       code: 0,
@@ -275,7 +308,6 @@ exports.main = async event => {
     }
   } catch (err) {
     console.error('getPlayList 云函数异常:', err)
-
     return {
       code: -1,
       msg: err.message || '数据库查询或云函数异常',

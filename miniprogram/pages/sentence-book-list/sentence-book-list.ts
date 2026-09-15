@@ -1,5 +1,5 @@
 import bookService from '../../services/book-service';
-import { BookType } from '../../enums/app-enums';
+import { BookType, Pages } from '../../enums/app-enums';
 
 Page({
   data: {
@@ -55,5 +55,31 @@ Page({
     });
     wx.setStorageSync('playback_settings', newSettings);
     wx.showToast({ title: '保存成功', icon: 'success' });
+  },
+
+  onTapBook(e: any) {
+    const { book } = e.detail;
+    console.log(book)
+    const url = `${Pages.sentencePlay}?bookId=${book._id}`
+    console.log(url)
+    wx.navigateTo({url});
+  },
+
+  onEditBook(e: any) {
+    const { book } = e.detail;
+    console.log('编辑句子书:', book);
+  },
+
+  onDeleteBook(e: any) {
+    const { book } = e.detail;
+    wx.showModal({
+      title: '提示',
+      content: `确定要删除《${book.name}》吗？`,
+      success: (res) => {
+        if (res.confirm) {
+          console.log('执行删除:', book._id);
+        }
+      }
+    });
   }
 });

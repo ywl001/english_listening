@@ -1,7 +1,8 @@
 {
   "pages": [
     "pages/sentence-book-list/sentence-book-list",
-    "pages/index/index"
+    "pages/index/index",
+    "pages/sentence-play/sentence-play"
   ],
   "window": {
     "navigationBarTextStyle": "black",

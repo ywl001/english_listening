@@ -1,0 +1,5 @@
+{
+  "usingComponents": {
+    "sentence-play-card": "/components/sentence-play-card/sentence-play-card"
+  }
+}

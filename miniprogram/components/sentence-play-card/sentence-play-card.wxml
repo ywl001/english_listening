@@ -1,0 +1,33 @@
+<view class="main-card">
+  <!-- 内容主区域（占满大部分高度） -->
+  <view class="card-content">
+    <!-- 英文区域 -->
+    <view class="card-section">
+      <text class="lang-tag">EN</text>
+      <text class="sentence-en">{{sentence.en || 'Life is like a box of chocolates.'}}</text>
+    </view>
+
+    <!-- 中间分隔线 -->
+    <view class="divider">
+      <view class="line"></view>
+      <text class="divider-icon">//</text>
+      <view class="line"></view>
+    </view>
+
+    <!-- 中文区域 -->
+    <view class="card-section">
+      <text class="lang-tag">ZH</text>
+      <text class="sentence-zh {{hideZh ? 'hidden' : ''}}">{{sentence.zh || '生活就像一盒巧克力。'}}</text>
+    </view>
+  </view>
+
+  <!-- 底部新增按钮区域 -->
+  <view class="card-actions">
+    <view class="action-btn {{isFavorite ? 'active' : ''}}" bindtap="onTapFavorite">
+      <text class="action-text">收藏</text>
+    </view>
+    <view class="action-btn {{isMastered ? 'active' : ''}}" bindtap="onTapMastered">
+      <text class="action-text">已会</text>
+    </view>
+  </view>
+</view>

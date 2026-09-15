@@ -10,7 +10,10 @@ export enum BookType {
 }
 
 export enum Pages {
-  index = "/pages/index/index"
+  sentenceBookList = '/pages/sentence-book-list/sentence-book-list',
+  index = "/pages/index/index",
+  sentencePlay = '/pages/sentence-play/sentence-play',
+  testPage = '/pages/test-page/test-page'
 }
 
 export enum cloudFunctionName {
@@ -29,4 +32,13 @@ export enum cloudFunctionName {
   createSentence = 'createSentence',
   getSentencePlayList = 'getSentencePlayList',
   getFavoriteSentences = 'getFavoriteSentences'
+}
+
+export enum CollectionName{
+  book = 'book',
+  sentence = 'sentence',
+  sentenceMark = 'sentenceMark',
+  sentenceFavorite = 'sentenceFavorite',
+  article = 'article',
+  articleSentence = 'articleSentence'
 }

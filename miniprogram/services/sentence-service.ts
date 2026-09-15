@@ -1,4 +1,4 @@
-import { cloudFunctionName } from "../enums/app-enums";
+import { cloudFunctionName, CollectionName } from "../enums/app-enums";
 import { callCloudFunction } from "./cloud-client";
 
 export class SentenceService {
@@ -131,7 +131,7 @@ export class SentenceService {
     bookId: string
   ): Promise<ToggleFavoriteResult> {
     const db = wx.cloud.database();
-    const collection = db.collection('sentenceFavorite');
+    const collection = db.collection(CollectionName.sentenceFavorite);
 
     // 拼装防重主键 ID: ${bookId}__${sentenceId}
     const docId = `${bookId}__${sentenceId}`;
@@ -178,3 +178,5 @@ export class SentenceService {
     }
   }
 }
+const sentenceService = new SentenceService()
+export default sentenceService

@@ -1,0 +1,64 @@
+<view class="container">
+  <!-- 1. 顶部 Header 与进度条 -->
+  <view class="header">
+    <view class="back-btn" bindtap="onBack">⟨</view>
+    <view class="header-center">
+      <text class="header-title">Playback Player</text>
+      <text class="book-subtitle">{{bookTitle || 'My Mistakes'}} | {{currentIndex + 1}}/{{totalCount}}</text>
+    </view>
+    <view class="header-placeholder"></view>
+  </view>
+
+  <view class="progress-bar-bg">
+    <view class="progress-bar-fill" style="width: {{((currentIndex + 1) / (totalCount || 1)) * 100}};"></view>
+  </view>
+
+  <!-- 2. 中央卡片区域（替换为组件） -->
+  <view class="card-wrapper">
+    <sentence-play-card 
+      sentence="{{currentSentence}}" 
+      hideZh="{{hideZh}}"
+      isFavorite="{{isFavorite}}"
+      isMastered="{{isMastered}}"
+      bind:toggleFavorite="onToggleFavorite"
+      bind:toggleMastered="onToggleMastered"
+    />
+  </view>
+
+  <!-- 3. 功能胶囊按钮组 -->
+  <view class="capsule-bar">
+    <view class="capsule-btn {{isLooping ? 'active' : ''}}" bindtap="onToggleLoop">
+      <text class="capsule-title">Repeat</text>
+      <text class="capsule-sub">Loop</text>
+    </view>
+
+    <view class="capsule-btn {{hideZh ? 'active' : ''}}" bindtap="onToggleZh">
+      <text class="capsule-title">Hide/</text>
+      <text class="capsule-sub">Show ZH</text>
+    </view>
+
+    <view class="capsule-btn" bindtap="onChangeSpeed">
+      <text class="capsule-title">Speed</text>
+      <text class="capsule-sub">{{playbackRate}}x</text>
+    </view>
+  </view>
+
+  <!-- 4. 底部播放控制盘 -->
+  <view class="control-panel">
+    <view class="ctrl-btn sm" bindtap="onFirst">
+      <text class="icon">⏮</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onPrev">
+      <text class="icon">◄◄</text>
+    </view>
+    <view class="ctrl-btn main {{isPlaying ? 'playing' : ''}}" bindtap="onTogglePlay">
+      <text class="icon">{{isPlaying ? '❚❚' : '▶'}}</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onReplay">
+      <text class="icon-text">5s</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onNext">
+      <text class="icon">►►</text>
+    </view>
+  </view>
+</view>
