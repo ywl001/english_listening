@@ -1,6 +1,8 @@
 <view class="container">
+
+  <!-- 搜索框 -->
   <view class="search-bar">
-    <input class="search-input" placeholder="搜索收藏的句子" bindinput="onSearchInput" value="{{keyword}}" />
+    <input class="search-input" placeholder="搜索收藏的句子" bindinput="onSearchInput" value="{{keyword}}" confirm-type="search" />
   </view>
 
   <!-- 骨架屏 -->
@@ -11,6 +13,7 @@
     </view>
   </view>
 
+  <!-- 列表 -->
   <view class="list-wrapper">
     <block wx:if="{{displayList.length > 0}}">
       <view wx:for="{{displayList}}" wx:key="_id" class="sentence-card {{currentIndex === index && isPlayingAll ? 'playing-card' : ''}}" bindtap="playSingleAudio" data-index="{{index}}">
@@ -21,8 +24,8 @@
           <view class="zh-text">{{item.zh || item.chinese}}</view>
         </view>
 
-        <!-- 收藏小红心 -->
-        <view class="favorite-btn " catchtap="onDelete"  data-id="{{item._id || item.id}}" data-index="{{index}}">
+        <!-- 收藏心形 -->
+        <view class="favorite-btn" catchtap="onDelete" data-id="{{item._id || item.id}}" data-index="{{index}}">
           <view class="heart"></view>
         </view>
       </view>
@@ -35,6 +38,12 @@
     </view>
   </view>
 
+  <!-- 可拖动的悬浮添加按钮 -->
+  <view class="fab-add" style="left: {{fabX}}px; top: {{fabY}}px;" catchtouchstart="onFabTouchStart" catchtouchmove="onFabTouchMove" catchtouchend="onFabTouchEnd">
+    <text class="fab-icon">+</text>
+  </view>
+
+  <!-- 底部播放按钮 -->
   <view class="bottom-floating-bar" wx:if="{{sentenceList.length > 0}}">
     <button class="play-all-btn" bindtap="togglePlayAll">
       <text class="icon">🎧</text>

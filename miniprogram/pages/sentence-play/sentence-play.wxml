@@ -1,10 +1,10 @@
 <view class="container">
   <!-- 1. 顶部 Header 与进度条 -->
   <view class="header">
-    <!-- <view class="back-btn" bindtap="onBack">＜</view> -->
     <view class="header-center">
       <text class="header-title">Playback Player</text>
-      <text class="book-subtitle">{{bookTitle || 'My Mistakes'}} | {{currentIndex + 1}}/{{totalCount}}</text>
+      <!-- 修改点：无标题时显示 'Sentence Play'，而非强绑定 'My Mistakes' -->
+      <text class="book-subtitle">{{bookTitle || 'Sentence Play'}} | {{currentIndex + 1}}/{{totalCount}}</text>
     </view>
     <view class="header-placeholder"></view>
   </view>
@@ -13,13 +13,13 @@
     <view class="progress-bar-fill" style="width: {{ totalCount ? (((currentIndex + 1) / totalCount) * 100) + '%' : '0%' }};"></view>
   </view>
 
-  <!-- 2. 中央卡片区域（替换为组件） -->
+  <!-- 2. 中央卡片区域 -->
   <view class="card-wrapper">
     <sentence-play-card 
       sentence="{{currentSentence}}" 
       hideZh="{{hideZh}}"
       isFavorite="{{isFavorite}}"
-      stage ="{{stage}}"
+      stage="{{stage}}"
       bind:toggleFavorite="onToggleFavorite"
       bind:toggleMastered="onMarkLearned"
     />

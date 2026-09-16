@@ -1,11 +1,13 @@
-import sentenceService from "./sentence-service";
+
+// 定义分页加载器函数类型，解耦具体 API 服务
+export type ListFetcher = (cursor: PlayListCursor | null, limit: number) => Promise<PlayListResult>;
 
 export class SentencePlayListManager {
   private playQueue: Sentence[] = [];
   private currentIndex: number = 0;
   
   // 分页/预加载状态控制
-  private bookId: string = '';
+  private fetcher: ListFetcher | null = null;
   private nextCursor: PlayListCursor | null = null;
   private hasMore: boolean = true;
   private isLoading: boolean = false;
@@ -15,33 +17,26 @@ export class SentencePlayListManager {
 
   /**
    * 初始化播放队列
+   * @param initialData 初始数据列表
+   * @param fetcher 可选：获取后续分页数据的回调函数（解耦不同来源的数据请求）
    */
-  public init(bookId: string, initialData: PlayListResult): void {
-    this.bookId = bookId;
+  public init(initialData: PlayListResult, fetcher?: ListFetcher): void {
+    this.reset(); // 初始化前先重置
+    
     this.playQueue = initialData.list || [];
     this.nextCursor = initialData.nextCursor || null;
     this.hasMore = initialData.hasMore ?? false;
-    this.currentIndex = 0;
-    this.isLoading = false;
+    this.fetcher = fetcher || null;
   }
 
-  /**
-   * 获取当前播放索引（只读）
-   */
   public get currentIndexNum(): number {
     return this.currentIndex;
   }
 
-  /**
-   * 获取当前播放队列的条数（只读）
-   */
   public get queueLength(): number {
     return this.playQueue.length;
   }
 
-  /**
-   * 获取当前句子
-   */
   public getCurrent(): Sentence | null {
     if (this.currentIndex >= 0 && this.currentIndex < this.playQueue.length) {
       return this.playQueue[this.currentIndex];
@@ -49,9 +44,6 @@ export class SentencePlayListManager {
     return null;
   }
 
-  /**
-   * 获取当前句子的快捷属性（解决没有 currentSentence 的问题）
-   */
   public get currentSentence(): Sentence | null {
     return this.getCurrent();
   }
@@ -96,7 +88,7 @@ export class SentencePlayListManager {
   }
 
   /**
-   * 更新队列中指定句子的额外属性（例如修改收藏状态/掌握状态）
+   * 更新队列中指定句子的属性（例如修改收藏状态/掌握状态）
    */
   public updateSentence(sentenceId: string, partialData: Partial<Sentence>): void {
     const target = this.playQueue.find(s => s._id === sentenceId);
@@ -106,27 +98,45 @@ export class SentencePlayListManager {
   }
 
   /**
+   * 从当前队列中移除某句子（适用于“标记为掌握后不再播放”等场景）
+   */
+  public removeSentence(sentenceId: string): void {
+    const idx = this.playQueue.findIndex(s => s._id === sentenceId);
+    if (idx !== -1) {
+      this.playQueue.splice(idx, 1);
+      // 如果删除的是当前节点之前的项，指针往前平移
+      if (idx < this.currentIndex) {
+        this.currentIndex = Math.max(0, this.currentIndex - 1);
+      }
+      // 边界兜底保护
+      if (this.currentIndex >= this.playQueue.length) {
+        this.currentIndex = Math.max(0, this.playQueue.length - 1);
+      }
+    }
+  }
+
+  /**
    * 静默预加载更多句子追加到队列末尾
    */
   public async loadMore(targetCount = 20): Promise<boolean> {
-    if (this.isLoading || !this.hasMore || !this.bookId) {
+    if (this.isLoading || !this.hasMore || !this.fetcher) {
       return false;
     }
 
     this.isLoading = true;
     try {
-      const res = await sentenceService.getPlayList(this.bookId, targetCount, this.nextCursor);
+      const res = await this.fetcher(this.nextCursor, targetCount);
       
       if (res && res.list && res.list.length > 0) {
         this.playQueue = [...this.playQueue, ...res.list];
-        this.nextCursor = res.nextCursor;
-        this.hasMore = res.hasMore;
+        this.nextCursor = res.nextCursor || null;
+        this.hasMore = res.hasMore ?? false;
         return true;
       } else {
         this.hasMore = false;
       }
     } catch (error) {
-      console.error('[PlayListManager] 预加载句子失败:', error);
+      console.error('[SentencePlayListManager] 预加载句子失败:', error);
     } finally {
       this.isLoading = false;
     }
@@ -139,10 +149,10 @@ export class SentencePlayListManager {
   public reset(): void {
     this.playQueue = [];
     this.currentIndex = 0;
-    this.bookId = '';
     this.nextCursor = null;
     this.hasMore = true;
     this.isLoading = false;
+    this.fetcher = null;
   }
 }
 

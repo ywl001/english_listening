@@ -15,7 +15,7 @@ export class SentenceService {
    *   让句子"看起来"出现在你选的那本词书里；
    * - 两步在同一个事务里，不会出现存了内容但引用没建上的半吊子状态。
    */
-  static async createSentence(data: Sentence): Promise<string> {
+  async createSentence(data: Sentence): Promise<string> {
     const res = await callCloudFunction<{ sentenceId: string }>(
       cloudFunctionName.createSentence,
       data
@@ -26,7 +26,7 @@ export class SentenceService {
   /**
    * 跨词书搜索句子（中文或英文，模糊匹配）
    */
-  static async searchSentences(keyword: string): Promise<Sentence[]> {
+  async searchSentences(keyword: string): Promise<Sentence[]> {
     return callCloudFunction(cloudFunctionName.searchSentences, { keyword })
   }
 

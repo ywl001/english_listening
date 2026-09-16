@@ -1,5 +1,6 @@
 import { cloudFunctionName } from "./enums/app-enums"
 import { callCloudFunction } from "./services/cloud-client"
+import { initSentenceEventListeners } from "./services/sentence-listener"
 
 // app.ts
 App<IAppOption>({
@@ -34,6 +35,9 @@ App<IAppOption>({
     // 云函数内部是幂等的，这里不用 await 阻塞启动，失败了也不影响正常使用——
     // 后续录入句子等操作里如果发现默认库缺失，会再次兜底触发。
     this.ensureUserBook()
+
+    // 启动eventBus监听程序
+    initSentenceEventListeners();
   },
 
   async ensureUserBook() {
