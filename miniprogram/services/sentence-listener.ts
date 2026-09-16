@@ -28,10 +28,16 @@ export function initSentenceEventListeners() {
     try {
       const app = getApp<IAppOption>();
       const favoriteBookId = app?.globalData?.favoriteBookId as string;
+
       
       const res = await sentenceService.toggleFavorite(payload.sentenceId, favoriteBookId);
       // 同步回管理器队列
       sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: res.isFavorite });
+      // if(payload.bookId === app.globalData.favoriteBookId && payload.isFavorite === false){
+      //   console.log('收藏列表删除数据了')
+      //   sentencePlayManager.removeSentence(payload.sentenceId)
+      //   eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
+      // }
     } catch (err) {
       console.error('[EventListener] 切换收藏失败，尝试回滚状态:', err);
       // 失败时回滚

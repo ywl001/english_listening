@@ -12,9 +12,11 @@ export interface MarkPayload {
 export enum AppEvent {
   MARK_SENTENCE = 'markSentence',
   FAVORITE_SENTENCE = 'favoriteSentence',
+  REFRESH_SENTENCE_LIST = 'refreshSentenceList'
 }
 
 export interface EventPayloadMap {
   [AppEvent.MARK_SENTENCE]:any,
-  [AppEvent.FAVORITE_SENTENCE]:any,
+  [AppEvent.FAVORITE_SENTENCE]:FavoritePayload,
+  [AppEvent.REFRESH_SENTENCE_LIST]:void,
 }

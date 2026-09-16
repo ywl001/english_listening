@@ -14,7 +14,7 @@ export enum Pages {
   index = "/pages/index/index",
   sentencePlay = '/pages/sentence-play/sentence-play',
   testPage = '/pages/test-page/test-page',
-  favoriteSentenceList = '/pages/favorite-sentence-list/favorite-sentence-list'
+  sentenceList = '/pages/sentence-list/sentence-list'
 }
 
 export enum cloudFunctionName {

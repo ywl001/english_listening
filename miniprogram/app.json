@@ -3,14 +3,13 @@
     "pages/sentence-book-list/sentence-book-list",
     "pages/index/index",
     "pages/sentence-play/sentence-play",
-    "pages/favorite-sentence-list/favorite-sentence-list"
+    "pages/sentence-list/sentence-list"
   ],
   "window": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "Weixin",
     "navigationBarBackgroundColor": "#ffffff"
   },
-  "style": "v2",
   "componentFramework": "glass-easel",
   "lazyCodeLoading": "requiredComponents"
 }

@@ -5,24 +5,25 @@ export type ListFetcher = (cursor: PlayListCursor | null, limit: number) => Prom
 export class SentencePlayListManager {
   private playQueue: Sentence[] = [];
   private currentIndex: number = 0;
-  
+  private _bookId: string = ''
+
   // 分页/预加载状态控制
   private fetcher: ListFetcher | null = null;
   private nextCursor: PlayListCursor | null = null;
   private hasMore: boolean = true;
   private isLoading: boolean = false;
-  
+
   // 预加载阈值：当剩余未播句子少于等于 3 条时，自动触发 loadMore
-  private readonly PRELOAD_THRESHOLD = 3; 
+  private readonly PRELOAD_THRESHOLD = 3;
 
   /**
    * 初始化播放队列
    * @param initialData 初始数据列表
    * @param fetcher 可选：获取后续分页数据的回调函数（解耦不同来源的数据请求）
    */
-  public init(initialData: PlayListResult, fetcher?: ListFetcher): void {
+  public init(bookId: string, initialData: PlayListResult, fetcher?: ListFetcher): void {
     this.reset(); // 初始化前先重置
-    
+    this._bookId = bookId;
     this.playQueue = initialData.list || [];
     this.nextCursor = initialData.nextCursor || null;
     this.hasMore = initialData.hasMore ?? false;
@@ -35,6 +36,14 @@ export class SentencePlayListManager {
 
   public get queueLength(): number {
     return this.playQueue.length;
+  }
+
+  public get sentenceList(): Sentence[] {
+    return this.playQueue;
+  }
+
+  public get bookId(){
+    return this._bookId
   }
 
   public getCurrent(): Sentence | null {
@@ -62,7 +71,7 @@ export class SentencePlayListManager {
 
       return this.getCurrent();
     }
-    return null; 
+    return null;
   }
 
   /**
@@ -126,7 +135,7 @@ export class SentencePlayListManager {
     this.isLoading = true;
     try {
       const res = await this.fetcher(this.nextCursor, targetCount);
-      
+
       if (res && res.list && res.list.length > 0) {
         this.playQueue = [...this.playQueue, ...res.list];
         this.nextCursor = res.nextCursor || null;
@@ -153,6 +162,7 @@ export class SentencePlayListManager {
     this.hasMore = true;
     this.isLoading = false;
     this.fetcher = null;
+    this._bookId = ''
   }
 }
 

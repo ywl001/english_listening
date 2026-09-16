@@ -67,7 +67,7 @@ Page({
     // 页面销毁时清空引擎与队列，防内存泄漏
     this.playEngine?.destroy();
     this.playEngine = null;
-    sentencePlayManager.reset();
+    // sentencePlayManager.reset();
   },
 
   /* ---------------- 纯 UI 事件：触发 EventBus ---------------- */

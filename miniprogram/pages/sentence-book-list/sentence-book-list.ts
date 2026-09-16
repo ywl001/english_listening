@@ -1,7 +1,7 @@
 import bookService from '../../services/book-service';
 import { BookType, Pages } from '../../enums/app-enums';
-import sentencePlayManager from '../../services/sentence-play-manager';
 import sentenceService from '../../services/sentence-service';
+import { initManagerAndNavigate } from '../../utils/sentenceUtils';
 
 Page({
   data: {
@@ -63,11 +63,11 @@ Page({
     const { book } = e.detail;
     console.log(book)
     if (book._openid) {
-      const url = Pages.favoriteSentenceList + '?bookId=' + book._id
-      this.openSentencePlay(url,book,sentenceService.getFavoriteSentences)
+      const url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
+      initManagerAndNavigate(url,book._id,sentenceService.getFavoriteSentences)
     } else {
       const url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
-      this.openSentencePlay(url, book, sentenceService.getPlayList)
+      initManagerAndNavigate(url, book._id, sentenceService.getPlayList)
     }
   },
 
@@ -89,14 +89,4 @@ Page({
     });
   },
 
-  async openSentencePlay(url:string,book: Book, getPlayList: Function) {
-    wx.showLoading({ title: '获取学习列表。', mask: true })
-    try {
-      const pl = await getPlayList(book._id, 20)
-      sentencePlayManager.init(pl, (cursor, limit) => getPlayList(book._id, limit, cursor))
-      wx.navigateTo({ url })
-    } finally {
-      wx.hideLoading()
-    }
-  }
 });
