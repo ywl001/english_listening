@@ -3,19 +3,19 @@ import eventBus from "../../services/EventBus";
 import { PlayEngine } from "../../services/sentence-play-engine";
 import sentencePlayManager from "../../services/sentence-play-manager";
 
-
 Page({
   data: {
     bookTitle: '',
     currentIndex: 0,
     totalCount: 0,
+    sentenceList: [] as Sentence[], // 保存全量队列用于 Swiper 渲染
     currentSentence: null as Sentence | null,
     isPlaying: false,
     hideZh: false,
     isLooping: false,
     playbackRate: 1.0,
-    isFavorite: false,
-    stage: 0
+    // isFavorite: false,
+    // stage: 0
   },
 
   playEngine: null as PlayEngine | null,
@@ -50,6 +50,7 @@ Page({
           this.setData({
             currentSentence: sentence,
             currentIndex: index,
+            sentenceList: sentencePlayManager.sentenceList, // 动态同步队列列表（包含 loadMore 进来的新数据）
             totalCount: sentencePlayManager.queueLength,
             isFavorite: !!sentence?.isFavorite,
             stage: stage
@@ -63,25 +64,42 @@ Page({
     );
   },
 
+  /* ---------------- 滑动事件处理 ---------------- */
+
+  // Swiper 手势滑动触发事件
+  onSwiperChange(e: WechatMiniprogram.TouchEvent) {
+    // 仅响应由用户手指拖动导致的动画结束 (source === 'touch')
+    if (e.detail.source === 'touch') {
+      const targetIndex = e.detail.current;
+      const currentIndex = this.data.currentIndex;
+
+      if (targetIndex > currentIndex) {
+        // 向左滑动 -> 切换到下一句
+        this.playEngine?.next(false);
+      } else if (targetIndex < currentIndex) {
+        // 向右滑动 -> 切换到上一句
+        this.playEngine?.prev();
+      }
+    }
+  },
+
   onUnload() {
-    // 页面销毁时清空引擎与队列，防内存泄漏
     this.playEngine?.destroy();
     this.playEngine = null;
-    // sentencePlayManager.reset();
   },
 
   /* ---------------- 纯 UI 事件：触发 EventBus ---------------- */
 
-  // 1. 点击收藏/取消收藏
-  onToggleFavorite() {
-    const sentence = this.data.currentSentence;
+  onToggleFavorite(e: WechatMiniprogram.CustomEvent) {
+    const sentence = e.target.dataset.data;
     if (!sentence) return;
 
-    const nextState = !this.data.isFavorite;
-
-    // 乐观更新：响应 UI
-    this.setData({ isFavorite: nextState });
+    const nextState = !sentence.isFavorite;
     sentencePlayManager.updateSentence(sentence._id, { isFavorite: nextState });
+
+    this.setData({
+      sentenceList: [...sentencePlayManager.sentenceList]
+    });
 
     wx.showToast({
       title: nextState ? '已收藏' : '已取消收藏',
@@ -89,7 +107,6 @@ Page({
       duration: 1500
     });
 
-    // 发送消息，交由全局监听者去异步请求接口
     eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
       sentenceId: sentence._id,
       isFavorite: nextState,
@@ -97,27 +114,31 @@ Page({
     });
   },
 
-  // 2. 点击标记掌握/复习
-  onMarkLearned() {
-    const sentence = this.data.currentSentence;
+  onMarkLearned(e: WechatMiniprogram.CustomEvent) {
+    const sentence = e.target.dataset.data;
     if (!sentence) return;
 
-    const currentStage = this.data.stage;
-    const nextStage = currentStage + 1;
+    console.log(sentence)
 
-    // 乐观更新 UI
-    this.setData({ stage: nextStage });
+    const currentStage = sentence.mark?.stage || 0;
+    const nextStage = currentStage + 1;
+    const newMark = {...sentence.mark,stage:nextStage}
+    console.log(nextStage)
+
+    sentencePlayManager.updateSentence(sentence._id, { mark: newMark });
+    this.setData({
+      sentenceList: [...sentencePlayManager.sentenceList]
+    });
+ 
     wx.showToast({
       title: `掌握度 +1 (Level ${nextStage})`,
       icon: 'none',
       duration: 1500
     });
 
-    // 发送消息，交由全局监听者计算艾宾浩斯时间并请求接口
     eventBus.emit(AppEvent.MARK_SENTENCE, {
       sentenceId: sentence._id,
       currentStage: currentStage,
-      bookId: sentence.bookId
     });
   },
 

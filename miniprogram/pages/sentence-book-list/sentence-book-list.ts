@@ -28,7 +28,7 @@ Page({
   async loadData() {
     const allSentenceBooks = await bookService.getSentenceBooks();
     const userBooks = await bookService.getUserBooks();
-    const userSentenceBooks = userBooks.filter(b => b.type === BookType.sentence);
+    const userSentenceBooks = userBooks.filter(b => b.content === BookType.sentence);
     const _openid = getApp().globalData._openid;
 
     this.setData({
@@ -60,14 +60,14 @@ Page({
   },
 
   async onTapBook(e: any) {
-    const { book } = e.detail;
+    const book: Book = e.detail.book;
     console.log(book)
     if (book._openid) {
       const url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
-      initManagerAndNavigate(url,book._id,sentenceService.getFavoriteSentences)
+      initManagerAndNavigate(url, book, sentenceService.getFavoriteSentences)
     } else {
       const url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
-      initManagerAndNavigate(url, book._id, sentenceService.getPlayList)
+      initManagerAndNavigate(url, book, sentenceService.getPlayList)
     }
   },
 

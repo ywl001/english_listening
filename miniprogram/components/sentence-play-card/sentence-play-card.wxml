@@ -23,10 +23,10 @@
 
   <!-- 底部新增按钮区域 -->
   <view class="card-actions">
-    <view class="action-btn {{isFavorite ? 'active' : ''}}" bindtap="onTapFavorite">
+    <view class="action-btn {{isFavorite ? 'active' : ''}}" catchtap="onTapFavorite">
       <text class="action-text">收藏</text>
     </view>
-    <view class="action-btn {{ stage > 0 ? 'active' : ''}}" bindtap="onTapMastered">
+    <view class="action-btn {{ stage > 0 ? 'active' : ''}}" catchtap="onTapMastered">
       <text class="action-text">已会{{stage > 0 ? '+' + stage : ''}}</text>
     </view>
   </view>

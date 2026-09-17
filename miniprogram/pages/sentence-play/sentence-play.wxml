@@ -3,7 +3,6 @@
   <view class="header">
     <view class="header-center">
       <text class="header-title">Playback Player</text>
-      <!-- 修改点：无标题时显示 'Sentence Play'，而非强绑定 'My Mistakes' -->
       <text class="book-subtitle">{{bookTitle || 'Sentence Play'}} | {{currentIndex + 1}}/{{totalCount}}</text>
     </view>
     <view class="header-placeholder"></view>
@@ -13,16 +12,31 @@
     <view class="progress-bar-fill" style="width: {{ totalCount ? (((currentIndex + 1) / totalCount) * 100) + '%' : '0%' }};"></view>
   </view>
 
-  <!-- 2. 中央卡片区域 -->
+  <!-- 2. 中央卡片滑动区域 -->
   <view class="card-wrapper">
-    <sentence-play-card 
-      sentence="{{currentSentence}}" 
-      hideZh="{{hideZh}}"
-      isFavorite="{{isFavorite}}"
-      stage="{{stage}}"
-      bind:toggleFavorite="onToggleFavorite"
-      bind:toggleMastered="onMarkLearned"
-    />
+    <swiper 
+      class="card-swiper"
+      current="{{currentIndex}}"
+      duration="300"
+      bindchange="onSwiperChange"
+    >
+      <block wx:for="{{sentenceList}}" wx:key="_id">
+        <swiper-item class="swiper-item-inner">
+          <!-- 点击卡片区域触发播放/暂停 -->
+          <view class="card-touch-area" bindtap="onTogglePlay">
+            <sentence-play-card 
+              sentence="{{item}}" 
+              hideZh="{{hideZh}}"
+              isFavorite="{{item.isFavorite}}"
+              stage="{{item.mark.stage || 0}}"
+              data-data = "{{item}}"
+              bind:toggleFavorite="onToggleFavorite"
+              bind:toggleMastered="onMarkLearned"
+            />
+          </view>
+        </swiper-item>
+      </block>
+    </swiper>
   </view>
 
   <!-- 3. 功能胶囊按钮组 -->

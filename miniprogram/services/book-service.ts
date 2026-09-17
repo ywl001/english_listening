@@ -16,12 +16,12 @@ export class BookService {
 
   async getSentenceBooks() {
     const books = await this.getBooks()
-    return books.filter(item => item.type === BookType.sentence);
+    return books.filter(item => item.content === BookType.sentence);
   }
 
   async getArticleBooks() {
     const books = await this.getBooks()
-    return books.filter(item => item.type === BookType.article);
+    return books.filter(item => item.content === BookType.article);
   }
 
   async getUserBooks() {

@@ -5,6 +5,7 @@ export class SentenceService {
 
   async getPlayList(bookId: string, targetCount = 20, cursor: PlayListCursor | null = null): Promise<PlayListResult> {
     const data = { bookId, targetCount, cursor }
+    console.log(data)
     return callCloudFunction(cloudFunctionName.getSentencePlayList, data)
   }
 
@@ -64,9 +65,7 @@ export class SentenceService {
     // 但 ID 规则仍与云函数保持一致：${_openid}__${sentenceId}
     // 注：在前端 SDK 中，可通过 wx.cloud.database() 提供的全局机制或通过本地存储获取 _openid，
     // 如果没有全局 _openid，可以直接使用 docId 格式，或查询已有记录。
-
     const now = Date.now();
-
     try {
       // 1. 先尝试 update（最轻量，只更新传入的 patch 字段和 updatedAt）
       // 注意：在前端 SDK 中，如果记录不存在，update 会抛出 404 异常
@@ -120,13 +119,13 @@ export class SentenceService {
    */
   async toggleFavorite(
     sentenceId: string,
-    bookId: string
+    favoriteBookId: string
   ): Promise<ToggleFavoriteResult> {
     const db = wx.cloud.database();
     const collection = db.collection(CollectionName.sentenceFavorite);
 
     // 拼装防重主键 ID: ${bookId}__${sentenceId}
-    const docId = `${bookId}__${sentenceId}`;
+    const docId = `${favoriteBookId}__${sentenceId}`;
     const docRef = collection.doc(docId);
 
     try {
@@ -139,7 +138,7 @@ export class SentenceService {
         return {
           isFavorite: false,
           sentenceId,
-          bookId
+          bookId: favoriteBookId
         };
       } else {
         // 3. 不存在 -> 插入 (添加收藏)
@@ -147,7 +146,7 @@ export class SentenceService {
         await collection.add({
           data: {
             _id: docId,
-            bookId,
+            bookId: favoriteBookId,
             sentenceId,
             createdAt: Date.now()
           }
@@ -156,7 +155,7 @@ export class SentenceService {
         return {
           isFavorite: true,
           sentenceId,
-          bookId
+          bookId: favoriteBookId
         };
       }
     } catch (err: any) {

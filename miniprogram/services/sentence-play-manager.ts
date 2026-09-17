@@ -21,9 +21,9 @@ export class SentencePlayListManager {
    * @param initialData 初始数据列表
    * @param fetcher 可选：获取后续分页数据的回调函数（解耦不同来源的数据请求）
    */
-  public init(bookId: string, initialData: PlayListResult, fetcher?: ListFetcher): void {
+  public init(book: Book, initialData: PlayListResult, fetcher?: ListFetcher): void {
     this.reset(); // 初始化前先重置
-    this._bookId = bookId;
+    this._bookId = book._id;
     this.playQueue = initialData.list || [];
     this.nextCursor = initialData.nextCursor || null;
     this.hasMore = initialData.hasMore ?? false;
@@ -42,7 +42,7 @@ export class SentencePlayListManager {
     return this.playQueue;
   }
 
-  public get bookId(){
+  public get bookId() {
     return this._bookId
   }
 

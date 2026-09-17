@@ -159,7 +159,7 @@ interface MarksSummary {
 interface Book {
   _id: string;
   name: string;
-  type?: string;
+  content?: string;
   _openid?: string;
   itemCount?: number
 }

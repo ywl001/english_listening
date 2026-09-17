@@ -106,7 +106,7 @@ Page({
 
   // 触发全部播放/暂停
   togglePlayAll() {
-    initManagerAndNavigate(Pages.sentencePlay, this.data.bookId, sentenceService.getFavoriteSentences)
+    wx.navigateTo({url:Pages.sentencePlay})
   },
 
   // 播放指定索引位置的句子音频

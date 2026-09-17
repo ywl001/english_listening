@@ -1,0 +1,468 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+sentence-play.json
+sentence-play.ts
+sentence-play.wxml
+sentence-play.wxss
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="sentence-play.json">
+{
+  "usingComponents": {
+    "sentence-play-card": "/components/sentence-play-card/sentence-play-card"
+  }
+}
+</file>
+
+<file path="sentence-play.ts">
+import { AppEvent } from "../../services/event-type";
+import eventBus from "../../services/EventBus";
+import { PlayEngine } from "../../services/sentence-play-engine";
+import sentencePlayManager from "../../services/sentence-play-manager";
+
+
+Page({
+  data: {
+    bookTitle: '',
+    currentIndex: 0,
+    totalCount: 0,
+    currentSentence: null as Sentence | null,
+    isPlaying: false,
+    hideZh: false,
+    isLooping: false,
+    playbackRate: 1.0,
+    isFavorite: false,
+    stage: 0
+  },
+
+  playEngine: null as PlayEngine | null,
+
+  onLoad(options: { title?: string }) {
+    if (options.title) {
+      this.setData({ bookTitle: decodeURIComponent(options.title) });
+    }
+
+    // 1. 初始化播放引擎
+    this.initEngine();
+    // 2. 自动开启播放
+    this.playEngine?.start();
+  },
+
+  initEngine() {
+    const audioCtx = wx.createInnerAudioContext();
+
+    this.playEngine = new PlayEngine(
+      audioCtx,
+      sentencePlayManager,
+      {
+        playMode: 'sequence',
+        playOrder: 'zh_first',
+        repeatCount: 2,
+        gapMs: 800,
+        limitCount: 0
+      },
+      {
+        onCurrentChange: (sentence, index) => {
+          const stage = sentence?.mark?.stage || 0;
+          this.setData({
+            currentSentence: sentence,
+            currentIndex: index,
+            totalCount: sentencePlayManager.queueLength,
+            isFavorite: !!sentence?.isFavorite,
+            stage: stage
+          });
+        },
+        onStatusChange: () => { },
+        onPlayingChange: (isPlaying) => this.setData({ isPlaying }),
+        onFinished: (msg) => wx.showToast({ title: msg, icon: 'none' }),
+        onNotice: (msg) => wx.showToast({ title: msg, icon: 'none' })
+      }
+    );
+  },
+
+  onUnload() {
+    // 页面销毁时清空引擎与队列，防内存泄漏
+    this.playEngine?.destroy();
+    this.playEngine = null;
+    // sentencePlayManager.reset();
+  },
+
+  /* ---------------- 纯 UI 事件：触发 EventBus ---------------- */
+
+  // 1. 点击收藏/取消收藏
+  onToggleFavorite() {
+    const sentence = this.data.currentSentence;
+    if (!sentence) return;
+
+    const nextState = !this.data.isFavorite;
+
+    // 乐观更新：响应 UI
+    this.setData({ isFavorite: nextState });
+    sentencePlayManager.updateSentence(sentence._id, { isFavorite: nextState });
+
+    wx.showToast({
+      title: nextState ? '已收藏' : '已取消收藏',
+      icon: 'none',
+      duration: 1500
+    });
+
+    // 发送消息，交由全局监听者去异步请求接口
+    eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
+      sentenceId: sentence._id,
+      isFavorite: nextState,
+      bookId: sentence.bookId
+    });
+  },
+
+  // 2. 点击标记掌握/复习
+  onMarkLearned() {
+    const sentence = this.data.currentSentence;
+    if (!sentence) return;
+
+    const currentStage = this.data.stage;
+    const nextStage = currentStage + 1;
+
+    // 乐观更新 UI
+    this.setData({ stage: nextStage });
+    wx.showToast({
+      title: `掌握度 +1 (Level ${nextStage})`,
+      icon: 'none',
+      duration: 1500
+    });
+
+    // 发送消息，交由全局监听者计算艾宾浩斯时间并请求接口
+    eventBus.emit(AppEvent.MARK_SENTENCE, {
+      sentenceId: sentence._id,
+      currentStage: currentStage,
+    });
+  },
+
+  /* ---------------- 播放控制 ---------------- */
+
+  onTogglePlay() {
+    this.playEngine?.pauseToggle();
+  },
+
+  onNext() {
+    this.playEngine?.next(false);
+  },
+
+  onPrev() {
+    this.playEngine?.prev();
+  },
+
+  onFirst() {
+    if (sentencePlayManager.queueLength > 0) {
+      while (sentencePlayManager.currentIndexNum > 0) {
+        sentencePlayManager.prev();
+      }
+      this.playEngine?.replay();
+    }
+  },
+
+  onReplay() {
+    this.playEngine?.replay();
+  },
+
+  onToggleZh() {
+    this.setData({ hideZh: !this.data.hideZh });
+  },
+
+  onToggleLoop() {
+    const nextState = !this.data.isLooping;
+    this.setData({ isLooping: nextState });
+
+    this.playEngine?.updateConfig({
+      repeatCount: nextState ? 999 : 1
+    });
+  },
+
+  onChangeSpeed() {
+    const speeds = [1.0, 1.25, 0.8];
+    const nextIdx = (speeds.indexOf(this.data.playbackRate) + 1) % speeds.length;
+    const rate = speeds[nextIdx];
+
+    this.setData({ playbackRate: rate });
+    if (this.playEngine) {
+      // @ts-ignore
+      this.playEngine['audioCtx'].playbackRate = rate;
+    }
+  },
+
+  onBack() {
+    wx.navigateBack();
+  }
+});
+</file>
+
+<file path="sentence-play.wxml">
+<view class="container">
+  <!-- 1. 顶部 Header 与进度条 -->
+  <view class="header">
+    <view class="header-center">
+      <text class="header-title">Playback Player</text>
+      <!-- 修改点：无标题时显示 'Sentence Play'，而非强绑定 'My Mistakes' -->
+      <text class="book-subtitle">{{bookTitle || 'Sentence Play'}} | {{currentIndex + 1}}/{{totalCount}}</text>
+    </view>
+    <view class="header-placeholder"></view>
+  </view>
+
+  <view class="progress-bar-bg">
+    <view class="progress-bar-fill" style="width: {{ totalCount ? (((currentIndex + 1) / totalCount) * 100) + '%' : '0%' }};"></view>
+  </view>
+
+  <!-- 2. 中央卡片区域 -->
+  <view class="card-wrapper">
+    <sentence-play-card 
+      sentence="{{currentSentence}}" 
+      hideZh="{{hideZh}}"
+      isFavorite="{{isFavorite}}"
+      stage="{{stage}}"
+      bind:toggleFavorite="onToggleFavorite"
+      bind:toggleMastered="onMarkLearned"
+    />
+  </view>
+
+  <!-- 3. 功能胶囊按钮组 -->
+  <view class="capsule-bar">
+    <view class="capsule-btn {{isLooping ? 'active' : ''}}" bindtap="onToggleLoop">
+      <text class="capsule-title">Repeat</text>
+      <text class="capsule-sub">Loop</text>
+    </view>
+
+    <view class="capsule-btn {{hideZh ? 'active' : ''}}" bindtap="onToggleZh">
+      <text class="capsule-title">Hide/</text>
+      <text class="capsule-sub">Show ZH</text>
+    </view>
+
+    <view class="capsule-btn" bindtap="onChangeSpeed">
+      <text class="capsule-title">Speed</text>
+      <text class="capsule-sub">{{playbackRate}}x</text>
+    </view>
+  </view>
+
+  <!-- 4. 底部播放控制盘 -->
+  <view class="control-panel">
+    <view class="ctrl-btn sm" bindtap="onFirst">
+      <text class="icon">⏮</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onPrev">
+      <text class="icon">◄◄</text>
+    </view>
+    <view class="ctrl-btn main {{isPlaying ? 'playing' : ''}}" bindtap="onTogglePlay">
+      <text class="icon">{{isPlaying ? '❚❚' : '▶'}}</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onReplay">
+      <text class="icon-text">5s</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onNext">
+      <text class="icon">►►</text>
+    </view>
+  </view>
+</view>
+</file>
+
+<file path="sentence-play.wxss">
+page {
+  background-color: #F4F6F9;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0 32rpx 80rpx 32rpx;
+  box-sizing: border-box;
+  justify-content: space-between;
+}
+
+/* Header 与进度条 */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20rpx;
+  padding-bottom: 16rpx;
+}
+
+.back-btn {
+  font-size: 38rpx;
+  color: #2D3748;
+  padding: 10rpx 20rpx 10rpx 0;
+}
+
+.header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1A202C;
+}
+
+.book-subtitle {
+  font-size: 22rpx;
+  color: #718096;
+  margin-top: 4rpx;
+}
+
+.header-placeholder {
+  width: 40rpx;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 6rpx;
+  background-color: #E2E8F0;
+  border-radius: 3rpx;
+  overflow: hidden;
+  margin-bottom: 30rpx;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #2B6CB0;
+  border-radius: 3rpx;
+  transition: width 0.3s ease;
+}
+
+/* 2. 卡片外部包装器 */
+.card-wrapper {
+  flex: 1;
+  display: flex;
+  /* background-color: beige; */
+  align-items: center;
+  justify-content: center;
+  margin: 30rpx 0 60rpx 0;
+  width: 100%;
+}
+
+/* 3. 胶囊按钮组 */
+.capsule-bar {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 40rpx;
+}
+
+.capsule-btn {
+  flex: 1;
+  margin: 0 10rpx;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 20rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.02);
+  border: 2rpx solid transparent;
+}
+
+.capsule-btn.active {
+  border-color: #3182CE;
+  background-color: #EBF8FF;
+}
+
+.capsule-title {
+  font-size: 22rpx;
+  color: #2D3748;
+  font-weight: 600;
+}
+
+.capsule-sub {
+  font-size: 20rpx;
+  color: #4A5568;
+  margin-top: 4rpx;
+}
+
+/* 4. 底部控制盘 */
+.control-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+  padding: 10rpx 0;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.ctrl-btn.sm {
+  width: 84rpx;
+  height: 84rpx;
+  color: #4A5568;
+  font-size: 26rpx;
+}
+
+.ctrl-btn.main {
+  width: 120rpx;
+  height: 120rpx;
+  background: #2B6CB0;
+  color: #FFFFFF;
+  font-size: 38rpx;
+  box-shadow: 0 10rpx 24rpx rgba(43, 108, 176, 0.3);
+}
+
+.icon-text {
+  font-size: 22rpx;
+  font-weight: bold;
+  color: #4A5568;
+}
+</file>
+
+</files>
