@@ -101,3 +101,13 @@
   font-size: 32rpx;
   flex-shrink: 0;
 }
+
+.delete-btn {
+  width: 70px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ee0a24;
+  color: #fff;
+}

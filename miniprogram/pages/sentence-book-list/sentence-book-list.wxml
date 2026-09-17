@@ -2,18 +2,10 @@
   <!-- 顶部 Tab 栏 -->
   <view class="tab-header">
     <view class="tab-group">
-      <view 
-        class="tab-item {{activeTab === 'system' ? 'active' : ''}}" 
-        bindtap="switchTab" 
-        data-tab="system"
-      >系统推荐</view>
-      <view 
-        class="tab-item {{activeTab === 'user' ? 'active' : ''}}" 
-        bindtap="switchTab" 
-        data-tab="user"
-      >用户自定义</view>
+      <view class="tab-item {{activeTab === 'system' ? 'active' : ''}}" bindtap="switchTab" data-tab="system">系统推荐</view>
+      <view class="tab-item {{activeTab === 'user' ? 'active' : ''}}" bindtap="switchTab" data-tab="user">用户自定义</view>
     </view>
-    
+
     <view class="settings-btn" bindtap="openSettings">
       <text class="gear-icon">⚙️</text>
     </view>
@@ -28,26 +20,14 @@
     </view>
 
     <!-- 句子书卡片组件 -->
-    <block 
-      wx:for="{{activeTab === 'system' ? systemBooks : userBooks}}" 
-      wx:key="_id"
-    >
-      <sentence-book-card
-        book="{{item}}"
-        index="{{index}}"
-        isUserBook="{{activeTab === 'user'}}"
-        bind:tapcard="onTapBook"
-        bind:edit="onEditBook"
-        bind:delete="onDeleteBook"
-      />
+    <block wx:for="{{activeTab === 'system' ? systemBooks : userBooks}}" wx:key="_id">
+      <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{activeTab === 'user'}}" bind:tapcard="onTapBook" bind:edit="onEditBook" bind:delete="onDeleteBook" />
     </block>
   </scroll-view>
 
   <!-- 播放设置弹窗组件 -->
-  <playback-settings-modal 
-    visible="{{showSettingsModal}}"
-    settings="{{settings}}"
-    bind:close="closeSettings"
-    bind:save="handleSaveSettings"
-  />
+  <playback-settings-modal visible="{{showSettingsModal}}" settings="{{settings}}" bind:close="closeSettings" bind:save="handleSaveSettings" />
+  
+  <book-create bind:confirm="onCreateBook" bind:close="closeBookCreate" visible="{{showBookCreate}}" />
+
 </view>

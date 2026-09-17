@@ -1,32 +1,30 @@
-<view class="book-card" bindtap="onTap">
-  <!-- 封面封面图/背景 -->
-  <view class="cover {{coverTheme}}">
-    <text class="cover-title">{{book.name}}</text>
-  </view>
+<van-swipe-cell right-width="{{70}}" disabled="{{!book.isCustom}}">
+  <view class="book-card" bindtap="onTap">
+    <view class="cover {{coverTheme}}">
+      <text class="cover-title">{{book.name}}</text>
+    </view>
 
-  <!-- 右侧内容区域 -->
-  <view class="info">
-    <!-- 标题与操作图标 -->
-    <view class="title-row">
-      <text class="title">{{book.name}}</text>
-      <view class="action-icons" wx:if="{{isUserBook}}">
-        <!-- <text class="icon" catchtap="onEdit">✏️</text>
-        <text class="icon" catchtap="onDelete">🗑️</text> -->
+    <view class="info">
+      <view class="title-row">
+        <text class="title">{{book.name}}</text>
+        <view class="action-icons" wx:if="{{isUserBook}}">
+        </view>
+      </view>
+
+      <view class="meta">
+        <text>{{book.learnedCount || 0}} / {{book.count || 0}} sentences</text>
+        <text class="tag" wx:if="{{!isUserBook}}">官方</text>
+      </view>
+
+      <view class="progress-bar-bg">
+        <view class="progress-bar-fill" style="width: {{progressPercent}}"></view>
       </view>
     </view>
 
-    <!-- 句子进度数量 -->
-    <view class="meta">
-      <text>{{book.learnedCount || 0}} / {{book.count || 0}} sentences</text>
-      <text class="tag" wx:if="{{!isUserBook}}">官方</text>
-    </view>
-
-    <!-- 进度条 -->
-    <view class="progress-bar-bg">
-      <view class="progress-bar-fill" style="width: {{progressPercent}}"></view>
-    </view>
+    <text class="arrow">›</text>
   </view>
 
-  <!-- 箭头 -->
-  <text class="arrow">›</text>
-</view>
+  <view wx:if="{{isUserBook}}" slot="right" class="delete-btn" catchtap="onDelete">
+    删除
+  </view>
+</van-swipe-cell>
