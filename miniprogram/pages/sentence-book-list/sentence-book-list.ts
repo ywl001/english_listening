@@ -9,6 +9,7 @@ Page({
     systemBooks: [] as Book[],
     userBooks: [] as Book[],
     showSettingsModal: false,
+    showBookCreate: false,
     settings: {
       order: 'EN_ZH',
       count: 10,
@@ -64,7 +65,7 @@ Page({
     console.log(book)
     if (book._openid) {
       const url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
-      initManagerAndNavigate(url, book, sentenceService.getFavoriteSentences)
+      initManagerAndNavigate(url,  book,  sentenceService.getFavoriteSentences)
     } else {
       const url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
       initManagerAndNavigate(url, book, sentenceService.getPlayList)
@@ -88,5 +89,18 @@ Page({
       }
     });
   },
+
+  openCreateBook() {
+    console.log('create book')
+    this.setData({ showBookCreate: true })
+  },
+  
+  async onCreateBook(e:any) {
+    const { name } = e.detail
+    const book = await bookService.createBook(name, BookType.sentence)
+    this.setData({
+      userBooks:this.data.userBooks.concat(book)
+    })
+  }
 
 });

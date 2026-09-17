@@ -1,6 +1,7 @@
 // 1. services/book-service.ts (纯粹的数据服务)
 
 import { BookType, cloudFunctionName } from "../enums/app-enums";
+import { dbRequest, db } from "../utils/dbHelper";
 import { callCloudFunction } from "./cloud-client";
 
 export class BookService {
@@ -34,11 +35,25 @@ export class BookService {
    * 创建词书。
    */
   async createBook(name: string, type: string): Promise<Book> {
-    const book = await callCloudFunction(cloudFunctionName.createBook, { name, type })
-    if (!this.booksCache?.some(item => item._id === book._id)) {
-      this.booksCache?.push(book)
-    }
-    return book;
+    const bookName = name.trim()
+    if (!bookName) throw new Error('词书名称不能为空')
+
+    const { data } = await dbRequest(
+      db.collection('book').where({ name: bookName, type }).limit(1).get(),
+      '查询词书失败'
+    )
+
+    if (data.length) return data[0] as Book
+
+    const now = Date.now()
+    const res = await dbRequest(
+      db.collection('book').add({
+        data: { name: bookName, type, createdAt: now }
+      }),
+      '创建词书失败'
+    )
+
+    return { _id: res._id, name: bookName, type, createdAt: now } as Book
   }
 
   /**

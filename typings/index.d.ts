@@ -162,6 +162,7 @@ interface Book {
   content?: string;
   _openid?: string;
   itemCount?: number
+  isCustom?: boolean
 }
 
 interface ApiResponse<T = any> {
@@ -185,3 +186,21 @@ interface TtsResult {
   url: string
   wordBoundaries: WordBoundary[]
 }
+
+interface QueryResult<T> {
+  data: T[]
+}
+
+interface ApiSuccess<T> {
+  code: 0
+  data: T
+  message: string
+}
+
+interface ApiFail {
+  code: number
+  data: null
+  message: string
+}
+
+type ApiResult<T> = ApiSuccess<T> | ApiFail
