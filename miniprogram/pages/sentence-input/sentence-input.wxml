@@ -1,0 +1,67 @@
+<view class="page">
+  <view class="card">
+    <text class="label">输入句子（中文或英文）</text>
+    <textarea
+      class="textarea"
+      placeholder="例如：今天天气真不错 或 The weather is nice today"
+      bindinput="onInput"
+      value="{{inputText}}"
+      maxlength="500"
+    />
+    <text class="lang-hint">{{detectedLang === 'zh' ? '检测到：中文 → 将翻译为英文' : '检测到：英文 → 将翻译为中文'}}</text>
+  </view>
+
+  <!-- 错误提示 -->
+  <view class="result-card" wx:if="{{genError}}">
+    <text class="error-text">生成失败：{{genError}}</text>
+  </view>
+
+  <!-- 结果卡片：使用原生 text 显示翻译与音频控制 -->
+  <view class="result-card" wx:if="{{zh || en}}">
+    <!-- 中文译文栏 -->
+    <view class="text-group" wx:if="{{zh}}">
+      <view class="group-header">
+        <text class="group-label">中文</text>
+        <view class="play-btn" wx:if="{{tempAudioZhUrl}}" bindtap="playAudio" data-url="{{tempAudioZhUrl}}">
+          <text class="play-icon">🔊</text>
+          <text class="play-text">朗读</text>
+        </view>
+      </view>
+      <text class="result-text" user-select>{{zh}}</text>
+    </view>
+
+    <!-- 英文译文栏 -->
+    <view class="text-group" wx:if="{{en}}">
+      <view class="group-header">
+        <text class="group-label">英文</text>
+        <view class="play-btn" wx:if="{{tempAudioUrl}}" bindtap="playAudio" data-url="{{tempAudioUrl}}">
+          <text class="play-icon">🔊</text>
+          <text class="play-text">朗读</text>
+        </view>
+      </view>
+      <text class="result-text en-text" user-select>{{en}}</text>
+    </view>
+  </view>
+
+  <!-- 占位,防止内容被底部固定按钮栏遮住 -->
+  <view class="bottom-bar-placeholder"></view>
+
+  <!-- 底部固定按钮栏 -->
+  <view class="bottom-bar">
+    <block wx:if="{{tempAudioUrl && tempAudioZhUrl}}">
+      <button class="btn-outline" bindtap="onDiscardAndReset">重新输入</button>
+      <button class="btn-save" bindtap="onSave" disabled="{{saving || !selectedBookId}}">
+        {{saving ? '保存中...' : '保存到句子库'}}
+      </button>
+    </block>
+
+    <button
+      wx:else
+      class="btn-primary {{generating ? 'disabled' : ''}}"
+      bindtap="onTranslateAndGenerate"
+      disabled="{{generating || !inputText}}"
+    >
+      {{generating ? '处理中...' : '翻译并生成发音'}}
+    </button>
+  </view>
+</view>

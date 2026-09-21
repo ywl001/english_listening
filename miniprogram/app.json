@@ -3,7 +3,8 @@
     "pages/sentence-book-list/sentence-book-list",
     "pages/index/index",
     "pages/sentence-play/sentence-play",
-    "pages/sentence-list/sentence-list"
+    "pages/sentence-list/sentence-list",
+    "pages/sentence-input/sentence-input"
   ],
   "window": {
     "navigationBarTextStyle": "black",

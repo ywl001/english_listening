@@ -1,172 +1,240 @@
 import { cloudFunctionName, CollectionName } from "../enums/app-enums";
+import sentenceStore from "../utils/sentenceStore";
+import sync from "../utils/sync"; // 统一使用 sync 内部的 store 单例
 import { callCloudFunction } from "./cloud-client";
+import cloudService from "./cloud-service";
+import { AppEvent } from "./event-type";
+import eventBus from "./EventBus";
+import sentencePlayManager from "./sentence-play-manager";
 
 export class SentenceService {
+  async getPlayList(bookId: string, targetCount = 50): Promise<Sentence[]> {
+    if (sentenceStore.isCompleted(bookId)) {
+      console.log('本地数据完整，走本地构建播放列表');
+      return this.buildLocalPlayList(bookId, targetCount);
+    }
+    const list = await this.getInitSentencePlayList(bookId);
 
-  async getPlayList(bookId: string, targetCount = 20, cursor: PlayListCursor | null = null): Promise<PlayListResult> {
-    const data = { bookId, targetCount, cursor }
-    console.log(data)
-    return callCloudFunction(cloudFunctionName.getSentencePlayList, data)
+    if (!sentenceStore.isCompleted(bookId)) {
+      this.syncAll(bookId).catch(console.error);
+    }
+    return list;
   }
 
-  /**
-   * 录入一条新句子。
-   * - 不管传入的 bookId 是哪本词书，句子物理内容都会被存进用户的默认库"用户句子"；
-   * - 如果 bookId 不是默认库本身，云函数会在同一个事务里顺手建一条引用，
-   *   让句子"看起来"出现在你选的那本词书里；
-   * - 两步在同一个事务里，不会出现存了内容但引用没建上的半吊子状态。
-   */
-  async createSentence(data: Sentence): Promise<string> {
-    const res = await callCloudFunction<{ sentenceId: string }>(
+  private async getInitSentencePlayList(bookId: string): Promise<Sentence[]> {
+    // ✅ 统一从 sync 获取存储实例
+    const marks = sync.markStore.get(bookId);
+
+    const { includeIds, excludeIds } = this.getReviewIds(marks);
+    const res = await cloudService.getSentencesByIds(CollectionName.sentence, bookId, includeIds, excludeIds);
+    const favorites = sync.favStore.get(bookId);
+
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+    // ✅ 过滤掉已经标记为 deleted: true 的记录
+    const favoriteSet = new Set(favorites.filter(x => !x.deleted).map(x => x.sentenceId));
+
+    const list = res.map(sentence => ({
+      ...sentence,
+      isFavorite: favoriteSet.has(sentence._id),
+      mark: markMap.get(sentence._id)
+    }));
+
+    return list;
+  }
+
+  private getReviewIds(marks: SentenceMark[]) {
+    const now = Date.now();
+    const include = marks
+      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id));
+
+    // ✅ 改为统一使用 sentenceId 匹配，避免 _id 拼写格式干扰
+    const includeSentenceIds = new Set(include.map(x => x.sentenceId));
+
+    return {
+      includeIds: include.map(x => x.sentenceId),
+      excludeIds: marks.filter(x => !includeSentenceIds.has(x.sentenceId)).map(x => x.sentenceId)
+    };
+  }
+
+  // 1. 增加一个获取全局收藏集合的方法
+  private getGlobalFavoriteSet(): Set<string> {
+    // getAll() 会拉取所有分片里的收藏数据
+    const allFavorites = sync.favStore.getAll();
+
+    // 过滤掉已删除的，只留下有效的 sentenceId
+    const validFavoriteIds = allFavorites
+      .filter(x => !x.deleted)
+      .map(x => x.sentenceId);
+
+    return new Set(validFavoriteIds);
+  }
+
+  // 2. 在 buildLocalPlayList 中使用全局收藏 Set
+  private buildLocalPlayList(bookId: string, targetCount: number): Sentence[] {
+    const sentences = sentenceStore.get(bookId); // 实体书里的句子
+    const marks = sync.markStore.get(bookId);     // 该实体书下的标注
+
+    // 🛡️ 核心改变：拿全局有效的收藏集合，而不是针对某个 bookId 去拿
+    const favoriteSet = this.getGlobalFavoriteSet();
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+    const now = Date.now();
+
+    const review = marks
+      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id))
+      .map(x => sentences.find(s => s._id === x.sentenceId))
+      .filter((x): x is Sentence => !!x);
+
+    const reviewIds = new Set(review.map(x => x._id));
+
+    const fresh = sentences
+      .filter(x => !markMap.has(x._id) && !reviewIds.has(x._id))
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || a._id.localeCompare(b._id));
+
+    const list = [...review, ...fresh]
+      .slice(0, targetCount)
+      .map(sentence => ({
+        ...sentence,
+        isFavorite: favoriteSet.has(sentence._id), // ✅ 无论在哪个收藏夹，只要收藏了就是 true
+        mark: markMap.get(sentence._id)
+      }));
+
+    return list;
+  }
+
+  async syncAll(bookId: string): Promise<number> {
+    let cursor = sentenceStore.getCursor(bookId);
+    let total = 0;
+
+    while (true) {
+      const res = await callCloudFunction<{ list: Sentence[]; nextCursor: number; hasMore: boolean }>(
+        cloudFunctionName.syncSentence,
+        { bookId, cursor, limit: 100 }
+      );
+
+      sentenceStore.saveBatch(bookId, res.list, res.nextCursor, res.hasMore);
+      total += res.list.length;
+      cursor = res.nextCursor;
+
+      if (!res.hasMore) break;
+    }
+
+    const playList = this.buildLocalPlayList(bookId, 50);
+    sentencePlayManager.replace(playList);
+    console.log('播放队列长度：', sentencePlayManager.queueLength);
+    eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
+    return total;
+  }
+
+  async createSentence( data: Partial<Sentence>): Promise<Sentence> {
+    const res = await callCloudFunction(
       cloudFunctionName.createSentence,
       data
-    )
-    return res.sentenceId
-  }
-
-  /**
-   * 跨词书搜索句子（中文或英文，模糊匹配）
-   */
-  async searchSentences(keyword: string): Promise<Sentence[]> {
-    return callCloudFunction(cloudFunctionName.searchSentences, { keyword })
-  }
-
-  /**
-   * 获取指定词书/收藏夹中的句子列表
-   * @param bookId 词书ID（可以是系统收藏夹 fav_${_openid}，也可以是自建词书ID）
-   * @param page 页码（可选，用于分页）
-   * @param pageSize 每页条数（可选，默认 20）
-   */
-  async getFavoriteSentences(bookId: string, page = 1, pageSize = 20): Promise<FavoriteSentenceResult> {
-    return callCloudFunction<FavoriteSentenceResult>(
-      cloudFunctionName.getFavoriteSentences, // 确保你的 enum 中定义了对应的云函数名
-      { bookId, page, pageSize }
     );
+    return res as Sentence;
+  }
+
+  async searchSentences(keyword: string): Promise<Sentence[]> {
+    return callCloudFunction(cloudFunctionName.searchSentences, { keyword });
   }
 
   /**
-   * @param sentenceId 句子ID
-   * @param patch 待更新的字段
-   * @param bookId 词书ID（选填）
+   * 获取引用书/收藏夹中的句子列表（支持跨实体书查找）
    */
-  async upsertMark(
-    sentenceId: string,
-    patch: Partial<SentenceMark> = {},
-    bookId: string = ''
-  ) {
-    if (!sentenceId) {
-      throw new Error('sentenceId 不能为空');
-    }
+  async getFavoriteSentences(refBookId: string): Promise<Sentence[]> {
+    // 1. 拿到引用书分片下的所有收藏记录
+    const favorites = sync.favStore.get(refBookId);
+    const activeFavorites = favorites.filter(x => !x.deleted);
 
-    const db = wx.cloud.database();
-    const collection = db.collection('sentenceMark');
+    if (activeFavorites.length === 0) return [];
 
-    // 小程序端使用 set 时，云数据库安全性机制会自动在写入时绑定当前用户的 _openid
-    // 但 ID 规则仍与云函数保持一致：${_openid}__${sentenceId}
-    // 注：在前端 SDK 中，可通过 wx.cloud.database() 提供的全局机制或通过本地存储获取 _openid，
-    // 如果没有全局 _openid，可以直接使用 docId 格式，或查询已有记录。
-    const now = Date.now();
-    try {
-      // 1. 先尝试 update（最轻量，只更新传入的 patch 字段和 updatedAt）
-      // 注意：在前端 SDK 中，如果记录不存在，update 会抛出 404 异常
-      // 我们可以用 collection.where({ sentenceId }).get() 或直接 update 捕获
+    // 2. 收集需要查找的 sentenceId
+    const targetIds = activeFavorites.map(f => f.sentenceId);
 
-      // 简练高效的做法：先查一次旧记录，保证 `id` 格式或保持字段默认值
-      // 如果你的 sentenceMark 在前端可以根据 _id 直接定位：
-      // 因为 _id 依赖 OPENID，前端没有 OPENID 时，推荐按 (sentenceId + bookId) 查询或使用 doc 规则
+    // 3. 利用批量查找接口直接一次性查出所有句子对象
+    const sentenceMap = sentenceStore.findMany(targetIds);
+    const favoriteSet = this.getGlobalFavoriteSet();
 
-      const queryRes = await collection.where({ sentenceId }).get();
+    const list = activeFavorites
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map(fav => {
+        const sentence = sentenceMap.get(fav.sentenceId);
+        if (!sentence) return null;
 
-      if (queryRes.data && queryRes.data.length > 0) {
-        // 记录已存在 -> 执行更新
-        const docId = queryRes.data[0]._id as string;
-        await collection.doc(docId).update({
-          data: {
-            ...patch,
-            updatedAt: now
-          }
-        });
+        // 获取句子所属实体书的标注
+        const marks = sync.markStore.get(sentence.bookId);
+        const markMap = new Map(marks.map(x => [x.sentenceId, x]));
 
-        return { success: true, id: docId, action: 'update' };
-      } else {
-        // 记录不存在 -> 执行创建
-        // 不传 _id 时云数据库会自动生成，也可以指定自定义 _id
-        const newDoc = {
-          sentenceId,
-          bookId,
-          favorite: false,
-          stage: 0,
-          nextReviewAt: 0,
-          createdAt: now,
-          updatedAt: now,
-          ...patch
+        return {
+          ...sentence,
+          mark: markMap.get(sentence._id) || null,
+          isFavorite: favoriteSet.has(sentence._id),
+          favCreatedAt: fav.updatedAt
         };
+      })
 
-        const addRes = await collection.add({
-          data: newDoc
-        });
-
-        return { success: true, id: addRes._id, action: 'create' };
-      }
-    } catch (err: any) {
-      console.error('[upsertMark Error]:', err);
-      throw err;
-    }
+    return list as Sentence[];
+  }
+  /**
+   * 更新标记
+   */
+  upsertMark(sentenceId: string, patch: Partial<SentenceMark> = {}, bookId: string) {
+    // ✅ 使用 sync.markStore，避免重新 new 导致实例错位
+    this.upsert(sync.markStore, sentenceId, bookId, patch);
   }
 
   /**
    * 切换收藏状态
+   * @param targetFavoriteState 目标状态：true 为要收藏，false 为要取消收藏
    */
-  async toggleFavorite(
-    sentenceId: string,
-    favoriteBookId: string
-  ): Promise<ToggleFavoriteResult> {
-    const db = wx.cloud.database();
-    const collection = db.collection(CollectionName.sentenceFavorite);
+  toggleFavorite(sentenceId: string, bookId: string, targetFavoriteState: boolean) {
+    // ✅ 使用 sync.favStore，且 deleted = !targetFavoriteState
+    console.log('fav写入时的 bookId:', bookId);
+    this.upsert(sync.favStore, sentenceId, bookId, { deleted: !targetFavoriteState });
+  }
 
-    // 拼装防重主键 ID: ${bookId}__${sentenceId}
-    const docId = `${favoriteBookId}__${sentenceId}`;
-    const docRef = collection.doc(docId);
-
-    try {
-      // 1. 查询该记录是否存在
-      const res = await docRef.get().catch(() => null);
-
-      if (res && res.data) {
-        // 2. 存在 -> 删掉 (取消收藏)
-        await docRef.remove();
-        return {
-          isFavorite: false,
-          sentenceId,
-          bookId: favoriteBookId
-        };
-      } else {
-        // 3. 不存在 -> 插入 (添加收藏)
-        // 在前端直接写入时，云数据库会自动把当前用户的 _openid 加到 doc 属性中
-        await collection.add({
-          data: {
-            _id: docId,
-            bookId: favoriteBookId,
-            sentenceId,
-            createdAt: Date.now()
-          }
-        });
-
-        return {
-          isFavorite: true,
-          sentenceId,
-          bookId: favoriteBookId
-        };
-      }
-    } catch (err: any) {
-      console.error('[toggleFavorite Error]:', err);
-      wx.showToast({
-        title: '操作收藏失败',
-        icon: 'none'
-      });
-      throw err;
+  private upsert(store: any, sentenceId: string, bookId: string, data: any) {
+    const _openid = (getApp() as IAppOption).globalData._openid;
+    if (!_openid) {
+      throw new Error('_openid 尚未获取，请确保已登录或完成获取');
     }
+
+    const _id = `${_openid}__${sentenceId}`;
+    const now = Date.now();
+
+    const existing = store.find(_id);
+
+    const merged = {
+      ...(existing || {}),
+      ...data,
+      _id: existing?._id || _id,
+      _openid: existing?._openid || _openid,
+      sentenceId: sentenceId,
+      bookId: bookId || existing?.bookId,
+      updatedAt: now,
+    };
+
+    if (!merged.bookId) {
+      console.warn('[upsert] 缺少 bookId，跳过本地缓存', _id);
+    } else {
+      store.upsert(merged);
+    }
+
+    const meta = store.getMeta();
+    meta.pendingQueue.push({
+      op: 'upsert',
+      data: merged,
+      retry: 0,
+      ts: now,
+    });
+    store.saveMeta(meta);
+
+    sync.flushQueue(store).catch((err) =>
+      console.error('[sync] flushPendingQueue 异常', err)
+    );
   }
 }
-const sentenceService = new SentenceService()
-export default sentenceService
+
+const sentenceService = new SentenceService();
+export default sentenceService;

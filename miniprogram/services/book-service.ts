@@ -10,7 +10,7 @@ export class BookService {
   async getBooks(): Promise<Book[]> {
     if (this.booksCache === null) {
       this.booksCache = await callCloudFunction(cloudFunctionName.getBooks, {});
-      console.log(this.booksCache)
+      // console.log(this.booksCache)
     }
     return this.booksCache || [];
   }

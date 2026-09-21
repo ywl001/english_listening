@@ -2,8 +2,6 @@ import { Pages } from "../../enums/app-enums";
 import { AppEvent } from "../../services/event-type";
 import eventBus from "../../services/EventBus";
 import sentencePlayManager from "../../services/sentence-play-manager";
-import sentenceService from "../../services/sentence-service";
-import { initManagerAndNavigate } from "../../utils/sentenceUtils";
 
 
 const audioCtx = wx.createInnerAudioContext();
@@ -18,6 +16,7 @@ Page({
     // hasMore: true,
     // loading: false,
     bookId: '',
+    bookName: '',
 
     // 全部播放控制状态
     isPlayingAll: false,
@@ -38,24 +37,25 @@ Page({
 
   onLoad(options: { bookName: string, bookId: string }) {
     const bookId = options.bookId || '';
-    console.log(sentencePlayManager.sentenceList)
-    
+    const bookName = options.bookName || ''
+
     this.setData(
       {
         sentenceList: sentencePlayManager.sentenceList,
         bookId,
+        bookName,
         displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
       }
     );
-    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST,this.refreshData)
+    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST, this.refreshData)
   },
 
   onUnload() {
     audioCtx.stop();
-    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST,this.refreshData)
+    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST, this.refreshData)
   },
 
-  refreshData(){
+  refreshData() {
     this.setData({
       sentenceList: sentencePlayManager.sentenceList,
       displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
@@ -106,7 +106,7 @@ Page({
 
   // 触发全部播放/暂停
   togglePlayAll() {
-    wx.navigateTo({url:Pages.sentencePlay})
+    wx.navigateTo({ url: Pages.sentencePlay })
   },
 
   // 播放指定索引位置的句子音频
@@ -120,16 +120,8 @@ Page({
 
   // 真正的添加逻辑（从 touchend 调用）
   onAddSentence() {
-    wx.showModal({
-      title: '添加新句子',
-      editable: true,
-      placeholderText: '请输入英文句子',
-      success: (res) => {
-        if (res.confirm && res.content) {
-          console.log('用户输入：', res.content);
-          // TODO: 调用添加接口
-        }
-      }
-    });
-  },
+    console.log('sentence list data:', this.data)
+    const url = `${Pages.sentenceInput}?bookId=${this.data.bookId}&bookName=${this.data.bookName}`
+    wx.navigateTo({ url })
+  }
 });

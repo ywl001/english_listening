@@ -26,15 +26,14 @@ export function initSentenceEventListeners() {
   // 1. 监听收藏事件
   eventBus.on(AppEvent.FAVORITE_SENTENCE, async (payload: FavoritePayload) => {
     try {
-      console.log('listener payload:',payload)
+      console.log('listener payload:', payload)
       const app = getApp<IAppOption>();
       const favoriteBookId = app?.globalData?.favoriteBookId as string;
 
-      
-      const res = await sentenceService.toggleFavorite(payload.sentenceId, favoriteBookId);
+      sentenceService.toggleFavorite(payload.sentenceId, favoriteBookId, payload.isFavorite);
       // 同步回管理器队列
-      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: res.isFavorite });
-      if(sentencePlayManager.bookId === favoriteBookId && payload.isFavorite === false){
+      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: payload.isFavorite });
+      if (sentencePlayManager.bookId === favoriteBookId && payload.isFavorite === false) {
         console.log('收藏列表删除数据了')
         sentencePlayManager.removeSentence(payload.sentenceId)
         eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
@@ -50,7 +49,7 @@ export function initSentenceEventListeners() {
   // 2. 监听掌握/标记事件
   eventBus.on(AppEvent.MARK_SENTENCE, async (payload: MarkPayload) => {
     try {
-      const nextStage = payload.currentStage + 1;
+      const nextStage = payload.currentStage < 8 ? payload.currentStage + 1 : 8;
       const nextReviewAt = calculateNextReviewAt(payload.currentStage);
 
       const updatedMark = {
@@ -66,7 +65,7 @@ export function initSentenceEventListeners() {
       await sentenceService.upsertMark(
         payload.sentenceId,
         { stage: nextStage, nextReviewAt },
-        payload.bookId
+        sentencePlayManager.bookId
       );
     } catch (err) {
       console.error('[EventListener] 标记更新失败:', err);

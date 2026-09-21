@@ -1,6 +1,14 @@
 export const db = wx.cloud.database()
 
-
+/**
+ * 统一处理小程序端接口返回结果
+ */
+export function handleDbResponse<T>(result: ApiResponse<T>): T {
+    if (result.code !== 0) {
+      throw new Error(result.msg || '接口调用失败')
+    }
+    return result.data
+}
 
 export async function dbRequest<T>(request: Promise<T>, errorMsg = '数据库操作失败'): Promise<T> {
   try {

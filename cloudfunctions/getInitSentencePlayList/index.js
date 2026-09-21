@@ -298,12 +298,7 @@ exports.main = async event => {
       code: 0,
       msg: 'success',
       data: {
-        list,
-        nextCursor: {
-          reviewCursor: review.nextCursor,
-          newSentenceCursor: fresh.nextCursor
-        },
-        hasMore: review.hasMore || fresh.hasMore
+        list
       }
     }
   } catch (err) {

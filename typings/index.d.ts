@@ -8,11 +8,15 @@ interface IAppOption {
     favoriteBookId?: string;
     originBookId?: string
   }
-  userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback,
+
+  userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback
+  openidReady:Promise<void>
 
   getPlayConfig(): PlayConfig
   ensureUserBook(): void
   updatePlayConfig(config: Partial<PlayConfig>): void
+
+  initOpenid():void
 }
 
 
@@ -49,21 +53,31 @@ interface Sentence {
 }
 
 interface SentenceMark {
-  _id?: string
+  _id: string
   _openid?: string
-  bookId?: string
+  bookId: string
   sentenceId: string
-  // favorite: boolean
-  stage?: number
-  lastReviewedAt?: number
-  nextReviewAt?: number
+  stage: number
+  lastReviewedAt: number
+  nextReviewAt: number
+  // createdAt:number
+  updatedAt: number
 }
 
 interface SentenceFavorite {
   _id: string
   _openid: string
+  sentenceId: string
   bookId: string
-  createdAt: number
+  // createdAt: number
+  updatedAt: number
+  deleted: boolean
+}
+
+// 本地离线待推送队列接口定义
+interface PendingAction {
+  type: 'mark' | 'favorite_add' | 'favorite_remove';
+  payload: any;
 }
 
 interface ToggleFavoriteResult {
@@ -104,6 +118,13 @@ interface SentenceStats {
   mastered: number;  // 已会/已精通 (stage === 5)
   dueCount: number;  // 当前到期需复习句数
   favorite: number;  // 收藏句数
+}
+
+interface SyncCloudResponse {
+  success: boolean;
+  marks?: SentenceMark[];
+  favorites?: SentenceFavorite[];
+  error?: any;
 }
 
 
@@ -167,8 +188,8 @@ interface Book {
 
 interface ApiResponse<T = any> {
   code: number;     // 0 代表成功，非 0 代表失败
-  data: T | null;   // 成功时的数据 Payload
-  message: string;  // 错误提示或成功描述
+  data: T;   // 成功时的数据 Payload
+  msg: string;  // 错误提示或成功描述
 }
 
 interface GetMarksParams {
@@ -204,3 +225,41 @@ interface ApiFail {
 }
 
 type ApiResult<T> = ApiSuccess<T> | ApiFail
+
+interface MarkIndex {
+  bookIds: string[];
+  total: number;
+}
+interface PendingTask<T> {
+  op:string
+  data: T;
+  retry: number;
+  ts: number;
+}
+
+interface SyncMeta<T> {
+  cursor: number;
+  pendingQueue: PendingTask<T>[];
+}
+
+interface SentenceCache {
+  list: Sentence[]
+  cursor: number
+  completed: boolean
+  updatedAt: number
+}
+
+interface SentenceCache {
+  list: Sentence[]
+  cursor: number
+  completed: boolean
+  updatedAt: number
+}
+
+// interface LocalStoreOptions<T> {
+//   prefix: string;              // 分片 key 前缀：'marks' / 'favs'
+//   metaKey: string;             // 游标+队列的存储 key
+//   keyOf: (item: T) => string;  // 分片内唯一标识
+//   timeOf: (item: T) => number; // 新旧比较依据（旧的不会覆盖新的）
+//   bookIdOf: (item: T) => string;
+// }

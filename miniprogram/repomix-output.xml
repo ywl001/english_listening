@@ -1,0 +1,3838 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+components/
+  book-create/
+    book-create.json
+    book-create.ts
+    book-create.wxml
+    book-create.wxss
+  playback-settings-modal/
+    playback-settings-modal.json
+    playback-settings-modal.ts
+    playback-settings-modal.wxml
+    playback-settings-modal.wxss
+  sentence-book-card/
+    sentence-book-card.json
+    sentence-book-card.ts
+    sentence-book-card.wxml
+    sentence-book-card.wxss
+  sentence-play-card/
+    sentence-play-card.json
+    sentence-play-card.ts
+    sentence-play-card.wxml
+    sentence-play-card.wxss
+enums/
+  app-enums.ts
+pages/
+  index/
+    index.json
+    index.ts
+    index.wxml
+    index.wxss
+  sentence-book-list/
+    sentence-book-list.json
+    sentence-book-list.ts
+    sentence-book-list.wxml
+    sentence-book-list.wxss
+  sentence-list/
+    sentence-list.json
+    sentence-list.ts
+    sentence-list.wxml
+    sentence-list.wxss
+  sentence-play/
+    sentence-play.json
+    sentence-play.ts
+    sentence-play.wxml
+    sentence-play.wxss
+services/
+  article-service.ts
+  book-service.ts
+  cloud-client.ts
+  cloud-service.ts
+  event-type.ts
+  EventBus.ts
+  sentence-listener.ts
+  sentence-play-engine.ts
+  sentence-play-manager.ts
+  sentence-service.ts
+  translate-service.ts
+  tts-service.ts
+utils/
+  dbHelper.ts
+  local-store.ts
+  sentenceStore.ts
+  sentenceUtils.ts
+  sync.ts
+  util.ts
+app.json
+app.ts
+app.wxss
+package.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="components/book-create/book-create.json">
+{
+  "component": true,
+  "usingComponents": {
+    "van-button": "@vant/weapp/button/index",
+    "van-field": "@vant/weapp/field/index",
+    "van-action-sheet": "@vant/weapp/action-sheet/index"
+  }
+}
+</file>
+
+<file path="components/book-create/book-create.ts">
+Component({
+  properties:{
+    visible:{
+      type:Boolean,
+      value:false
+    },
+    name:{
+      type:String,
+      value:''
+    }
+  },
+
+  methods: {
+    onNameChange(e: WechatMiniprogram.CustomEvent) {
+      this.setData({ name: e.detail })
+    },
+
+    onClose() {
+      this.setData({ visible: false })
+      this.triggerEvent('close')
+    },
+
+    onConfirm() {
+      const name = this.data.name.trim()
+
+      if (!name) {
+        wx.showToast({ title: '请输入书名', icon: 'none' })
+        return
+      }
+
+      this.triggerEvent('confirm', { name })
+      this.setData({ visible: false, name: '' })
+    }
+  }
+})
+</file>
+
+<file path="components/book-create/book-create.wxml">
+<van-action-sheet show="{{visible}}" title="新建句子书" bind:close="onClose">
+  <view class="form">
+    <van-field value="{{name}}" label="书名" placeholder="请输入书名" maxlength="30" bind:change="onNameChange" />
+
+    <van-button type="primary" block bind:tap="onConfirm">
+      确定
+    </van-button>
+  </view>
+</van-action-sheet>
+</file>
+
+<file path="components/book-create/book-create.wxss">
+.form {
+  display: flex;
+  flex-direction: column;
+  gap:50rpx;
+}
+
+.form van-button {
+  margin-top: 40rpx;
+}
+</file>
+
+<file path="components/playback-settings-modal/playback-settings-modal.json">
+{
+  "component": true,
+  "usingComponents": {}
+}
+</file>
+
+<file path="components/playback-settings-modal/playback-settings-modal.ts">
+Component({
+  properties: {
+    visible: {
+      type: Boolean,
+      value: false
+    },
+    settings: {
+      type: Object,
+      value: { order: 'EN_ZH', count: 10, repeatCount: 2, interval: 2 }
+    }
+  },
+
+  methods: {
+    onClose() {
+      this.triggerEvent('close');
+    },
+
+    onSelect(e: WechatMiniprogram.TouchEvent) {
+      const { key, value } = e.currentTarget.dataset;
+      this.setData({
+        [`settings.${key}`]: value
+      });
+    },
+
+    onSave() {
+      this.triggerEvent('save', this.data.settings);
+    }
+  }
+});
+</file>
+
+<file path="components/playback-settings-modal/playback-settings-modal.wxml">
+<view class="modal-wrapper {{visible ? 'show' : ''}}">
+  <!-- 遮罩层 -->
+  <view class="mask" bindtap="onClose"></view>
+  
+  <!-- 底部抽屉主体 -->
+  <view class="drawer">
+    <view class="drawer-header">
+      <text class="drawer-title">听句子播放设置</text>
+      <text class="close-btn" bindtap="onClose">✕</text>
+    </view>
+
+    <scroll-view scroll-y class="drawer-content">
+      <!-- 播放顺序 -->
+      <view class="setting-group">
+        <text class="group-title">播放顺序</text>
+        <view class="segment">
+          <view 
+            class="segment-item {{settings.order === 'EN_ZH' ? 'active' : ''}}"
+            bindtap="onSelect" data-key="order" data-value="EN_ZH"
+          >先英后中</view>
+          <view 
+            class="segment-item {{settings.order === 'ZH_EN' ? 'active' : ''}}"
+            bindtap="onSelect" data-key="order" data-value="ZH_EN"
+          >先中后英</view>
+        </view>
+      </view>
+
+      <!-- 单次播放条数 -->
+      <view class="setting-group">
+        <text class="group-title">单次播放条数</text>
+        <view class="options-grid">
+          <block wx:for="{{[5, 10, 20, 50]}}" wx:key="*this">
+            <view 
+              class="option-card {{settings.count === item ? 'active' : ''}}"
+              bindtap="onSelect" data-key="count" data-value="{{item}}"
+            >{{item}}条</view>
+          </block>
+        </view>
+      </view>
+
+      <!-- 英文重复次数 -->
+      <view class="setting-group">
+        <text class="group-title">英文重复次数</text>
+        <view class="options-grid">
+          <block wx:for="{{[1, 2, 3, 5]}}" wx:key="*this">
+            <view 
+              class="option-card {{settings.repeatCount === item ? 'active' : ''}}"
+              bindtap="onSelect" data-key="repeatCount" data-value="{{item}}"
+            >{{item}}次</view>
+          </block>
+        </view>
+      </view>
+
+      <!-- 句子间隔时间 -->
+      <view class="setting-group">
+        <text class="group-title">句子间隔时间</text>
+        <view class="options-grid">
+          <block wx:for="{{[1, 2, 3, 5]}}" wx:key="*this">
+            <view 
+              class="option-card {{settings.interval === item ? 'active' : ''}}"
+              bindtap="onSelect" data-key="interval" data-value="{{item}}"
+            >{{item}}秒</view>
+          </block>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="drawer-footer">
+      <button class="save-btn" bindtap="onSave">保存并应用</button>
+    </view>
+  </view>
+</view>
+</file>
+
+<file path="components/playback-settings-modal/playback-settings-modal.wxss">
+/* 组件私有样式，绝对隔离 */
+.modal-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.modal-wrapper.show {
+  visibility: visible;
+  opacity: 1;
+}
+
+.mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #FFFFFF;
+  border-top-left-radius: 32rpx;
+  border-top-right-radius: 32rpx;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  padding: 32rpx 32rpx env(safe-area-inset-bottom);
+}
+
+.modal-wrapper.show .drawer {
+  transform: translateY(0);
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.drawer-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #1A202C;
+}
+
+.close-btn {
+  font-size: 36rpx;
+  color: #A0AEC0;
+  padding: 10rpx;
+}
+
+.drawer-content {
+  max-height: 55vh;
+  padding: 24rpx 0;
+}
+
+.setting-group {
+  margin-bottom: 32rpx;
+}
+
+.group-title {
+  font-size: 26rpx;
+  color: #718096;
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+/* 分段按钮 */
+.segment {
+  display: flex;
+  background-color: #EDF2F7;
+  border-radius: 16rpx;
+  padding: 6rpx;
+}
+
+.segment-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #4A5568;
+  border-radius: 12rpx;
+  transition: all 0.2s;
+}
+
+.segment-item.active {
+  background-color: #FFFFFF;
+  color: #2B6CB0;
+  font-weight: bold;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+
+/* 网格选项框 */
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16rpx;
+}
+
+.option-card {
+  text-align: center;
+  padding: 18rpx 0;
+  background-color: #F7FAFC;
+  border: 2rpx solid #E2E8F0;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  color: #4A5568;
+}
+
+.option-card.active {
+  background-color: #EBF8FF;
+  border-color: #3182CE;
+  color: #3182CE;
+  font-weight: bold;
+}
+
+.drawer-footer {
+  padding-top: 16rpx;
+}
+
+.save-btn {
+  background-color: #2B6CB0;
+  color: #FFFFFF;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+  height: 88rpx;
+  line-height: 88rpx;
+}
+</file>
+
+<file path="components/sentence-book-card/sentence-book-card.json">
+{
+  "component": true,
+  "usingComponents": {
+    "van-swipe-cell": "@vant/weapp/swipe-cell/index"
+  }
+}
+</file>
+
+<file path="components/sentence-book-card/sentence-book-card.ts">
+Component({
+  properties: {
+    book: {
+      type: Object,
+      value: {}
+    },
+    index: {
+      type: Number,
+      value: 0
+    },
+    isUserBook: {
+      type: Boolean,
+      value: false
+    }
+  },
+
+  data: {
+    progressPercent: 0,
+    coverTheme: 'blue'
+  },
+
+  observers: {
+    'book, index': function (book, index) {
+      if (!book) return;
+      
+      // 1. 计算进度百分比
+      const learned = book.learnedCount || 0;
+      const total = book.count || 1; // 防止除以 0
+      const percent = Math.min(Math.round((learned / total) * 100), 100);
+
+      // 2. 根据 index 循环分配颜色主题
+      const themes = ['blue', 'green', 'orange'];
+      const theme = themes[index % themes.length];
+
+      this.setData({
+        progressPercent: percent,
+        coverTheme: theme
+      });
+    }
+  },
+
+  methods: {
+    onTap() {
+      this.triggerEvent('tapcard', { book: this.data.book });
+    },
+
+    onEdit() {
+      this.triggerEvent('edit', { book: this.data.book });
+    },
+
+    onDelete() {
+      this.triggerEvent('delete', { book: this.data.book });
+    }
+  }
+});
+</file>
+
+<file path="components/sentence-book-card/sentence-book-card.wxml">
+<van-swipe-cell right-width="{{70}}" disabled="{{!book.isCustom}}">
+  <view class="book-card" bindtap="onTap">
+    <view class="cover {{coverTheme}}">
+      <text class="cover-title">{{book.name}}</text>
+    </view>
+
+    <view class="info">
+      <view class="title-row">
+        <text class="title">{{book.name}}</text>
+        <view class="action-icons" wx:if="{{isUserBook}}">
+        </view>
+      </view>
+
+      <view class="meta">
+        <text>{{book.learnedCount || 0}} / {{book.count || 0}} sentences</text>
+        <text class="tag" wx:if="{{!isUserBook}}">官方</text>
+      </view>
+
+      <view class="progress-bar-bg">
+        <view class="progress-bar-fill" style="width: {{progressPercent}}"></view>
+      </view>
+    </view>
+
+    <text class="arrow">›</text>
+  </view>
+
+  <view wx:if="{{isUserBook}}" slot="right" class="delete-btn" catchtap="onDelete">
+    删除
+  </view>
+</van-swipe-cell>
+</file>
+
+<file path="components/sentence-book-card/sentence-book-card.wxss">
+.book-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 28rpx 30rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.cover {
+  width: 90rpx;
+  height: 100rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx;
+  margin-right: 24rpx;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.cover.blue { background: linear-gradient(135deg, #3182CE, #2B6CB0); }
+.cover.green { background: linear-gradient(135deg, #38A169, #2F855A); }
+.cover.orange { background: linear-gradient(135deg, #DD6B20, #C05621); }
+
+.cover-title {
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.info {
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #2D3748;
+}
+
+.action-icons {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-icons .icon {
+  font-size: 26rpx;
+  opacity: 0.6;
+  padding: 4rpx;
+}
+
+.info .meta {
+  font-size: 24rpx;
+  color: #718096;
+  margin-bottom: 12rpx;
+  display: flex;
+  align-items: center;
+}
+
+.info .tag {
+  background: #EDF2F7;
+  color: #718096;
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  margin-left: 12rpx;
+}
+
+/* 进度条轨道与填充 */
+.progress-bar-bg {
+  width: 100%;
+  height: 10rpx;
+  background-color: #EDF2F7;
+  border-radius: 10rpx;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #2B6CB0;
+  border-radius: 10rpx;
+  transition: width 0.3s ease;
+}
+
+.arrow {
+  color: #CBD5E0;
+  font-size: 32rpx;
+  flex-shrink: 0;
+}
+
+.delete-btn {
+  width: 70px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ee0a24;
+  color: #fff;
+}
+</file>
+
+<file path="components/sentence-play-card/sentence-play-card.json">
+{
+  "component": true,
+  "usingComponents": {}
+}
+</file>
+
+<file path="components/sentence-play-card/sentence-play-card.ts">
+Component({
+  properties: {
+    sentence: {
+      type: Object,
+      value: {}
+    },
+    hideZh: {
+      type: Boolean,
+      value: false
+    },
+    isFavorite: {
+      type: Boolean,
+      value: false
+    },
+    isLearned: {
+      type: Boolean,
+      value: false
+    },
+    stage: {
+      type: Number,
+      value: 0
+    }
+  },
+
+  methods: {
+    onTapFavorite() {
+      this.triggerEvent('toggleFavorite', { sentence: this.properties.sentence });
+    },
+    onTapMastered() {
+      this.triggerEvent('toggleMastered', { sentence: this.properties.sentence });
+    }
+  }
+});
+</file>
+
+<file path="components/sentence-play-card/sentence-play-card.wxml">
+<view class="main-card">
+  <!-- 内容主区域（占满大部分高度） -->
+  <view class="card-content">
+    <!-- 英文区域 -->
+    <view class="card-section">
+      <text class="lang-tag">EN</text>
+      <text class="sentence-en">{{sentence.en || 'Life is like a box of chocolates.'}}</text>
+    </view>
+
+    <!-- 中间分隔线 -->
+    <view class="divider">
+      <view class="line"></view>
+      <text class="divider-icon">//</text>
+      <view class="line"></view>
+    </view>
+
+    <!-- 中文区域 -->
+    <view class="card-section">
+      <text class="lang-tag">ZH</text>
+      <text class="sentence-zh {{hideZh ? 'hidden' : ''}}">{{sentence.zh || '生活就像一盒巧克力。'}}</text>
+    </view>
+  </view>
+
+  <!-- 底部新增按钮区域 -->
+  <view class="card-actions">
+    <view class="action-btn {{isFavorite ? 'active' : ''}}" catchtap="onTapFavorite">
+      <text class="action-text">收藏</text>
+    </view>
+    <view class="action-btn {{ stage > 0 ? 'active' : ''}}" catchtap="onTapMastered">
+      <text class="action-text">已会{{stage > 0 ? '+' + stage : ''}}</text>
+    </view>
+  </view>
+</view>
+</file>
+
+<file path="components/sentence-play-card/sentence-play-card.wxss">
+/* 修改宿主节点的默认行为 */
+:host {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.main-card {
+  width: 100%;
+  height: 100%;
+  background: rgb(247, 255, 255);
+  border-radius: 36rpx;
+  padding: 40rpx 40rpx 30rpx 40rpx;
+  box-sizing: border-box;
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* 内容主体撑开顶部空间 */
+.card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.card-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  justify-content: center;
+}
+
+.lang-tag {
+  font-size: 24rpx;
+  color: #A0AEC0;
+  font-weight: 700;
+  margin-bottom: 24rpx;
+  letter-spacing: 3rpx;
+}
+
+.sentence-en {
+  font-size: 64rpx;
+  font-weight: 800;
+  color: #1A202C;
+  text-align: center;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.sentence-zh {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #2D3748;
+  text-align: center;
+  line-height: 1.5;
+  transition: opacity 0.2s ease;
+}
+
+.sentence-zh.hidden {
+  opacity: 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70%;
+  margin: 20rpx 0;
+  flex-shrink: 0;
+}
+
+.divider .line {
+  flex: 1;
+  height: 2rpx;
+  background-color: #EDF2F7;
+}
+
+.divider-icon {
+  font-size: 26rpx;
+  color: #CBD5E0;
+  margin: 0 24rpx;
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* 新增底部按钮组区域 */
+.card-actions {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  padding-top: 100rpx;
+  border-top: 1rpx solid #F7FAFC;
+}
+
+.action-btn {
+  padding: 14rpx 40rpx;
+  background-color: #F7FAFC;
+  border-radius: 30rpx;
+  border: 1rpx solid #E2E8F0;
+  transition: all 0.2s ease;
+}
+
+.action-btn.active {
+  background-color: #EBF8FF;
+  border-color: #3182CE;
+}
+
+.action-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #4A5568;
+}
+
+.action-btn.active .action-text {
+  color: #2B6CB0;
+}
+</file>
+
+<file path="enums/app-enums.ts">
+export enum LocalStorageKey {
+  // progress_sequence = 'progress',
+  // Progress_favorite = 'favorite',
+  // progress_test = 'progress_test'
+
+  PREMIX_MARK = 'mark',
+  META_MARK = 'mark_meta',
+  PREMIX_FAV = 'fav',
+  META_FAV = 'fav'
+}
+
+export enum BookType {
+  sentence = 'sentence',
+  article = 'article'
+}
+
+export enum Pages {
+  sentenceBookList = '/pages/sentence-book-list/sentence-book-list',
+  index = "/pages/index/index",
+  sentencePlay = '/pages/sentence-play/sentence-play',
+  testPage = '/pages/test-page/test-page',
+  sentenceList = '/pages/sentence-list/sentence-list'
+}
+
+export enum cloudFunctionName {
+  edgeTts = 'edgeTts',
+  getOpenId = 'getOpenId',
+  translate = 'translate',
+  getBooks = 'getBooks',
+  getBookSentence = 'getBookSentence',
+  getArticles = 'getArticles',
+  getArticleSentences = 'getArticleSentences',
+  createBook = 'createBook',
+  searchSentences = 'searchSentences',
+  addSentenceToBook = 'addSentenceToBook',
+  ensureUserBook = 'ensureUserBook',
+  createSentence = 'createSentence',
+  getSentencePlayList = 'getSentencePlayList',
+  getFavoriteSentences = 'getFavoriteSentences',
+  syncUserData= 'syncUserData',
+  syncSentence= 'syncSentence'
+}
+
+export enum CollectionName{
+  book = 'book',
+  sentence = 'sentence',
+  sentenceMark = 'sentenceMark',
+  sentenceFavorite = 'sentenceFavorite',
+  article = 'article',
+  articleSentence = 'articleSentence'
+}
+</file>
+
+<file path="pages/index/index.json">
+{
+  "usingComponents": {
+  }
+}
+</file>
+
+<file path="pages/index/index.ts">
+import { cloudFunctionName } from "../../enums/app-enums"
+import { callCloudFunction } from "../../services/cloud-client"
+
+Page({
+
+  /**
+   * 页面的初始数据
+   */
+  data: {
+
+  },
+
+  /**
+   * 生命周期函数--监听页面加载
+   */
+  async onLoad() {
+    console.time("myTimer");
+    const res = await callCloudFunction(cloudFunctionName.syncSentence,{bookId:'f9ecc4af6a98d6fa05ab454f5e9f84fc'})
+
+    console.log(res)
+
+    console.timeEnd("myTimer");
+  },
+
+
+
+  /**
+   * 生命周期函数--监听页面初次渲染完成
+   */
+  onReady() {
+
+  },
+
+  /**
+   * 生命周期函数--监听页面显示
+   */
+  onShow() {
+
+  },
+
+  /**
+   * 生命周期函数--监听页面隐藏
+   */
+  onHide() {
+
+  },
+
+  /**
+   * 生命周期函数--监听页面卸载
+   */
+  onUnload() {
+
+  },
+
+  /**
+   * 页面相关事件处理函数--监听用户下拉动作
+   */
+  onPullDownRefresh() {
+
+  },
+
+  /**
+   * 页面上拉触底事件的处理函数
+   */
+  onReachBottom() {
+
+  },
+
+  /**
+   * 用户点击右上角分享
+   */
+  onShareAppMessage() {
+
+  }
+})
+</file>
+
+<file path="pages/index/index.wxml">
+<!--pages/index/index.wxml-->
+<van-button type="default">默认按钮</van-button>
+<van-button type="primary">主要按钮</van-button>
+</file>
+
+<file path="pages/index/index.wxss">
+/* pages/index/index.wxss */
+</file>
+
+<file path="pages/sentence-book-list/sentence-book-list.json">
+{
+  "usingComponents": {
+    "playback-settings-modal": "/components/playback-settings-modal/playback-settings-modal",
+    "sentence-book-card": "/components/sentence-book-card/sentence-book-card",
+    "book-create":"/components/book-create/book-create"
+  }
+}
+</file>
+
+<file path="pages/sentence-book-list/sentence-book-list.ts">
+import bookService from '../../services/book-service';
+import { BookType, Pages } from '../../enums/app-enums';
+import sentenceService from '../../services/sentence-service';
+import sentencePlayManager from '../../services/sentence-play-manager';
+
+Page({
+  data: {
+    activeTab: 'system' as 'system' | 'user',
+    systemBooks: [] as Book[],
+    userBooks: [] as Book[],
+    showSettingsModal: false,
+    showBookCreate: false,
+    settings: {
+      order: 'EN_ZH',
+      count: 10,
+      repeatCount: 2,
+      interval: 2
+    }
+  },
+
+  async onLoad() {
+    const cachedSettings = wx.getStorageSync('playback_settings');
+    if (cachedSettings) {
+      this.setData({ settings: cachedSettings });
+    }
+    await getApp().openidReady;
+    this.loadData();
+  },
+
+  async loadData() {
+    console.log('book list load book')
+    const allSentenceBooks = await bookService.getSentenceBooks();
+    const userBooks = await bookService.getUserBooks();
+    const userSentenceBooks = userBooks.filter(b => b.content === BookType.sentence);
+    const _openid = getApp().globalData._openid;
+
+    this.setData({
+      systemBooks: allSentenceBooks.filter(b => b._openid !== _openid),
+      userBooks: userSentenceBooks
+    });
+  },
+
+  switchTab(e: any) {
+    this.setData({ activeTab: e.currentTarget.dataset.tab });
+  },
+
+  openSettings() {
+    this.setData({ showSettingsModal: true });
+  },
+
+  closeSettings() {
+    this.setData({ showSettingsModal: false });
+  },
+
+  handleSaveSettings(e: any) {
+    const newSettings = e.detail;
+    this.setData({
+      settings: newSettings,
+      showSettingsModal: false
+    });
+    wx.setStorageSync('playback_settings', newSettings);
+    wx.showToast({ title: '保存成功', icon: 'success' });
+  },
+
+  async onTapBook(e: any) {
+    const book: Book = e.detail.book;
+    // console.log(book)
+    wx.showLoading({ title: '获取学习列表。', mask: true })
+    let url,list
+    if (book._openid) {
+      url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
+      list = await sentenceService.getPlayList(book._id)
+    } else {
+      url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
+      list = await sentenceService.getPlayList(book._id)
+    }
+    sentencePlayManager.init(book, list)
+    wx.navigateTo({ url })
+    wx.hideLoading()
+  },
+
+  onEditBook(e: any) {
+    const { book } = e.detail;
+    console.log('编辑句子书:', book);
+  },
+
+  onDeleteBook(e: any) {
+    const { book } = e.detail;
+    wx.showModal({
+      title: '提示',
+      content: `确定要删除《${book.name}》吗？`,
+      success: (res) => {
+        if (res.confirm) {
+          console.log('执行删除:', book._id);
+        }
+      }
+    });
+  },
+
+  openCreateBook() {
+    console.log('create book')
+    this.setData({ showBookCreate: true })
+  },
+
+  async onCreateBook(e: any) {
+    const { name } = e.detail
+    const book = await bookService.createBook(name, BookType.sentence)
+    this.setData({
+      userBooks: this.data.userBooks.concat(book)
+    })
+  }
+
+});
+</file>
+
+<file path="pages/sentence-book-list/sentence-book-list.wxml">
+<view class="container">
+  <!-- 顶部 Tab 栏 -->
+  <view class="tab-header">
+    <view class="tab-group">
+      <view class="tab-item {{activeTab === 'system' ? 'active' : ''}}" bindtap="switchTab" data-tab="system">系统推荐</view>
+      <view class="tab-item {{activeTab === 'user' ? 'active' : ''}}" bindtap="switchTab" data-tab="user">用户自定义</view>
+    </view>
+
+    <view class="settings-btn" bindtap="openSettings">
+      <text class="gear-icon">⚙️</text>
+    </view>
+  </view>
+
+  <!-- 句子书列表滚动区 -->
+  <scroll-view scroll-y class="book-list">
+    <!-- 新建按钮 -->
+    <view wx:if="{{activeTab === 'user'}}" class="create-card" bindtap="openCreateBook">
+      <text class="plus">+</text>
+      <text>新建句子书</text>
+    </view>
+
+    <!-- 句子书卡片组件 -->
+    <block wx:for="{{activeTab === 'system' ? systemBooks : userBooks}}" wx:key="_id">
+      <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{activeTab === 'user'}}" bind:tapcard="onTapBook" bind:edit="onEditBook" bind:delete="onDeleteBook" />
+    </block>
+  </scroll-view>
+
+  <!-- 播放设置弹窗组件 -->
+  <playback-settings-modal visible="{{showSettingsModal}}" settings="{{settings}}" bind:close="closeSettings" bind:save="handleSaveSettings" />
+  
+  <book-create bind:confirm="onCreateBook" bind:close="closeBookCreate" visible="{{showBookCreate}}" />
+
+</view>
+</file>
+
+<file path="pages/sentence-book-list/sentence-book-list.wxss">
+/* 1. 页面基础全局重置 */
+page {
+  background-color: #F7FAFC;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 2. 顶部 Tab 栏布局 (包含 Tab 组和右侧齿轮) */
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background-color: #FFFFFF;
+  border-bottom: 1rpx solid #E2E8F0;
+  padding: 0 20rpx 0 0;
+  box-sizing: border-box;
+}
+
+/* 左侧 Tab 组：撑满左侧大比例区域 */
+.tab-group {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 10rpx 0;
+}
+
+/* 两个 Tab 选项卡：平分左侧空间 */
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  font-size: 30rpx;
+  color: #718096;
+  position: relative;
+  font-weight: 500;
+}
+
+/* Tab 间的竖线分界 */
+.tab-item:first-child {
+  border-right: 2rpx solid #E2E8F0;
+}
+
+.tab-item.active {
+  color: #2B6CB0;
+  font-weight: bold;
+}
+
+/* Tab 选中时的底部蓝条指示器 */
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -10rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80rpx;
+  height: 6rpx;
+  background-color: #2B6CB0;
+  border-radius: 4rpx;
+}
+
+/* 右侧小齿轮设置按钮 */
+.settings-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background-color: #F7FAFC;
+  margin-right: 20rpx;
+}
+
+.settings-btn:active {
+  background-color: #EDF2F7;
+}
+
+.gear-icon {
+  font-size: 30rpx;
+  color: #4A5568;
+}
+
+/* 3. 滚动容器 */
+.book-list {
+  flex: 1;
+  padding: 24rpx 30rpx 30rpx 30rpx;
+  box-sizing: border-box;
+}
+
+/* 4. 新建句子书卡片（仅留在父页面） */
+.create-card {
+  border: 2rpx dashed #3182CE;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  height: 120rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #3182CE;
+  font-size: 30rpx;
+  font-weight: bold;
+  margin-bottom: 24rpx;
+  box-sizing: border-box;
+}
+
+.create-card .plus {
+  font-size: 40rpx;
+  margin-right: 12rpx;
+  line-height: 1;
+}
+</file>
+
+<file path="pages/sentence-list/sentence-list.json">
+{
+  "navigationBarTitleText": "我的收藏",
+  "disableScroll": false,
+  "navigationBarBackgroundColor": "#F7F8FA",
+  "navigationBarTextStyle": "black",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "van-swipe-cell": "@vant/weapp/swipe-cell/index",
+    "van-button": "@vant/weapp/button/index"
+  }
+}
+</file>
+
+<file path="pages/sentence-list/sentence-list.ts">
+import { Pages } from "../../enums/app-enums";
+import { AppEvent } from "../../services/event-type";
+import eventBus from "../../services/EventBus";
+import sentencePlayManager from "../../services/sentence-play-manager";
+
+
+const audioCtx = wx.createInnerAudioContext();
+
+Page({
+  data: {
+    sentenceList: [] as Sentence[],
+    displayList: [] as Sentence[],
+    keyword: '',
+    // page: 1,
+    // pageSize: 20,
+    // hasMore: true,
+    // loading: false,
+    bookId: '',
+
+    // 全部播放控制状态
+    isPlayingAll: false,
+    currentIndex: -1,
+
+    //拖动按钮的参数
+    fabX: 20,
+    fabY: 500,
+  },
+
+  onReady() {
+    const windowInfo = (wx as any).getWindowInfo();
+    this.setData({
+      fabX: windowInfo.windowWidth - 70, // 默认靠右侧
+      fabY: windowInfo.windowHeight - 180
+    });
+  },
+
+  onLoad(options: { bookName: string, bookId: string }) {
+    const bookId = options.bookId || '';
+    console.log(sentencePlayManager.sentenceList)
+    
+    this.setData(
+      {
+        sentenceList: sentencePlayManager.sentenceList,
+        bookId,
+        displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
+      }
+    );
+    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST,this.refreshData)
+  },
+
+  onUnload() {
+    audioCtx.stop();
+    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST,this.refreshData)
+  },
+
+  refreshData(){
+    this.setData({
+      sentenceList: sentencePlayManager.sentenceList,
+      displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
+    })
+  },
+
+  // 取消收藏：直接调用句子的 toggleFavorite 方法
+  onDelete(e: WechatMiniprogram.CustomEvent) {
+    const { id } = e.currentTarget.dataset;
+    const sentenceId = id as string;
+    const bookId = this.data.bookId;
+
+    wx.showModal({
+      title: '提示',
+      content: '确定要取消收藏该句子吗？',
+      confirmColor: '#ee0a24',
+      success: async (res) => {
+        if (res.confirm) {
+          eventBus.emit(AppEvent.FAVORITE_SENTENCE, { sentenceId, bookId, isFavorite: false })
+        }
+      }
+    });
+  },
+
+  // 本地搜索过滤
+  onSearchInput(e: WechatMiniprogram.Input) {
+    const keyword = e.detail.value;
+    this.setData({
+      keyword,
+      displayList: this.filterList(this.data.sentenceList, keyword)
+    });
+  },
+
+  filterList(list: Sentence[], kw: string) {
+    if (!kw.trim()) return list;
+    return list.filter(item =>
+      (item.en && item.en.toLowerCase().includes(kw.toLowerCase())) ||
+      (item.zh && item.zh.includes(kw))
+    );
+  },
+
+  // 点击单句播放
+  playSingleAudio(e: WechatMiniprogram.CustomEvent) {
+    const index = e.currentTarget.dataset.index;
+    this.setData({ isPlayingAll: false, currentIndex: index });
+    this.playCurrentIndexAudio(index);
+  },
+
+  // 触发全部播放/暂停
+  togglePlayAll() {
+    wx.navigateTo({url:Pages.sentencePlay})
+  },
+
+  // 播放指定索引位置的句子音频
+  playCurrentIndexAudio(index: number) {
+    const target = this.data.displayList[index];
+    this.setData({ currentIndex: index });
+    audioCtx.stop();
+    audioCtx.src = target.audio;
+    audioCtx.play();
+  },
+
+  // 真正的添加逻辑（从 touchend 调用）
+  onAddSentence() {
+    wx.showModal({
+      title: '添加新句子',
+      editable: true,
+      placeholderText: '请输入英文句子',
+      success: (res) => {
+        if (res.confirm && res.content) {
+          console.log('用户输入：', res.content);
+          // TODO: 调用添加接口
+        }
+      }
+    });
+  },
+});
+</file>
+
+<file path="pages/sentence-list/sentence-list.wxml">
+<view class="container">
+
+  <!-- 1. 全屏拖拽区域 (Pointer-events 穿透，不挡住页面点击) -->
+  <movable-area class="movable-area">
+    <movable-view class="fab-add" direction="all" out-of-bounds="false" x="{{fabX}}" y="{{fabY}}" bindtap="onAddSentence">
+      <text class="fab-icon">+</text>
+    </movable-view>
+  </movable-area>
+
+  <!-- 搜索框 -->
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜索收藏的句子" bindinput="onSearchInput" value="{{keyword}}" confirm-type="search" />
+  </view>
+
+  <!-- 列表 -->
+  <view class="list-wrapper">
+    <block wx:if="{{displayList.length > 0}}">
+      <view wx:for="{{displayList}}" wx:key="_id" class="card-item-wrapper">
+        <!-- Vant 滑动单元格组件 -->
+        <van-swipe-cell right-width="{{ 80 }}">
+          <!-- 主体卡片内容 -->
+          <view class="sentence-card {{currentIndex === index && isPlayingAll ? 'playing-card' : ''}}" bindtap="playSingleAudio" data-index="{{index}}">
+            <view class="card-left">
+              <view class="en-text">
+                <text class="index-num">{{index + 1}}. </text>{{item.en || item.english}}
+              </view>
+              <view class="zh-text">{{item.zh || item.chinese}}</view>
+            </view>
+          </view>
+
+          <!-- 右侧滑动出来的删除按钮 -->
+          <view slot="right" class="van-swipe-cell__right" catchtap="onDelete" data-id="{{item._id}}">
+            删除
+          </view>
+        </van-swipe-cell>
+      </view>
+
+      <view class="loading-status"></view>
+    </block>
+
+    <view wx:else class="empty-box">
+      <text>暂无相关句子</text>
+    </view>
+  </view>
+
+  <!-- 底部播放按钮 -->
+  <view class="bottom-floating-bar" wx:if="{{sentenceList.length > 0}}">
+    <button class="play-all-btn" bindtap="togglePlayAll">
+      <text class="icon">🎧</text>
+      <text>{{isPlayingAll ? '暂停播放' : '全部播放收藏 (' + sentenceList.length + ')'}}</text>
+    </button>
+  </view>
+</view>
+</file>
+
+<file path="pages/sentence-list/sentence-list.wxss">
+page {
+  background-color: #f7f8fa;
+  min-height: 100vh;
+}
+
+.container {
+  padding: 0 24rpx 140rpx;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* ========== 搜索框 ========== */
+.search-bar {
+  width: 100%;
+  margin-bottom: 24rpx;
+  box-sizing: border-box;
+}
+
+.search-input {
+  width: 100%;
+  background: #ffffff;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  padding: 0 32rpx;
+  font-size: 28rpx;
+  color: #333333;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* ========== 滑动卡片容器 ========== */
+.card-item-wrapper {
+  margin-bottom: 20rpx;
+  border-radius: 20rpx;
+  overflow: hidden; /* 防止滑动背景超出圆角 */
+}
+
+.sentence-card {
+  width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  padding: 32rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 2rpx solid transparent;
+  transition: all 0.2s ease;
+}
+
+.playing-card {
+  background-color: #eef6ff;
+  border-color: #2f80ed;
+}
+
+.card-left {
+  flex: 1;
+}
+
+.en-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.4;
+  margin-bottom: 12rpx;
+}
+
+.index-num {
+  color: #1a1a1a;
+}
+
+.zh-text {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+/* ========== 滑动删除按钮样式 ========== */
+.van-swipe-cell__right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 160rpx; /* 对应 wxml 中的 right-width="{{ 80 }}" (80px = 160rpx) */
+  height: 100%;
+  font-size: 28rpx;
+  color: #ffffff;
+  background-color: #ee0a24; /* Vant 默认危险红色 */
+  font-weight: 500;
+}
+
+/* ========== 底部悬浮按钮 ========== */
+.bottom-floating-bar {
+  position: fixed;
+  bottom: 40rpx;
+  left: 24rpx;
+  right: 24rpx;
+  z-index: 100;
+}
+
+.play-all-btn {
+  width: 100% !important;
+  height: 96rpx;
+  background: #ffde94;
+  color: #5c3c00;
+  border-radius: 48rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 8rpx 24rpx rgba(255, 222, 148, 0.55);
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: normal !important;
+}
+
+.play-all-btn::after {
+  border: none;
+}
+
+.play-all-btn .icon {
+  margin-right: 12rpx;
+  font-size: 34rpx;
+  display: flex;
+  align-items: center;
+}
+
+/* ========== 拖拽容器 ========== */
+.movable-area {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none; /* 关键：透传点击事件，不挡住列表滑动 */
+  z-index: 101;
+}
+
+.fab-add {
+  pointer-events: auto; /* 关键：让按钮本身响应点击和拖拽 */
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 50%;
+  background: #2f80ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(47, 128, 237, 0.4);
+}
+
+.fab-icon {
+  color: #fff;
+  font-size: 56rpx;
+  font-weight: 300;
+  line-height: 1;
+  margin-top: -6rpx;
+}
+</file>
+
+<file path="pages/sentence-play/sentence-play.json">
+{
+  "usingComponents": {
+    "sentence-play-card": "/components/sentence-play-card/sentence-play-card"
+  }
+}
+</file>
+
+<file path="pages/sentence-play/sentence-play.ts">
+import { AppEvent } from "../../services/event-type";
+import eventBus from "../../services/EventBus";
+import { PlayEngine } from "../../services/sentence-play-engine";
+import sentencePlayManager from "../../services/sentence-play-manager";
+
+Page({
+  data: {
+    bookTitle: '',
+    currentIndex: 0,
+    totalCount: 0,
+    sentenceList: [] as Sentence[], // 保存全量队列用于 Swiper 渲染
+    currentSentence: null as Sentence | null,
+    isPlaying: false,
+    hideZh: false,
+    isLooping: false,
+    playbackRate: 1.0,
+    // isFavorite: false,
+    // stage: 0
+  },
+
+  playEngine: null as PlayEngine | null,
+
+  onLoad(options: { title?: string }) {
+    if (options.title) {
+      this.setData({ bookTitle: decodeURIComponent(options.title) });
+    }
+
+    // 1. 初始化播放引擎
+    this.initEngine();
+    // 2. 自动开启播放
+    this.playEngine?.start();
+    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST,
+      () => {
+        console.log('play refresh')
+        this.setData({ sentenceList: [...sentencePlayManager.sentenceList] })
+      })
+  },
+
+  initEngine() {
+    const audioCtx = wx.createInnerAudioContext();
+
+    this.playEngine = new PlayEngine(
+      audioCtx,
+      sentencePlayManager,
+      {
+        playMode: 'sequence',
+        playOrder: 'zh_first',
+        repeatCount: 2,
+        gapMs: 800,
+        limitCount: 0
+      },
+      {
+        onCurrentChange: (sentence, index) => {
+          const stage = sentence?.mark?.stage || 0;
+          this.setData({
+            currentSentence: sentence,
+            currentIndex: index,
+            sentenceList: sentencePlayManager.sentenceList, // 动态同步队列列表（包含 loadMore 进来的新数据）
+            totalCount: sentencePlayManager.queueLength,
+            isFavorite: !!sentence?.isFavorite,
+            stage: stage
+          });
+        },
+        onStatusChange: () => { },
+        onPlayingChange: (isPlaying) => this.setData({ isPlaying }),
+        onFinished: (msg) => wx.showToast({ title: msg, icon: 'none' }),
+        onNotice: (msg) => wx.showToast({ title: msg, icon: 'none' })
+      }
+    );
+  },
+
+  /* ---------------- 滑动事件处理 ---------------- */
+
+  // Swiper 手势滑动触发事件
+  onSwiperChange(e: WechatMiniprogram.TouchEvent) {
+    // 仅响应由用户手指拖动导致的动画结束 (source === 'touch')
+    if (e.detail.source === 'touch') {
+      const targetIndex = e.detail.current;
+      const currentIndex = this.data.currentIndex;
+
+      if (targetIndex > currentIndex) {
+        // 向左滑动 -> 切换到下一句
+        this.playEngine?.next(false);
+      } else if (targetIndex < currentIndex) {
+        // 向右滑动 -> 切换到上一句
+        this.playEngine?.prev();
+      }
+    }
+  },
+
+  onUnload() {
+    this.playEngine?.destroy();
+    this.playEngine = null;
+  },
+
+  /* ---------------- 纯 UI 事件：触发 EventBus ---------------- */
+
+  onToggleFavorite(e: WechatMiniprogram.CustomEvent) {
+    const sentence = e.target.dataset.data;
+    if (!sentence) return;
+
+    const nextState = !sentence.isFavorite;
+    sentencePlayManager.updateSentence(sentence._id, { isFavorite: nextState });
+
+    this.setData({
+      sentenceList: [...sentencePlayManager.sentenceList]
+    });
+
+    wx.showToast({
+      title: nextState ? '已收藏' : '已取消收藏',
+      icon: 'none',
+      duration: 1500
+    });
+
+    eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
+      sentenceId: sentence._id,
+      isFavorite: nextState,
+      bookId: sentence.bookId
+    });
+  },
+
+  onMarkLearned(e: WechatMiniprogram.CustomEvent) {
+    const sentence = e.target.dataset.data;
+    if (!sentence) return;
+
+    console.log(sentence)
+
+    const currentStage = sentence.mark?.stage || 0;
+    const nextStage = currentStage + 1;
+    const newMark = { ...sentence.mark, stage: nextStage }
+    console.log(nextStage)
+
+    sentencePlayManager.updateSentence(sentence._id, { mark: newMark });
+    this.setData({
+      sentenceList: [...sentencePlayManager.sentenceList]
+    });
+
+    wx.showToast({
+      title: `掌握度 +1 (Level ${nextStage})`,
+      icon: 'none',
+      duration: 1500
+    });
+
+    eventBus.emit(AppEvent.MARK_SENTENCE, {
+      sentenceId: sentence._id,
+      currentStage: currentStage,
+    });
+  },
+
+  /* ---------------- 播放控制 ---------------- */
+
+  onTogglePlay() {
+    this.playEngine?.pauseToggle();
+  },
+
+  onNext() {
+    this.playEngine?.next(false);
+  },
+
+  onPrev() {
+    this.playEngine?.prev();
+  },
+
+  onFirst() {
+    if (sentencePlayManager.queueLength > 0) {
+      while (sentencePlayManager.currentIndexNum > 0) {
+        sentencePlayManager.prev();
+      }
+      this.playEngine?.replay();
+    }
+  },
+
+  onReplay() {
+    this.playEngine?.replay();
+  },
+
+  onToggleZh() {
+    this.setData({ hideZh: !this.data.hideZh });
+  },
+
+  onToggleLoop() {
+    const nextState = !this.data.isLooping;
+    this.setData({ isLooping: nextState });
+
+    this.playEngine?.updateConfig({
+      repeatCount: nextState ? 999 : 1
+    });
+  },
+
+  onChangeSpeed() {
+    const speeds = [1.0, 1.25, 0.8];
+    const nextIdx = (speeds.indexOf(this.data.playbackRate) + 1) % speeds.length;
+    const rate = speeds[nextIdx];
+
+    this.setData({ playbackRate: rate });
+    if (this.playEngine) {
+      // @ts-ignore
+      this.playEngine['audioCtx'].playbackRate = rate;
+    }
+  },
+
+  onBack() {
+    wx.navigateBack();
+  }
+});
+</file>
+
+<file path="pages/sentence-play/sentence-play.wxml">
+<view class="container">
+  <!-- 1. 顶部 Header 与进度条 -->
+  <view class="header">
+    <view class="header-center">
+      <text class="header-title">Playback Player</text>
+      <text class="book-subtitle">{{bookTitle || 'Sentence Play'}} | {{currentIndex + 1}}/{{totalCount}}</text>
+    </view>
+    <view class="header-placeholder"></view>
+  </view>
+
+  <view class="progress-bar-bg">
+    <view class="progress-bar-fill" style="width: {{ totalCount ? (((currentIndex + 1) / totalCount) * 100) + '%' : '0%' }};"></view>
+  </view>
+
+  <!-- 2. 中央卡片滑动区域 -->
+  <view class="card-wrapper">
+    <swiper 
+      class="card-swiper"
+      current="{{currentIndex}}"
+      duration="300"
+      bindchange="onSwiperChange"
+    >
+      <block wx:for="{{sentenceList}}" wx:key="_id">
+        <swiper-item class="swiper-item-inner">
+          <!-- 点击卡片区域触发播放/暂停 -->
+          <view class="card-touch-area" bindtap="onTogglePlay">
+            <sentence-play-card 
+              sentence="{{item}}" 
+              hideZh="{{hideZh}}"
+              isFavorite="{{item.isFavorite}}"
+              stage="{{item.mark.stage || 0}}"
+              data-data = "{{item}}"
+              bind:toggleFavorite="onToggleFavorite"
+              bind:toggleMastered="onMarkLearned"
+            />
+          </view>
+        </swiper-item>
+      </block>
+    </swiper>
+  </view>
+
+  <!-- 3. 功能胶囊按钮组 -->
+  <view class="capsule-bar">
+    <view class="capsule-btn {{isLooping ? 'active' : ''}}" bindtap="onToggleLoop">
+      <text class="capsule-title">Repeat</text>
+      <text class="capsule-sub">Loop</text>
+    </view>
+
+    <view class="capsule-btn {{hideZh ? 'active' : ''}}" bindtap="onToggleZh">
+      <text class="capsule-title">Hide/</text>
+      <text class="capsule-sub">Show ZH</text>
+    </view>
+
+    <view class="capsule-btn" bindtap="onChangeSpeed">
+      <text class="capsule-title">Speed</text>
+      <text class="capsule-sub">{{playbackRate}}x</text>
+    </view>
+  </view>
+
+  <!-- 4. 底部播放控制盘 -->
+  <view class="control-panel">
+    <view class="ctrl-btn sm" bindtap="onFirst">
+      <text class="icon">⏮</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onPrev">
+      <text class="icon">◄◄</text>
+    </view>
+    <view class="ctrl-btn main {{isPlaying ? 'playing' : ''}}" bindtap="onTogglePlay">
+      <text class="icon">{{isPlaying ? '❚❚' : '▶'}}</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onReplay">
+      <text class="icon-text">5s</text>
+    </view>
+    <view class="ctrl-btn sm" bindtap="onNext">
+      <text class="icon">►►</text>
+    </view>
+  </view>
+</view>
+</file>
+
+<file path="pages/sentence-play/sentence-play.wxss">
+page {
+  background-color: #F4F6F9;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0 32rpx 80rpx 32rpx;
+  box-sizing: border-box;
+  justify-content: space-between;
+}
+
+/* Header 与进度条 */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20rpx;
+  padding-bottom: 16rpx;
+}
+
+.back-btn {
+  font-size: 38rpx;
+  color: #2D3748;
+  padding: 10rpx 20rpx 10rpx 0;
+}
+
+.header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1A202C;
+}
+
+.book-subtitle {
+  font-size: 22rpx;
+  color: #718096;
+  margin-top: 4rpx;
+}
+
+.header-placeholder {
+  width: 40rpx;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 6rpx;
+  background-color: #E2E8F0;
+  border-radius: 3rpx;
+  overflow: hidden;
+  margin-bottom: 30rpx;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #2B6CB0;
+  border-radius: 3rpx;
+  transition: width 0.3s ease;
+}
+
+/* 2. 卡片外部包装器 */
+.card-wrapper {
+  flex: 1;
+  display: flex;
+  /* background-color: beige; */
+  align-items: center;
+  justify-content: center;
+  margin: 30rpx 0 60rpx 0;
+  width: 100%;
+}
+
+/* 3. 胶囊按钮组 */
+.capsule-bar {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 40rpx;
+}
+
+.capsule-btn {
+  flex: 1;
+  margin: 0 10rpx;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 20rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.02);
+  border: 2rpx solid transparent;
+}
+
+.capsule-btn.active {
+  border-color: #3182CE;
+  background-color: #EBF8FF;
+}
+
+.capsule-title {
+  font-size: 22rpx;
+  color: #2D3748;
+  font-weight: 600;
+}
+
+.capsule-sub {
+  font-size: 20rpx;
+  color: #4A5568;
+  margin-top: 4rpx;
+}
+
+/* 4. 底部控制盘 */
+.control-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+  padding: 10rpx 0;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.ctrl-btn.sm {
+  width: 84rpx;
+  height: 84rpx;
+  color: #4A5568;
+  font-size: 26rpx;
+}
+
+.ctrl-btn.main {
+  width: 120rpx;
+  height: 120rpx;
+  background: #2B6CB0;
+  color: #FFFFFF;
+  font-size: 38rpx;
+  box-shadow: 0 10rpx 24rpx rgba(43, 108, 176, 0.3);
+}
+
+.icon-text {
+  font-size: 22rpx;
+  font-weight: bold;
+  color: #4A5568;
+}
+
+/* 2. 卡片外部包装器 */
+.card-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20rpx 0 40rpx 0;
+  width: 100%;
+}
+
+.card-swiper {
+  width: 100%;
+  height: 100%;
+}
+
+.swiper-item-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.card-touch-area {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+</file>
+
+<file path="services/article-service.ts">
+import { cloudFunctionName } from "../enums/app-enums";
+import { callCloudFunction } from "./cloud-client";
+
+/**
+ * 获取文章/课文列表
+ */
+export async function getArticles(bookId: string): Promise<Article[]> {
+  return callCloudFunction<Article[]>(cloudFunctionName.getArticles, { bookId })
+}
+
+export async function getArticleSentences(articleId: string): Promise<ArticleSentence[]> {
+  return callCloudFunction<ArticleSentence[]>(cloudFunctionName.getArticleSentences, { articleId })
+}
+</file>
+
+<file path="services/book-service.ts">
+// 1. services/book-service.ts (纯粹的数据服务)
+
+import { BookType, cloudFunctionName } from "../enums/app-enums";
+import { dbRequest, db } from "../utils/dbHelper";
+import { callCloudFunction } from "./cloud-client";
+
+export class BookService {
+  private booksCache: Book[] | null = null;
+
+  async getBooks(): Promise<Book[]> {
+    if (this.booksCache === null) {
+      this.booksCache = await callCloudFunction(cloudFunctionName.getBooks, {});
+      // console.log(this.booksCache)
+    }
+    return this.booksCache || [];
+  }
+
+  async getSentenceBooks() {
+    const books = await this.getBooks()
+    return books.filter(item => item.content === BookType.sentence);
+  }
+
+  async getArticleBooks() {
+    const books = await this.getBooks()
+    return books.filter(item => item.content === BookType.article);
+  }
+
+  async getUserBooks() {
+    const books = await this.getBooks()
+    const _openid = getApp().globalData._openid
+    return books.filter(item => item._openid === _openid);
+  }
+
+  /**
+   * 创建词书。
+   */
+  async createBook(name: string, type: string): Promise<Book> {
+    const bookName = name.trim()
+    if (!bookName) throw new Error('词书名称不能为空')
+
+    const { data } = await dbRequest(
+      db.collection('book').where({ name: bookName, type }).limit(1).get(),
+      '查询词书失败'
+    )
+
+    if (data.length) return data[0] as Book
+
+    const now = Date.now()
+    const res = await dbRequest(
+      db.collection('book').add({
+        data: { name: bookName, type, createdAt: now }
+      }),
+      '创建词书失败'
+    )
+
+    return { _id: res._id, name: bookName, type, createdAt: now } as Book
+  }
+
+  /**
+   * 把一个已存在的句子加入某本词书（不复制内容，只建立引用关系）。
+   * 用于"搜索句子 -> 点收藏 -> 选词书"这个场景。
+   */
+  async addSentenceToBook(
+    sentenceId: string,
+    bookId: string
+  ): Promise<{ refId: string; alreadyIn?: boolean }> {
+    return callCloudFunction(cloudFunctionName.addSentenceToBook, { sentenceId, bookId })
+  }
+}
+const bookService = new BookService();
+export default bookService;
+</file>
+
+<file path="services/cloud-client.ts">
+// miniprogram/services/cloud-client.ts
+
+export interface ApiResponse<T = any> {
+  code: number
+  data?: T
+  msg?: string
+}
+
+/**
+ * 统一调用云函数的封装
+ */
+export async function callCloudFunction<T = any>(
+  name: string,
+  data: Record<string, any> = {}
+): Promise<T> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name,
+      data
+    })
+
+    const result = res.result as ApiResponse<T>
+
+    // 如果接口定义了 code 状态码
+    if (result && typeof result.code === 'number') {
+      if (result.code !== 0) {
+        throw new Error(result.msg || `Cloud function ${name} error`)
+      }
+      return result.data as T
+    }
+
+    // 若无 code 直接返回 raw result
+    return res.result as T
+  } catch (err: any) {
+    console.error(`[Cloud Call Error] ${name}:`, err)
+    wx.showToast({
+      title: err.message || '网络或服务异常',
+      icon: 'none'
+    })
+    throw err
+  }
+}
+</file>
+
+<file path="services/cloud-service.ts">
+export class CloudService {
+  async getSentencesByIds(collection: string, bookId: string, includeIds: string[], excludeIds: string[] = [], limit = 20): Promise<Sentence[]> {
+
+    const db = wx.cloud.database()
+    const _ = db.command
+
+    console.log('query:', { bookId, includeIds })
+
+    let list;
+
+    const first = (await db.collection(collection).where({
+      _id: _.in(includeIds),
+      bookId
+    }).limit(limit).get()).data
+
+    if(first.length >=limit){
+      list = first
+    }else if (!includeIds.length){
+      list =  (await db.collection(collection).where({
+        _id: _.nin(excludeIds),
+        bookId
+      }).limit(limit).get()).data as Sentence[]
+    }else{
+      const exclude = [...new Set([...excludeIds, ...first.map(x => x._id)])]
+
+      const rest = (await db.collection(collection).where({
+        _id: _.nin(exclude),
+        bookId
+      }).limit(limit - first.length).get()).data
+
+      list = [...first, ...rest] 
+    }
+
+    list = list.map(item=>({
+      ...item,
+      audio: this.toFullFileId(item.audio),
+      audio_zh: this.toFullFileId(item.audio_zh)
+    }))
+    list = await this.getAudioUrls(list as Sentence[])
+    return list as Sentence[]
+  }
+
+  toFullFileId(path: string = ''): string {
+    const STORAGE_PREFIX = 'cloud://cloud1-d0gyvvq93ab34b8b7.636c-cloud1-d0gyvvq93ab34b8b7-1333600691/'
+    if (!path) return ''
+    if (path.startsWith('cloud://') || path.startsWith('http')) return path
+
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path
+    return `${STORAGE_PREFIX}${cleanPath}`
+  }
+
+
+  async getAudioUrls<T extends { audio?: string; audio_zh?: string }>(
+    list: T[]
+  ): Promise<T[]> {
+
+    const ids = [...new Set(
+      list.flatMap(item => [
+        item.audio,
+        item.audio_zh
+      ]).filter((x): x is string => !!x?.startsWith('cloud://'))
+    )]
+
+    if (!ids.length) return list
+    const map = new Map<string, string>()
+    for (let i = 0; i < ids.length; i += 50) {
+      const res = await wx.cloud.getTempFileURL({
+        fileList: ids.slice(i, i + 50)
+      })
+
+      res.fileList.forEach(item => {
+        if (item.status === 0) {
+          map.set(item.fileID, item.tempFileURL)
+        }
+      })
+    }
+
+    return list.map(item => ({
+      ...item,
+      audio: map.get(item.audio || '') || item.audio,
+      audio_zh: map.get(item.audio_zh || '') || item.audio_zh
+    }))
+  }
+}
+const cloudService = new CloudService()
+export default cloudService
+</file>
+
+<file path="services/event-type.ts">
+export interface FavoritePayload {
+  sentenceId: string;
+  isFavorite: boolean;
+  bookId?: string;
+}
+
+export interface MarkPayload {
+  sentenceId: string;
+  currentStage: number;
+  bookId?: string;
+}
+export enum AppEvent {
+  MARK_SENTENCE = 'markSentence',
+  FAVORITE_SENTENCE = 'favoriteSentence',
+  REFRESH_SENTENCE_LIST = 'refreshSentenceList'
+}
+
+export interface EventPayloadMap {
+  [AppEvent.MARK_SENTENCE]:any,
+  [AppEvent.FAVORITE_SENTENCE]:FavoritePayload,
+  [AppEvent.REFRESH_SENTENCE_LIST]:void,
+}
+</file>
+
+<file path="services/EventBus.ts">
+import { AppEvent, EventPayloadMap } from "./event-type";
+
+type EventHandler<T> = (payload: T) => void;
+
+class EventBus {
+  private handlers: {
+    [K in AppEvent]?: Array<EventHandler<EventPayloadMap[K]>>;
+  } = {};
+
+  /**
+   * Register an event handler
+   * @param event The event to listen for
+   * @param handler The handler function
+   */
+  on<K extends AppEvent>(
+    event: K,
+    handler: EventHandler<EventPayloadMap[K]>
+  ): void {
+    if (!this.handlers[event]) {
+      this.handlers[event] = [];
+    }
+    (this.handlers[event] as Array<EventHandler<EventPayloadMap[K]>>).push(handler);
+  }
+
+  /**
+   * Unregister an event handler
+   * @param event The event to remove listener from
+   * @param handler The handler function to remove
+   */
+  off<K extends AppEvent>(
+    event: K,
+    handler: EventHandler<EventPayloadMap[K]>
+  ): void {
+    if (!this.handlers[event]) return;
+    
+    const index = (this.handlers[event] as Array<EventHandler<EventPayloadMap[K]>>)
+      .indexOf(handler);
+    
+    if (index > -1) {
+      (this.handlers[event] as Array<EventHandler<EventPayloadMap[K]>>).splice(index, 1);
+    }
+  }
+
+  /**
+   * Emit an event
+   * @param event The event to emit
+   * @param payload The payload to pass to handlers
+   */
+  emit<K extends AppEvent>(
+    event: K,
+    ...args: EventPayloadMap[K] extends void ? [] : [payload: EventPayloadMap[K]]
+  ): void {
+    if (!this.handlers[event]) return;
+    
+    const payload = args[0] as EventPayloadMap[K];
+    (this.handlers[event] as Array<EventHandler<EventPayloadMap[K]>>)
+      .forEach(handler => handler(payload));
+  }
+}
+const eventBus = new EventBus()
+export default eventBus
+</file>
+
+<file path="services/sentence-listener.ts">
+import sentenceService from "./sentence-service";
+import sentencePlayManager from "./sentence-play-manager";
+import { AppEvent, FavoritePayload, MarkPayload } from "./event-type";
+import eventBus from "./EventBus";
+
+// 艾宾浩斯间隔算法
+function calculateNextReviewAt(currentStage: number): number {
+  const nextStage = currentStage + 1;
+  const intervalsInMinutes: Record<number, number> = {
+    1: 5,           // 5 分钟
+    2: 30,          // 30 分钟
+    3: 12 * 60,     // 12 小时
+    4: 24 * 60,     // 1 天
+    5: 2 * 24 * 60, // 2 天
+    6: 4 * 24 * 60, // 4 天
+    7: 7 * 24 * 60, // 7 天
+    8: 15 * 24 * 60,// 15 天
+  };
+
+  const minutes = intervalsInMinutes[nextStage] || 30 * 24 * 60;
+  return Date.now() + minutes * 60 * 1000;
+}
+
+export function initSentenceEventListeners() {
+  // 1. 监听收藏事件
+  eventBus.on(AppEvent.FAVORITE_SENTENCE, async (payload: FavoritePayload) => {
+    try {
+      console.log('listener payload:',payload)
+      const app = getApp<IAppOption>();
+      const favoriteBookId = app?.globalData?.favoriteBookId as string;
+
+      sentenceService.toggleFavorite(payload.sentenceId, favoriteBookId,payload.isFavorite);
+      // 同步回管理器队列
+      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: payload.isFavorite });
+      if(sentencePlayManager.bookId === favoriteBookId && payload.isFavorite === false){
+        console.log('收藏列表删除数据了')
+        sentencePlayManager.removeSentence(payload.sentenceId)
+        eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
+      }
+    } catch (err) {
+      console.error('[EventListener] 切换收藏失败，尝试回滚状态:', err);
+      // 失败时回滚
+      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: !payload.isFavorite });
+      wx.showToast({ title: '收藏同步失败', icon: 'none' });
+    }
+  });
+
+  // 2. 监听掌握/标记事件
+  eventBus.on(AppEvent.MARK_SENTENCE, async (payload: MarkPayload) => {
+    try {
+      const nextStage = payload.currentStage + 1;
+      const nextReviewAt = calculateNextReviewAt(payload.currentStage);
+
+      const updatedMark = {
+        stage: nextStage,
+        nextReviewAt: nextReviewAt,
+        updatedAt: Date.now()
+      };
+
+      // 更新管理器队列中的 mark 对象
+      sentencePlayManager.updateSentence(payload.sentenceId, { mark: updatedMark as any });
+
+      // 发起后台 API 保存
+      await sentenceService.upsertMark(
+        payload.sentenceId,
+        { stage: nextStage, nextReviewAt },
+        sentencePlayManager.bookId
+      );
+    } catch (err) {
+      console.error('[EventListener] 标记更新失败:', err);
+      wx.showToast({ title: '掌握进度保存失败', icon: 'none' });
+    }
+  });
+}
+</file>
+
+<file path="services/sentence-play-engine.ts">
+/**
+ * 播放配置项
+ */
+// export interface PlayConfig {
+//   playMode: 'learn' | 'test';       // 学习模式 / 测试模式
+//   playOrder: 'zh_first' | 'en_first'; // 中文优先 / 英文优先
+//   repeatCount: number;               // 英文重复次数 (如 2 次)
+//   gapMs: number;                     // 句间/步骤间停顿毫秒数
+//   limitCount: number;                // 本次播放上限条数 (0 为不限制)
+// }
+
+import { SentencePlayListManager } from "./sentence-play-manager";
+
+/**
+ * 播放事件回调
+ */
+export interface PlayCallbacks {
+  /** 当前播放句子变更 */
+  onCurrentChange: (sentence: Sentence, index: number) => void;
+  /** 播放状态文本变化 (如 "听中文" / "英文 (1/2)" / "等待回答") */
+  onStatusChange: (statusText: string) => void;
+  /** 播放/暂停状态切换 */
+  onPlayingChange: (isPlaying: boolean) => void;
+  /** 播放完毕 (达到 limitCount 或已到队列末尾) */
+  onFinished: (reason: string) => void;
+  /** 提示通知 (如 "已经是第一句了") */
+  onNotice: (message: string) => void;
+}
+
+export class PlayEngine {
+  private step = 0;
+  private awaitingNextStep = false;
+  private playToken = 0;
+  private playing = false;
+
+  constructor(
+    private audioCtx: WechatMiniprogram.InnerAudioContext,
+    private listManager: SentencePlayListManager,
+    private config: PlayConfig,
+    private callbacks: PlayCallbacks
+  ) {
+    // 监听音频自然播放结束
+    this.audioCtx.onEnded(() => this.handleAudioEnded());
+
+    // 监听音频播放异常
+    this.audioCtx.onError(err => {
+      console.error('[PlayEngine] 播放出错:', err);
+      // 遇到坏音频跳过，自动尝试下一句
+      this.next(true);
+    });
+  }
+
+  /**
+   * 更新播放配置
+   */
+  public updateConfig(newConfig: Partial<PlayConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+  }
+
+  /**
+   * 是否正在播放
+   */
+  public get isPlaying(): boolean {
+    return this.playing;
+  }
+
+  /**
+   * 获取当前播放的句子
+   */
+  public get currentSentence(): Sentence | null {
+    return this.listManager.getCurrent();
+  }
+
+  /**
+   * 开始/启动播放（入口）
+   */
+  public start(): void {
+    const current = this.listManager.getCurrent();
+    if (!current) {
+      this.callbacks.onNotice('播放队列为空');
+      return;
+    }
+
+    this.resetStepState();
+    this.setPlaying(true);
+    this.callbacks.onCurrentChange(current, this.listManager.currentIndexNum);
+    this.playStep();
+  }
+
+  /**
+   * 播放下一句
+   * @param isAuto 是否为自动触发（如播完本句自动切下一句）
+   */
+  public async next(isAuto: boolean = false): Promise<void> {
+    // 1. 测试模式：单句播完后挂起，暂停并等待用户作答
+    if (this.config.playMode === 'test' && isAuto) {
+      this.setPlaying(false);
+      this.callbacks.onStatusChange('等待回答');
+      return;
+    }
+
+    const nextIndex = this.listManager.currentIndexNum + 1;
+
+    // 2. 检查用户设定的单次播放上限
+    if (this.config.limitCount > 0 && nextIndex >= this.config.limitCount) {
+      this.setPlaying(false);
+      this.callbacks.onFinished('已完成设定的条数，真棒！');
+      return;
+    }
+
+    // 3. 向 ListManager 调度器索取下一句
+    const nextSentence = this.listManager.next();
+    if (!nextSentence) {
+      this.setPlaying(false);
+      this.callbacks.onFinished('已经全部播完啦');
+      return;
+    }
+
+    this.resetStepState();
+    this.setPlaying(true);
+    this.callbacks.onCurrentChange(nextSentence, this.listManager.currentIndexNum);
+    this.playStep();
+  }
+
+  /**
+   * 播放上一句
+   */
+  public prev(): void {
+    const prevSentence = this.listManager.prev();
+    if (!prevSentence) {
+      this.callbacks.onNotice('已经是第一句了');
+      return;
+    }
+
+    this.resetStepState();
+    this.setPlaying(true);
+    this.callbacks.onCurrentChange(prevSentence, this.listManager.currentIndexNum);
+    this.playStep();
+  }
+
+  /**
+   * 重播当前句子
+   */
+  public replay(): void {
+    this.resetStepState();
+    this.setPlaying(true);
+    this.playStep();
+  }
+
+  /**
+   * 切换 播放/暂停 状态
+   */
+  public pauseToggle(): void {
+    if (this.playing) {
+      this.audioCtx.pause();
+      this.setPlaying(false);
+      return;
+    }
+
+    this.setPlaying(true);
+    if (this.awaitingNextStep) {
+      // 如果暂停发生于 sleep 句间停顿期间，直接触发下一步
+      this.awaitingNextStep = false;
+      this.advanceStep();
+    } else {
+      this.audioCtx.play();
+    }
+  }
+
+  /**
+   * 停止播放
+   */
+  public stop(): void {
+    this.audioCtx.stop();
+    this.setPlaying(false);
+    this.awaitingNextStep = false;
+  }
+
+  /**
+   * 销毁引擎与音频实例
+   */
+  public destroy(): void {
+    this.stop();
+    this.audioCtx.destroy();
+  }
+
+  // ==================== 内部步骤与状态控制 ====================
+
+  private resetStepState(): void {
+    this.step = 0;
+    this.awaitingNextStep = false;
+    this.playToken += 1;
+  }
+
+  private setPlaying(playing: boolean): void {
+    this.playing = playing;
+    this.callbacks.onPlayingChange(playing);
+  }
+
+  /**
+   * 执行当前句子的具体步骤（中英文交替/重复控制）
+   */
+  private playStep(): void {
+    const current = this.currentSentence;
+    if (!current) return;
+
+    // 1. 只听英文模式
+    if (this.config.playOrder === 'en_only') {
+      if (!current.audio) {
+        console.warn('当前句子无英文音频，跳过');
+        this.handleAudioEnded(); // 兜底：若无音频直接触发结束，走向下一句
+        return;
+      }
+      this.callbacks.onStatusChange('听英文');
+      this.audioCtx.src = current.audio;
+      this.audioCtx.play();
+      return;
+    }
+
+    // 2. 只听中文模式
+    if (this.config.playOrder === 'zh_only') {
+      if (!current.audio_zh) {
+        console.warn('当前句子无中文音频，跳过');
+        this.handleAudioEnded(); // 兜底：若无音频直接触发结束，走向下一句
+        return;
+      }
+      this.callbacks.onStatusChange('听中文');
+      this.audioCtx.src = current.audio_zh;
+      this.audioCtx.play();
+      return;
+    }
+
+    // 3. 测试模式：只播放单侧音频 (中文或英文)
+    if (this.config.playMode === 'test') {
+      const isListenZh = this.config.playOrder === 'zh_first';
+      const audioUrl = isListenZh ? current.audio_zh : current.audio;
+
+      if (!audioUrl) {
+        this.handleAudioEnded();
+        return;
+      }
+
+      this.callbacks.onStatusChange(isListenZh ? '听中文' : '听英文');
+      this.audioCtx.src = audioUrl;
+      this.audioCtx.play();
+      return;
+    }
+
+    // 4. 学习/全量模式：根据 repeatCount 和 order 进行中英文组合
+    const isZhFirst = this.config.playOrder === 'zh_first';
+    const zhStep = isZhFirst ? 0 : this.config.repeatCount;
+
+    if (this.step === zhStep) {
+      if (!current.audio_zh) {
+        // 如果没有中文音频，跳过当前步骤
+        this.handleAudioEnded();
+        return;
+      }
+      this.callbacks.onStatusChange('中文');
+      this.audioCtx.src = current.audio_zh;
+    } else {
+      if (!current.audio) {
+        // 如果没有英文音频，跳过当前步骤
+        this.handleAudioEnded();
+        return;
+      }
+      const enIndex = isZhFirst ? this.step : this.step + 1;
+      this.callbacks.onStatusChange(`英文 (${enIndex}/${this.config.repeatCount})`);
+      this.audioCtx.src = current.audio;
+    }
+
+    this.audioCtx.play();
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 当前音频播放完毕的回调句柄
+   */
+  private async handleAudioEnded(): Promise<void> {
+    if (!this.playing) return;
+
+    const token = this.playToken;
+    this.awaitingNextStep = true;
+
+    // 如果配置了句间/步骤间停顿
+    if (this.config.gapMs > 0 ) {
+      await this.sleep(this.config.gapMs);
+    }
+
+    // 防止在 sleep 期间用户切歌或暂停导致 token 发生改变
+    if (token !== this.playToken || !this.playing) return;
+
+    this.awaitingNextStep = false;
+    this.advanceStep();
+  }
+
+  /**
+   * 推进至单句内的下一个步骤或直接进入下一句
+   */
+  private advanceStep(): void {
+    // if (this.config.playMode === 'test') {
+    //   this.next(true);
+    //   return;
+    // }
+
+    this.step += 1;
+    // 当步骤数超过 repeatCount（即中英文均已播放完毕）时切到下一句
+    if (this.step > this.config.repeatCount) {
+      this.next(true);
+    } else {
+      this.playStep();
+    }
+  }
+}
+</file>
+
+<file path="services/sentence-play-manager.ts">
+export class SentencePlayListManager {
+  private playQueue: Sentence[] = []
+  private currentIndex = 0
+  private _bookId = ''
+
+  public init(book: Book, list: Sentence[]): void {
+    this.reset()
+    this._bookId = book._id
+    this.playQueue = list
+  }
+
+  public get currentIndexNum(): number {
+    return this.currentIndex
+  }
+
+  public get queueLength(): number {
+    return this.playQueue.length
+  }
+
+  public get sentenceList(): Sentence[] {
+    return this.playQueue
+  }
+
+  public get bookId(): string {
+    return this._bookId
+  }
+
+  public getCurrent(): Sentence | null {
+    return this.playQueue[this.currentIndex] || null
+  }
+
+  public get currentSentence(): Sentence | null {
+    return this.getCurrent()
+  }
+
+  public next(): Sentence | null {
+    if (this.currentIndex < this.playQueue.length - 1) {
+      this.currentIndex++
+      return this.getCurrent()
+    }
+    return null
+  }
+
+  public prev(): Sentence | null {
+    if (this.currentIndex > 0) {
+      this.currentIndex--
+      return this.getCurrent()
+    }
+    return null
+  }
+
+  public peek(offset: number): Sentence | null {
+    const idx = this.currentIndex + offset
+    return this.playQueue[idx] || null
+  }
+
+  public updateSentence(sentenceId: string, partialData: Partial<Sentence>): void {
+    const target = this.playQueue.find(s => s._id === sentenceId)
+    if (target) Object.assign(target, partialData)
+  }
+
+  public removeSentence(sentenceId: string): void {
+    const idx = this.playQueue.findIndex(s => s._id === sentenceId)
+    if (idx === -1) return
+
+    this.playQueue.splice(idx, 1)
+
+    if (idx < this.currentIndex) {
+      this.currentIndex--
+    } else if (this.currentIndex >= this.playQueue.length) {
+      this.currentIndex = Math.max(0, this.playQueue.length - 1)
+    }
+  }
+
+  public replace(list: Sentence[]): void {
+    const currentId = this.getCurrent()?._id
+    this.playQueue = list
+
+    const index = currentId
+      ? this.playQueue.findIndex(x => x._id === currentId)
+      : -1
+
+    this.currentIndex = index >= 0 ? index : 0
+  }
+
+  public reset(): void {
+    this.playQueue = []
+    this.currentIndex = 0
+    this._bookId = ''
+  }
+}
+
+export default new SentencePlayListManager()
+</file>
+
+<file path="services/sentence-service.ts">
+import { cloudFunctionName, CollectionName } from "../enums/app-enums";
+import { LocalShardStore } from "../utils/local-store";
+import sentenceStore from "../utils/sentenceStore";
+import sync from "../utils/sync";
+import { callCloudFunction } from "./cloud-client";
+import cloudService from "./cloud-service";
+import { AppEvent } from "./event-type";
+import eventBus from "./EventBus";
+import sentencePlayManager from "./sentence-play-manager";
+
+
+export class SentenceService {
+  async getPlayList(bookId: string, targetCount = 50): Promise<Sentence[]> {
+    if (sentenceStore.isCompleted(bookId)) {
+      console.log('本地')
+      return this.buildLocalPlayList(bookId, targetCount)
+    }
+    const list = await this.getInitSentencePlayList(bookId)
+
+    if (!sentenceStore.isCompleted(bookId)) {
+      this.syncAll(bookId).catch(console.error)
+    }
+    return list
+  }
+
+  private async getInitSentencePlayList(bookId: string): Promise<Sentence[]> {
+    const marks = sync.markStore.get(bookId)
+
+    const { includeIds, excludeIds } = this.getReviewIds(marks)
+    const res = await cloudService.getSentencesByIds(CollectionName.sentence, bookId, includeIds, excludeIds)
+    const favorites = sync.favStore.get(bookId)
+
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+    const favoriteSet = new Set(favorites.filter(x => !x.deleted).map(x => x.sentenceId))
+
+    const list = res
+      .map(sentence => ({
+        ...sentence,
+        isFavorite: favoriteSet.has(sentence._id),
+        mark: markMap.get(sentence._id)
+      }))
+
+    return list
+  }
+
+  private getReviewIds(marks: SentenceMark[]) {
+    const now = Date.now()
+    const include = marks
+      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+      .sort((a, b) => a.nextReviewAt - b.nextReviewAt || a._id.localeCompare(b._id))
+
+    const includeSet = new Set(include.map(x => x._id))
+
+    return {
+      includeIds: include.map(x => x.sentenceId),
+      excludeIds: marks.filter(x => !includeSet.has(x._id)).map(x => x.sentenceId)
+    }
+  }
+
+
+  private buildLocalPlayList(bookId: string, targetCount: number): Sentence[] {
+    const sentences = sentenceStore.get(bookId)
+    const marks = sync.markStore.get(bookId)
+    const favorites = sync.favStore.get(bookId)
+
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+    const favoriteSet = new Set(favorites.map(x => x.sentenceId))
+    const now = Date.now()
+
+    const review = marks
+      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+      .sort((a, b) => a.nextReviewAt - b.nextReviewAt || a._id.localeCompare(b._id))
+      .map(x => sentences.find(s => s._id === x.sentenceId))
+      .filter((x): x is Sentence => !!x)
+
+    const reviewIds = new Set(review.map(x => x._id))
+
+    const fresh = sentences
+      .filter(x => !markMap.has(x._id) && !reviewIds.has(x._id))
+      .sort((a, b) => a.createdAt - b.createdAt || a._id.localeCompare(b._id))
+
+    const list = [...review, ...fresh]
+      .slice(0, targetCount)
+      .map(sentence => ({
+        ...sentence,
+        isFavorite: favoriteSet.has(sentence._id),
+        mark: markMap.get(sentence._id)
+      }))
+
+    return list
+  }
+
+  async syncAll(bookId: string): Promise<number> {
+    let cursor = sentenceStore.getCursor(bookId)
+    let total = 0
+
+    while (true) {
+      const res = await callCloudFunction(
+        cloudFunctionName.syncSentence,
+        { bookId, cursor, limit: 100 }
+      )
+
+      sentenceStore.saveBatch(bookId, res.list, res.nextCursor, res.hasMore)
+      total += res.list.length
+      cursor = res.nextCursor
+
+      if (!res.hasMore) break
+    }
+
+    const playList = this.buildLocalPlayList(bookId, 50)
+    sentencePlayManager.replace(playList)
+    console.log(sentencePlayManager.queueLength)
+    eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
+    return total
+  }
+
+
+  /**
+   * 录入一条新句子。
+   * - 不管传入的 bookId 是哪本词书，句子物理内容都会被存进用户的默认库"用户句子"；
+   * - 如果 bookId 不是默认库本身，云函数会在同一个事务里顺手建一条引用，
+   *   让句子"看起来"出现在你选的那本词书里；
+   * - 两步在同一个事务里，不会出现存了内容但引用没建上的半吊子状态。
+   */
+  async createSentence(data: Sentence): Promise<string> {
+    const res = await callCloudFunction<{ sentenceId: string }>(
+      cloudFunctionName.createSentence,
+      data
+    )
+    return res.sentenceId
+  }
+
+  /**
+   * 跨词书搜索句子（中文或英文，模糊匹配）
+   */
+  async searchSentences(keyword: string): Promise<Sentence[]> {
+    return callCloudFunction(cloudFunctionName.searchSentences, { keyword })
+  }
+
+  /**
+   * 获取指定词书/收藏夹中的句子列表
+   * @param bookId 词书ID（可以是系统收藏夹 fav_${_openid}，也可以是自建词书ID）
+   * @param page 页码（可选，用于分页）
+   * @param pageSize 每页条数（可选，默认 20）
+   */
+  async getFavoriteSentences(bookId: string): Promise<Sentence[]> {
+    const sentences = sentenceStore.get(bookId)
+    const favorites = sync.favStore.get(bookId)
+    const marks = sync.markStore.get(bookId)
+
+    const sentenceMap = new Map(sentences.map(x => [x._id, x]))
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+
+    const list = favorites
+      .filter(x => !x.deleted)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map(fav => {
+        const sentence = sentenceMap.get(fav.sentenceId)
+        if (!sentence) return null
+
+        return {
+          ...sentence,
+          mark: markMap.get(sentence._id) || null,
+          isFavorite: true,
+          favCreatedAt: fav.updatedAt
+        }
+      })
+      .filter((x) => !!x)
+
+    return list as Sentence[]
+  }
+
+  /**
+   * @param sentenceId 句子ID
+   * @param patch 待更新的字段
+   * @param bookId 词书ID（选填）
+   */
+  upsertMark(
+    sentenceId: string,
+    patch: Partial<SentenceMark> = {},
+    bookId: string
+  ) {
+    const markStore = new LocalShardStore(CollectionName.sentenceMark)
+    this.upsert(markStore, sentenceId, bookId, patch)
+  }
+
+  /**
+   * 切换收藏状态
+   */
+  toggleFavorite(
+    sentenceId: string,
+    bookId: string,
+    isFavorite: boolean
+  ) {
+    const favStore = new LocalShardStore(CollectionName.sentenceFavorite)
+    this.upsert(favStore, sentenceId, bookId, { deleted: isFavorite })
+  }
+
+  upsert(store: LocalShardStore<SentenceMark | SentenceFavorite>, sentenceId: string, bookId: string, data: any) {
+    const _openid = (getApp() as IAppOption).globalData._openid;
+    if (!_openid) {
+      throw new Error('_openid 尚未获取，请确保已登录或完成获取');
+    }
+    // 拼装防重主键 ID: ${bookId}__${sentenceId}
+    const _id = `${_openid}__${sentenceId}`;
+    const now = Date.now();
+
+    const existing = store.find(_openid + '__' + sentenceId)
+
+    const merged = existing
+      ? { ...existing, ...data, updatedAt: now }
+      : {
+        _id,
+        _openid,
+        sentenceId,
+        bookId,
+        ...data,
+        updatedAt: now,
+      };
+    if (!merged.bookId) {
+      // 本地缓存按 bookId 分片，没有 bookId 无法缓存，只走云端
+      console.warn('[toggleFavorite] 缺少 bookId，跳过本地缓存', _id);
+    } else {
+      store.upsert(merged);
+    }
+
+    // ========== 2. 任务入队（持久化，防丢） ==========
+    const meta = store.getMeta();
+    meta.pendingQueue.push({
+      op: 'upsert',
+      data: merged,
+      retry: 0,
+      ts: now,
+    });
+    store.saveMeta(meta);
+
+    // ========== 3. 后台同步云端（不阻塞调用方） ==========
+    sync.flushQueue(store).catch((err) =>
+      console.error('[sync] flushPendingQueue 异常', err)
+    );
+  }
+}
+const sentenceService = new SentenceService()
+export default sentenceService
+</file>
+
+<file path="services/translate-service.ts">
+import { cloudFunctionName } from "../enums/app-enums"
+import { callCloudFunction } from "./cloud-client"
+
+export class TranslateService {
+  static async translate(text: string): Promise<{
+    zh: string
+    en: string
+  }> {
+    const res = await callCloudFunction(
+      cloudFunctionName.translate,
+      { text }
+    )
+
+    const result = res as {
+      source: string
+      target: string
+      original: string
+      translated: string
+    }
+
+    const isChinese = result.source === 'zh'
+
+    return {
+      zh: isChinese ? result.original : result.translated,
+      en: isChinese ? result.translated : result.original
+    }
+  }
+}
+</file>
+
+<file path="services/tts-service.ts">
+import { cloudFunctionName } from "../enums/app-enums"
+import { callCloudFunction } from "./cloud-client"
+
+export class TtsService {
+  static async synthesize(text: string): Promise<TtsResult> {
+    const res = await callCloudFunction(
+      cloudFunctionName.edgeTts,
+      { text }
+    )
+
+    const {
+      fileID,
+      wordBoundaries
+    } = res as {
+      fileID: string
+      wordBoundaries: WordBoundary[]
+    }
+
+    const { fileList } = await wx.cloud.getTempFileURL({
+      fileList: [fileID]
+    })
+
+    return {
+      fileID,
+      url: fileList[0].tempFileURL,
+      wordBoundaries: wordBoundaries || []
+    }
+  }
+
+  static async moveToPermanent(
+    fileID: string,
+    cloudPath: string
+  ): Promise<string> {
+    const { tempFilePath } =
+      await wx.cloud.downloadFile({ fileID })
+
+    const result = await wx.cloud.uploadFile({
+      cloudPath,
+      filePath: tempFilePath
+    })
+
+    await this.deleteTemp(fileID)
+
+    return result.fileID
+  }
+
+  static async deleteTemp(fileID: string) {
+    if (!fileID) return
+
+    try {
+      await wx.cloud.deleteFile({
+        fileList: [fileID]
+      })
+    } catch (err) {
+      console.warn('清理临时音频失败', err)
+    }
+  }
+
+  static async deleteTemps(fileIDs: string[]) {
+    const list = fileIDs.filter(Boolean)
+    if (!list.length) return
+
+    try {
+      await wx.cloud.deleteFile({
+        fileList: list
+      })
+    } catch (err) {
+      console.warn('清理未保存音频失败', err)
+    }
+  }
+}
+</file>
+
+<file path="utils/dbHelper.ts">
+export const db = wx.cloud.database()
+
+/**
+ * 统一处理小程序端接口返回结果
+ */
+export function handleDbResponse<T>(result: ApiResponse<T>): T {
+    if (result.code !== 0) {
+      throw new Error(result.msg || '接口调用失败')
+    }
+    return result.data
+}
+
+export async function dbRequest<T>(request: Promise<T>, errorMsg = '数据库操作失败'): Promise<T> {
+  try {
+    return await request
+  } catch (err) {
+    console.error(errorMsg, err)
+    wx.showToast({ title: errorMsg, icon: 'none' })
+    throw err
+  }
+}
+
+export async function fetchAll<T>(query: any, batchSize = 20): Promise<T[]> {
+  const countResult = await query.count()
+  const total = countResult.total
+  if (total === 0) return []
+
+  const tasks: Promise<QueryResult<T>>[] = []
+  const batchTimes = Math.ceil(total / batchSize)
+
+  for (let i = 0; i < batchTimes; i++) {
+    tasks.push(query.skip(i * batchSize).limit(batchSize).get())
+  }
+
+  const resArray = await Promise.all(tasks)
+  return resArray.flatMap(res => res.data)
+}
+
+export async function removeAll(query: any, batchSize = 20): Promise<number> {
+  let total = 0
+
+  while (true) {
+    const res = await query.limit(batchSize).remove()
+    const removed = res.stats.removed
+
+    total += removed
+
+    if (removed < batchSize) break
+  }
+
+  return total
+}
+
+export async function dbFetchAll<T>(query: any, errorMsg = '查询数据失败'): Promise<T[]> {
+  return dbRequest(fetchAll<T>(query), errorMsg)
+}
+
+export function success<T>(data: T, message = 'ok'): ApiSuccess<T> {
+  return { code: 0, data, message }
+}
+
+export function fail(message = 'error', code = -1): ApiFail {
+  return { code, data: null, message }
+}
+</file>
+
+<file path="utils/local-store.ts">
+// utils/localStore.ts
+
+import { CollectionName } from "../enums/app-enums";
+
+
+export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
+
+  private metaKey;
+  constructor(private collection: CollectionName) {
+    this.metaKey = collection + '_meta'
+  }
+
+  getCollection() {
+    return this.collection;
+  }
+  // ---------- meta ----------
+  getMeta(): SyncMeta<T> {
+    return (
+      wx.getStorageSync<SyncMeta<T>>(this.metaKey) || {
+        cursor: 0,
+        pendingQueue: [],
+      }
+    );
+  }
+
+  saveMeta(meta: SyncMeta<T>): void {
+    wx.setStorageSync(this.metaKey, meta);
+  }
+
+  // ---------- 索引 & 分片 ----------
+  private indexKey(): string {
+    return `${this.collection}_index`;
+  }
+
+  private getIndex(): string[] {
+    return wx.getStorageSync<string[]>(this.indexKey()) || [];
+  }
+
+  get(bookId: string): T[] {
+    return wx.getStorageSync<T[]>(`${this.collection}_${bookId}`) || [];
+  }
+
+  private save(bookId: string, list: T[]): void {
+    wx.setStorageSync(`${this.collection}_${bookId}`, list);
+    const idx = this.getIndex();
+    if (!idx.includes(bookId)) {
+      idx.push(bookId);
+      wx.setStorageSync(this.indexKey(), idx);
+    }
+  }
+
+  getAll(): T[] {
+    return this.getIndex().flatMap((id) => this.get(id));
+  }
+
+  removeBook(bookId: string): void {
+    wx.removeStorageSync(`${this.collection}_${bookId}`);
+    wx.setStorageSync(
+      this.indexKey(),
+      this.getIndex().filter((id) => id !== bookId)
+    );
+  }
+
+
+  // ---------- 合并（同步拉取 + 乐观更新共用） ----------
+  // 按 keyOf 去重，timeOf 新盖旧，返回实际变更条数
+  merge(items: T[]): number {
+    const groups = new Map<string, T[]>();
+    for (const it of items) {
+      const b = it.bookId;
+      if (!groups.has(b)) groups.set(b, []);
+      groups.get(b)!.push(it);
+    }
+
+    let changed = 0;
+    for (const [bookId, batch] of groups) {
+      const local = this.get(bookId);
+      let dirty = false;
+      for (const it of batch) {
+        const k = it._id;
+        const i = local.findIndex((x) => it._id === k);
+        if (i >= 0) {
+          if (it.updatedAt > local[i]['updatedAt']) {
+            local[i] = it;
+            changed++;
+            dirty = true;
+          }
+        } else {
+          local.push(it);
+          changed++;
+          dirty = true;
+        }
+      }
+      if (dirty) this.save(bookId, local);
+    }
+    return changed;
+  }
+
+  upsert(item: T): void {
+    this.merge([item]);
+  }
+
+  // 跨分片按唯一键查找
+  find(key: string): T | null {
+    for (const x of this.getAll()) {
+      if (x._id === key) return x;
+    }
+    return null;
+  }
+}
+</file>
+
+<file path="utils/sentenceStore.ts">
+export class SentenceStore {
+  private key(bookId: string) {
+    return `sentence_${bookId}`
+  }
+
+  getCache(bookId: string): SentenceCache {
+    return wx.getStorageSync<SentenceCache>(this.key(bookId)) || {
+      list: [],
+      cursor: 0,
+      completed: false,
+      updatedAt: 0
+    }
+  }
+
+  get(bookId: string): Sentence[] {
+    return this.getCache(bookId).list
+  }
+
+  getCursor(bookId: string): number {
+    return this.getCache(bookId).cursor
+  }
+
+  isCompleted(bookId: string): boolean {
+    return this.getCache(bookId).completed
+  }
+
+  has(bookId: string): boolean {
+    return this.get(bookId).length > 0
+  }
+
+  saveBatch(bookId: string, list: Sentence[], cursor: number, hasMore: boolean): void {
+    const cache = this.getCache(bookId)
+    const map = new Map(cache.list.map(x => [x._id, x]))
+
+    for (const sentence of list) {
+      map.set(sentence._id, sentence)
+    }
+
+    cache.list = [...map.values()]
+    cache.cursor = cursor
+    cache.completed = !hasMore
+    cache.updatedAt = Date.now()
+
+    wx.setStorageSync(this.key(bookId), cache)
+  }
+
+  remove(bookId: string): void {
+    wx.removeStorageSync(this.key(bookId))
+  }
+
+  clear(): void {
+    wx.getStorageInfoSync().keys
+      .filter(key => key.startsWith('sentence_'))
+      .forEach(key => wx.removeStorageSync(key))
+  }
+}
+
+export default new SentenceStore()
+</file>
+
+<file path="utils/sentenceUtils.ts">
+
+</file>
+
+<file path="utils/sync.ts">
+// utils/sync.ts
+
+import { cloudFunctionName, CollectionName } from '../enums/app-enums';
+import { LocalShardStore } from './local-store';
+
+export class Sync {
+  markStore = new LocalShardStore<SentenceMark>(CollectionName.sentenceMark)
+  favStore = new LocalShardStore<SentenceFavorite>(CollectionName.sentenceFavorite)
+
+  async syncFromCloud(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<number> {
+    const meta = store.getMeta();
+    let cursor = meta.cursor;
+    let fetched = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const res = await wx.cloud.callFunction({
+        name: cloudFunctionName.syncUserData,
+        data: { cursor, collection: store.getCollection() },
+      });
+
+      const result = (res.result as { list: any[]; cursor: number; hasMore: boolean }) || { list: [], cursor, hasMore: false };
+
+      fetched += store.merge(result.list);
+      cursor = typeof result.cursor === 'number' ? result.cursor : cursor;
+      hasMore = !!result.hasMore;
+    }
+
+    meta.cursor = cursor;
+    store.saveMeta(meta);
+    return fetched;
+  }
+
+  /**
+ * 把 pendingQueue 中的任务逐条写入云端。
+ * 成功一条出队一条；失败则 retry+1 并停止本轮（等下次进入再试）。
+ */
+  async flushQueue(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<void> {
+    const meta = store.getMeta();
+    console.log(meta.pendingQueue)
+
+    while (meta.pendingQueue.length > 0) {
+      const task = meta.pendingQueue[0];
+      console.log('pending task', task)
+      try {
+        // 用 set 全量写入：天然幂等，队列重放不会产生脏数据
+        // _openid 由云端自动管理，写入前剔除，与你原来的行为保持一致
+        const { _id, _openid, ...data } = task.data as any;
+        await wx.cloud
+          .database()
+          .collection(store.getCollection())
+          .doc(_id)
+          .set({ data });
+
+        meta.pendingQueue.shift(); // 成功才出队
+      } catch (e) {
+        task.retry += 1;
+        if (task.retry >= 5) {
+          // 重试 5 次仍失败：丢弃并上报，防止卡死整个队列
+          console.error('[sync] 任务重试超限，丢弃', task.data._id, e);
+          meta.pendingQueue.shift();
+        } else {
+          console.warn('[sync] 队列任务写入失败，停止本轮', e);
+          break;
+        }
+      }
+    }
+
+    store.saveMeta(meta);
+  }
+
+  private syncState = {
+    syncing: false,
+    lastError: null as Error | null,
+    pendingCount: 0,
+  };
+
+  async startSync(): Promise<void> {
+    this.syncState.syncing = true;
+    try {
+      await this.flushQueue(this.markStore);
+      await this.flushQueue(this.favStore);
+      await this.syncFromCloud(this.markStore);
+      await this.syncFromCloud(this.favStore);
+      this.syncState.lastError = null;
+    } catch (err) {
+      this.syncState.lastError = err as Error;
+      console.error('[sync] 失败', err);
+    } finally {
+      this.syncState.syncing = false;
+      this.syncState.pendingCount = this.markStore.getMeta().pendingQueue.length;
+    }
+  }
+}
+
+export default new Sync()
+</file>
+
+<file path="utils/util.ts">
+export const formatTime = (date: Date) => {
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const hour = date.getHours()
+  const minute = date.getMinutes()
+  const second = date.getSeconds()
+
+  return (
+    [year, month, day].map(formatNumber).join('/') +
+    ' ' +
+    [hour, minute, second].map(formatNumber).join(':')
+  )
+}
+
+const formatNumber = (n: number) => {
+  const s = n.toString()
+  return s[1] ? s : '0' + s
+}
+</file>
+
+<file path="app.json">
+{
+  "pages": [
+    "pages/sentence-book-list/sentence-book-list",
+    "pages/index/index",
+    "pages/sentence-play/sentence-play",
+    "pages/sentence-list/sentence-list"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Weixin",
+    "navigationBarBackgroundColor": "#ffffff"
+  },
+  "componentFramework": "glass-easel",
+  "lazyCodeLoading": "requiredComponents"
+}
+</file>
+
+<file path="app.ts">
+import { cloudFunctionName } from "./enums/app-enums"
+import { callCloudFunction } from "./services/cloud-client"
+import { initSentenceEventListeners } from "./services/sentence-listener"
+import sync from "./utils/sync"
+
+// app.ts
+App<IAppOption>({
+  globalData: {
+  },
+
+  openidReady: Promise.resolve(),
+  
+  async onLaunch() {
+    // 初始化云环境
+    wx.cloud.init({
+      env: 'cloud1-d0gyvvq93ab34b8b7',
+      traceUser: true
+    })
+
+    this.openidReady = this.initOpenid() as any
+    // 运行期间屏幕亮
+    wx.setKeepScreenOn({
+      keepScreenOn: true
+    })
+
+    // // ========== 第一步：确保拿到 _openid（缓存或云端，只此一处） ==========
+    // let _openid: string | '' = wx.getStorageSync('_openid');
+    // if (!_openid) {
+    //   try {
+    //     const res = await wx.cloud.callFunction({ name: 'getOpenId' });
+    //     _openid = (res.result as { _openid: string })._openid;
+    //     wx.setStorageSync('_openid', _openid);
+    //   } catch (e) {
+    //     console.error('获取 _openid 失败', e);
+    //     // 这里可以选择 return，或继续启动（同步会失败，本地缓存兜底）
+    //   }
+    // }
+    // this.globalData._openid = _openid;
+    // console.log(this.globalData._openid)
+
+    // 确保用户的默认词书（"用户句子"）存在。
+    // 云函数内部是幂等的，这里不用 await 阻塞启动，失败了也不影响正常使用——
+    // 后续录入句子等操作里如果发现默认库缺失，会再次兜底触发。
+    await this.openidReady
+    this.ensureUserBook()
+
+    sync.startSync()
+
+    // 启动eventBus监听程序
+    initSentenceEventListeners();
+
+  },
+
+  async ensureUserBook() {
+    // 直接拿到 callCloudFunction 解包后的对象
+    const userBooks = await callCloudFunction<UserDefaultBooks>(
+      cloudFunctionName.ensureUserBook,
+      {}
+    );
+
+    console.log('默认词书信息:', userBooks);
+    console.log('录入词书ID:', userBooks.originBookId);
+    console.log('收藏词书ID:', userBooks.favoriteBookId);
+
+    // 缓存到 globalData 或 Storage
+    this.globalData.originBookId = userBooks.originBookId;
+    this.globalData.favoriteBookId = userBooks.favoriteBookId;
+  },
+
+  getPlayConfig() {
+    if (!this.globalData.playConfig) {
+      this.globalData.playConfig = {
+        repeatCount: 1,
+        gapMs: 1000,
+        playOrder: 'zh_first',
+        limitCount: 0,
+        bookId: '',
+        bookName: '',
+        playMode: 'sequence',
+        startId: ''
+      }
+    }
+
+    return this.globalData.playConfig
+  },
+  async initOpenid():Promise<void> {
+    const res = await wx.cloud.callFunction({ name: 'getOpenId' });
+    const _openid = (res.result as { _openid: string })._openid;
+    this.globalData._openid = _openid
+  },
+  updatePlayConfig(config) {
+    Object.assign(this.getPlayConfig(), config)
+  }
+
+})
+</file>
+
+<file path="app.wxss">
+/**app.wxss**/
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 200rpx 0;
+  box-sizing: border-box;
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "miniprogram",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@vant/weapp": "^1.11.7"
+  },
+  "devDependencies": {
+    "miniprogram-api-typings": "^5.2.3"
+  }
+}
+</file>
+
+</files>

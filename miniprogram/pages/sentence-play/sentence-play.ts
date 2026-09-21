@@ -29,6 +29,11 @@ Page({
     this.initEngine();
     // 2. 自动开启播放
     this.playEngine?.start();
+    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST,
+      () => {
+        console.log('play refresh')
+        this.setData({ sentenceList: [...sentencePlayManager.sentenceList] })
+      })
   },
 
   initEngine() {
@@ -122,14 +127,14 @@ Page({
 
     const currentStage = sentence.mark?.stage || 0;
     const nextStage = currentStage + 1;
-    const newMark = {...sentence.mark,stage:nextStage}
+    const newMark = { ...sentence.mark, stage: nextStage }
     console.log(nextStage)
 
     sentencePlayManager.updateSentence(sentence._id, { mark: newMark });
     this.setData({
       sentenceList: [...sentencePlayManager.sentenceList]
     });
- 
+
     wx.showToast({
       title: `掌握度 +1 (Level ${nextStage})`,
       icon: 'none',

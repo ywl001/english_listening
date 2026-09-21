@@ -1,7 +1,7 @@
 import bookService from '../../services/book-service';
 import { BookType, Pages } from '../../enums/app-enums';
 import sentenceService from '../../services/sentence-service';
-import { initManagerAndNavigate } from '../../utils/sentenceUtils';
+import sentencePlayManager from '../../services/sentence-play-manager';
 
 Page({
   data: {
@@ -9,7 +9,6 @@ Page({
     systemBooks: [] as Book[],
     userBooks: [] as Book[],
     showSettingsModal: false,
-    showBookCreate: false,
     settings: {
       order: 'EN_ZH',
       count: 10,
@@ -18,18 +17,21 @@ Page({
     }
   },
 
-  onLoad() {
+  async onLoad() {
     const cachedSettings = wx.getStorageSync('playback_settings');
     if (cachedSettings) {
       this.setData({ settings: cachedSettings });
     }
+
     this.loadData();
   },
 
   async loadData() {
+    console.log('book list load book')
     const allSentenceBooks = await bookService.getSentenceBooks();
     const userBooks = await bookService.getUserBooks();
     const userSentenceBooks = userBooks.filter(b => b.content === BookType.sentence);
+    await getApp().openidReady;
     const _openid = getApp().globalData._openid;
 
     this.setData({
@@ -63,13 +65,24 @@ Page({
   async onTapBook(e: any) {
     const book: Book = e.detail.book;
     console.log(book)
-    if (book._openid) {
-      const url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
-      initManagerAndNavigate(url,  book,  sentenceService.getFavoriteSentences)
-    } else {
-      const url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
-      initManagerAndNavigate(url, book, sentenceService.getPlayList)
+    wx.showLoading({ title: '获取学习列表。', mask: true })
+    let url, list
+    const userSentenceBookId = (getApp() as IAppOption).globalData.originBookId
+    if (book._id === userSentenceBookId) {
+      url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
+      list = await sentenceService.getPlayList(book._id)
+    } else if (book._openid) {
+      url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
+      console.log(book._id, book.name)
+      list = await sentenceService.getFavoriteSentences(book._id)
     }
+    else {
+      url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
+      list = await sentenceService.getPlayList(book._id)
+    }
+    sentencePlayManager.init(book, list)
+    wx.navigateTo({ url })
+    wx.hideLoading()
   },
 
   onEditBook(e: any) {
@@ -90,16 +103,11 @@ Page({
     });
   },
 
-  openCreateBook() {
-    console.log('create book')
-    this.setData({ showBookCreate: true })
-  },
-  
-  async onCreateBook(e:any) {
+  async onCreateBook(e: any) {
     const { name } = e.detail
     const book = await bookService.createBook(name, BookType.sentence)
     this.setData({
-      userBooks:this.data.userBooks.concat(book)
+      userBooks: this.data.userBooks.concat(book)
     })
   }
 

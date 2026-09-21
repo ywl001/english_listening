@@ -1,8 +1,13 @@
-// export enum LocalStorageKey {
-//   progress_sequence = 'progress',
-//   Progress_favorite = 'favorite',
-//   progress_test = 'progress_test'
-// }
+export enum LocalStorageKey {
+  // progress_sequence = 'progress',
+  // Progress_favorite = 'favorite',
+  // progress_test = 'progress_test'
+
+  PREMIX_MARK = 'mark',
+  META_MARK = 'mark_meta',
+  PREMIX_FAV = 'fav',
+  META_FAV = 'fav_meta'
+}
 
 export enum BookType {
   sentence = 'sentence',
@@ -14,14 +19,14 @@ export enum Pages {
   index = "/pages/index/index",
   sentencePlay = '/pages/sentence-play/sentence-play',
   testPage = '/pages/test-page/test-page',
-  sentenceList = '/pages/sentence-list/sentence-list'
+  sentenceList = '/pages/sentence-list/sentence-list',
+  sentenceInput = '/pages/sentence-input/sentence-input'
 }
 
 export enum cloudFunctionName {
   edgeTts = 'edgeTts',
   getOpenId = 'getOpenId',
   translate = 'translate',
-  upsertMark = 'upsertMark',
   getBooks = 'getBooks',
   getBookSentence = 'getBookSentence',
   getArticles = 'getArticles',
@@ -32,7 +37,9 @@ export enum cloudFunctionName {
   ensureUserBook = 'ensureUserBook',
   createSentence = 'createSentence',
   getSentencePlayList = 'getSentencePlayList',
-  getFavoriteSentences = 'getFavoriteSentences'
+  getFavoriteSentences = 'getFavoriteSentences',
+  syncUserData= 'syncUserData',
+  syncSentence= 'syncSentence'
 }
 
 export enum CollectionName{

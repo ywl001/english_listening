@@ -1,6 +1,6 @@
+import { cloudFunctionName } from "../../enums/app-enums"
+import { callCloudFunction } from "../../services/cloud-client"
 
-
-// pages/index/index.ts
 Page({
 
   /**
@@ -13,9 +13,16 @@ Page({
   /**
    * 生命周期函数--监听页面加载
    */
-  async onLoad(options) {
+  async onLoad() {
+    console.time("myTimer");
+    const res = await callCloudFunction(cloudFunctionName.syncSentence,{bookId:'f9ecc4af6a98d6fa05ab454f5e9f84fc'})
 
+    console.log(res)
+
+    console.timeEnd("myTimer");
   },
+
+
 
   /**
    * 生命周期函数--监听页面初次渲染完成
