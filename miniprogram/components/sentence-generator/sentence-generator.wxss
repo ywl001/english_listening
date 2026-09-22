@@ -1,0 +1,29 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx 0;
+  box-sizing: border-box;
+  background: #f5f6fa;
+}
+
+.bottom-placeholder {
+  height: 140rpx;
+}
+
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4rpx 24rpx rgba(31, 34, 51, .06);
+  box-sizing: border-box;
+}
+
+.bottom-bar van-button {
+  flex: 1;
+}
+

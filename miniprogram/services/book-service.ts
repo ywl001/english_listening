@@ -2,7 +2,7 @@
 
 import { BookType, cloudFunctionName } from "../enums/app-enums";
 import { dbRequest, db } from "../utils/dbHelper";
-import { callCloudFunction } from "./cloud-client";
+import { callCloudFunction } from "../utils/cloud-client";
 
 export class BookService {
   private booksCache: Book[] | null = null;

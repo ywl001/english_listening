@@ -1,5 +1,5 @@
 import { cloudFunctionName } from "../enums/app-enums";
-import { callCloudFunction } from "./cloud-client";
+import { callCloudFunction } from "../utils/cloud-client";
 
 /**
  * 获取文章/课文列表

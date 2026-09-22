@@ -1,4 +1,4 @@
-export interface SentenceCache {
+export interface SentenceLocalCache {
   list: Sentence[];
   cursor: number;
   completed: boolean;
@@ -13,8 +13,8 @@ export class SentenceStore {
     return `${this.PREFIX}${bookId}`;
   }
 
-  getCache(bookId: string): SentenceCache {
-    return wx.getStorageSync<SentenceCache>(this.key(bookId)) || {
+  getCache(bookId: string): SentenceLocalCache {
+    return wx.getStorageSync<SentenceLocalCache>(this.key(bookId)) || {
       list: [],
       cursor: 0,
       completed: false,
@@ -54,7 +54,7 @@ export class SentenceStore {
     const allKeys = wx.getStorageInfoSync().keys.filter(k => k.startsWith(this.PREFIX));
 
     for (const key of allKeys) {
-      const cache = wx.getStorageSync<SentenceCache>(key);
+      const cache = wx.getStorageSync<SentenceLocalCache>(key);
       if (cache && Array.isArray(cache.list)) {
         const found = cache.list.find(s => s._id === sentenceId);
         if (found) return found; // 找到即返回
@@ -78,7 +78,7 @@ export class SentenceStore {
     for (const key of allKeys) {
       if (result.size === idSet.size) break; // 全部找到，提前终止循环
 
-      const cache = wx.getStorageSync<SentenceCache>(key);
+      const cache = wx.getStorageSync<SentenceLocalCache>(key);
       if (cache && Array.isArray(cache.list)) {
         for (const item of cache.list) {
           if (idSet.has(item._id) && !result.has(item._id)) {
@@ -112,7 +112,7 @@ export class SentenceStore {
   }
 
  /**
-   * 前置新增/更新句子（精简版）
+   * 新增/更新句子
    */
  prependOrUpdate(bookId: string, sentences: Sentence | Sentence[]): void {
   const items = Array.isArray(sentences) ? sentences : [sentences];
@@ -137,7 +137,6 @@ export class SentenceStore {
 
   wx.setStorageSync(this.key(bookId), cache);
 }
-
 
 /**
  * 修复：严谨匹配实体句子的 Key 前缀，防止误删 sentenceMark_ 和 sentenceFavorite_

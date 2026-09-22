@@ -41,7 +41,6 @@ Page({
       inputText,
       detectedLang: this.detectLang(inputText)
     }
-
     // 如果已经生成过结果，且修改了文本，立刻清理上一轮未保存的临时音频
     if (this.data.generatedInputText && inputText.trim() !== this.data.generatedInputText) {
       this.discardPendingAudio() // 异步清理，不阻塞 UI 响应

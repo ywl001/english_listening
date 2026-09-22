@@ -1,53 +1,48 @@
-<view class="container">
+<view class="page">
 
-  <!-- 1. 全屏拖拽区域 (Pointer-events 穿透，不挡住页面点击) -->
+  <!-- 可拖动添加按钮 -->
   <movable-area class="movable-area">
     <movable-view class="fab-add" direction="all" out-of-bounds="false" x="{{fabX}}" y="{{fabY}}" bindtap="onAddSentence">
-      <text class="fab-icon">+</text>
+      <van-icon name="plus" color="#fff" size="28" />
     </movable-view>
   </movable-area>
 
-  <!-- 搜索框 -->
-  <view class="search-bar">
-    <input class="search-input" placeholder="搜索收藏的句子" bindinput="onSearchInput" value="{{keyword}}" confirm-type="search" />
-  </view>
+  <!-- 搜索 -->
+  <van-search value="{{keyword}}" placeholder="搜索收藏的句子" shape="round" bind:change="onSearchInput" />
 
-  <!-- 列表 -->
-  <view class="list-wrapper">
-    <block wx:if="{{displayList.length > 0}}">
-      <view wx:for="{{displayList}}" wx:key="_id" class="card-item-wrapper">
-        <!-- Vant 滑动单元格组件 -->
-        <van-swipe-cell right-width="{{ 80 }}">
-          <!-- 主体卡片内容 -->
-          <view class="sentence-card {{currentIndex === index && isPlayingAll ? 'playing-card' : ''}}" bindtap="playSingleAudio" data-index="{{index}}">
-            <view class="card-left">
-              <view class="en-text">
-                <text class="index-num">{{index + 1}}. </text>{{item.en || item.english}}
-              </view>
-              <view class="zh-text">{{item.zh || item.chinese}}</view>
-            </view>
-          </view>
+  <!-- 句子列表 -->
+  <view wx:if="{{displayList.length > 0}}" class="list">
 
-          <!-- 右侧滑动出来的删除按钮 -->
-          <view slot="right" class="van-swipe-cell__right" catchtap="onDelete" data-id="{{item._id}}">
-            删除
-          </view>
-        </van-swipe-cell>
+    <van-swipe-cell wx:for="{{displayList}}" wx:key="_id" right-width="{{80}}">
+      <van-cell title="{{index + 1}}. {{item.en || item.english}}" label="{{item.zh || item.chinese}}" border="{{false}}" is-link="{{false}}" bind:click="playSingleAudio" data-index="{{index}}" />
+
+      <view slot="right" class="delete-button" catchtap="onDelete" data-id="{{item._id}}">
+        <van-icon name="delete-o" size="22" color="#fff" />
+        <text>删除</text>
       </view>
+    </van-swipe-cell>
 
-      <view class="loading-status"></view>
-    </block>
-
-    <view wx:else class="empty-box">
-      <text>暂无相关句子</text>
-    </view>
   </view>
+
+  <!-- 空状态 -->
+  <van-empty wx:else image="search" description="暂无相关句子" />
 
   <!-- 底部播放按钮 -->
-  <view class="bottom-floating-bar" wx:if="{{sentenceList.length > 0}}">
-    <button class="play-all-btn" bindtap="togglePlayAll">
-      <text class="icon">🎧</text>
-      <text>{{isPlayingAll ? '暂停播放' : '全部播放收藏 (' + sentenceList.length + ')'}}</text>
-    </button>
+  <view wx:if="{{sentenceList.length > 0}}" class="bottom-bar">
+    <van-button block round type="warning" icon="audio" bind:click="togglePlayAll">
+      全部播放收藏
+    </van-button>
   </view>
+
+  <!-- 删除确认弹窗 -->
+  <van-dialog use-slot title="取消收藏" show="{{showDeleteDialog}}" show-cancel-button bind:confirm="confirmDelete" bind:cancel="cancelDelete" bind:close="cancelDelete">
+    <view class="dialog-content">
+      确定要取消收藏该句子吗？
+    </view>
+  </van-dialog>
+
+  <van-popup show="{{showGenerator}}" custom-style="height: 90%;" position="bottom" round bind:close="closeGenerator">
+    <sentence-generator book-id="{{bookId}}" bind:saved="onSentenceSaved" />
+  </van-popup>
+
 </view>

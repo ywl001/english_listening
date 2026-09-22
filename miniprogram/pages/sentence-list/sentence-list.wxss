@@ -1,158 +1,59 @@
-page {
-  background-color: #f7f8fa;
+.page {
   min-height: 100vh;
-}
-
-.container {
-  padding: 0 24rpx 140rpx;
+  padding-bottom: 140rpx;
   box-sizing: border-box;
-  width: 100%;
+  background: #f7f8fa;
 }
 
-/* ========== 搜索框 ========== */
-.search-bar {
-  width: 100%;
-  margin-bottom: 24rpx;
-  box-sizing: border-box;
+.list {
+  margin-top: 16rpx;
 }
 
-.search-input {
-  width: 100%;
-  background: #ffffff;
-  height: 80rpx;
-  line-height: 80rpx;
-  border-radius: 40rpx;
-  padding: 0 32rpx;
-  font-size: 28rpx;
-  color: #333333;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.03);
-  box-sizing: border-box;
-  text-align: center;
-}
-
-/* ========== 滑动卡片容器 ========== */
-.card-item-wrapper {
-  margin-bottom: 20rpx;
-  border-radius: 20rpx;
-  overflow: hidden; /* 防止滑动背景超出圆角 */
-}
-
-.sentence-card {
-  width: 100%;
-  box-sizing: border-box;
-  background: #ffffff;
-  padding: 32rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 2rpx solid transparent;
-  transition: all 0.2s ease;
-}
-
-.playing-card {
-  background-color: #eef6ff;
-  border-color: #2f80ed;
-}
-
-.card-left {
-  flex: 1;
-}
-
-.en-text {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #1a1a1a;
-  line-height: 1.4;
-  margin-bottom: 12rpx;
-}
-
-.index-num {
-  color: #1a1a1a;
-}
-
-.zh-text {
-  font-size: 26rpx;
-  color: #666666;
-}
-
-/* ========== 滑动删除按钮样式 ========== */
-.van-swipe-cell__right {
+.delete-button {
+  width: 160rpx;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 160rpx; /* 对应 wxml 中的 right-width="{{ 80 }}" (80px = 160rpx) */
-  height: 100%;
-  font-size: 28rpx;
-  color: #ffffff;
-  background-color: #ee0a24; /* Vant 默认危险红色 */
-  font-weight: 500;
+  gap: 8rpx;
+  background: #ee0a24;
+  color: #fff;
+  font-size: 26rpx;
 }
 
-/* ========== 底部悬浮按钮 ========== */
-.bottom-floating-bar {
+.bottom-bar {
   position: fixed;
-  bottom: 40rpx;
   left: 24rpx;
   right: 24rpx;
+  bottom: calc(24rpx + env(safe-area-inset-bottom));
   z-index: 100;
 }
 
-.play-all-btn {
-  width: 100% !important;
-  height: 96rpx;
-  background: #ffde94;
-  color: #5c3c00;
-  border-radius: 48rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-  box-shadow: 0 8rpx 24rpx rgba(255, 222, 148, 0.55);
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  line-height: normal !important;
-}
-
-.play-all-btn::after {
-  border: none;
-}
-
-.play-all-btn .icon {
-  margin-right: 12rpx;
-  font-size: 34rpx;
-  display: flex;
-  align-items: center;
-}
-
-/* ========== 拖拽容器 ========== */
 .movable-area {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100vw;
   height: 100vh;
-  pointer-events: none; /* 关键：透传点击事件，不挡住列表滑动 */
+  pointer-events: none;
   z-index: 101;
 }
 
 .fab-add {
-  pointer-events: auto; /* 关键：让按钮本身响应点击和拖拽 */
   width: 110rpx;
   height: 110rpx;
   border-radius: 50%;
-  background: #2f80ed;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(47, 128, 237, 0.4);
+  background: #2f80ed;
+  box-shadow: 0 8rpx 24rpx rgba(47, 128, 237, .4);
+  pointer-events: auto;
 }
 
-.fab-icon {
-  color: #fff;
-  font-size: 56rpx;
-  font-weight: 300;
-  line-height: 1;
-  margin-top: -6rpx;
+.dialog-content {
+  padding: 32rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #333;
 }
+

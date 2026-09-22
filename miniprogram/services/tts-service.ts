@@ -1,5 +1,5 @@
 import { cloudFunctionName } from "../enums/app-enums"
-import { callCloudFunction } from "./cloud-client"
+import { callCloudFunction } from "../utils/cloud-client"
 
 export class TtsService {
   static async synthesize(text: string): Promise<TtsResult> {

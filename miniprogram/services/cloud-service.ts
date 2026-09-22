@@ -1,4 +1,4 @@
-export class CloudService {
+export class SentencePlayList {
   async getSentencesByIds(collection: string, bookId: string, includeIds: string[], excludeIds: string[] = [], limit = 20): Promise<Sentence[]> {
 
     const db = wx.cloud.database()
@@ -82,5 +82,5 @@ export class CloudService {
     }))
   }
 }
-const cloudService = new CloudService()
+const cloudService = new SentencePlayList()
 export default cloudService

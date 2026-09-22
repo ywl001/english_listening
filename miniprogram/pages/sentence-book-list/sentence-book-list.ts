@@ -1,5 +1,5 @@
 import bookService from '../../services/book-service';
-import { BookType, Pages } from '../../enums/app-enums';
+import { BookType as BookContent, Pages } from '../../enums/app-enums';
 import sentenceService from '../../services/sentence-service';
 import sentencePlayManager from '../../services/sentence-play-manager';
 
@@ -30,7 +30,7 @@ Page({
     console.log('book list load book')
     const allSentenceBooks = await bookService.getSentenceBooks();
     const userBooks = await bookService.getUserBooks();
-    const userSentenceBooks = userBooks.filter(b => b.content === BookType.sentence);
+    const userSentenceBooks = userBooks.filter(b => b.content === BookContent.sentence);
     await getApp().openidReady;
     const _openid = getApp().globalData._openid;
 
@@ -105,7 +105,7 @@ Page({
 
   async onCreateBook(e: any) {
     const { name } = e.detail
-    const book = await bookService.createBook(name, BookType.sentence)
+    const book = await bookService.createBook(name, BookContent.sentence)
     this.setData({
       userBooks: this.data.userBooks.concat(book)
     })

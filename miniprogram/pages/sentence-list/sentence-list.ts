@@ -11,12 +11,11 @@ Page({
     sentenceList: [] as Sentence[],
     displayList: [] as Sentence[],
     keyword: '',
-    // page: 1,
-    // pageSize: 20,
-    // hasMore: true,
-    // loading: false,
+    showDeleteDialog: false,
+    deleteSentenceId: '',
     bookId: '',
     bookName: '',
+    showGenerator:false,
 
     // 全部播放控制状态
     isPlayingAll: false,
@@ -64,20 +63,33 @@ Page({
 
   // 取消收藏：直接调用句子的 toggleFavorite 方法
   onDelete(e: WechatMiniprogram.CustomEvent) {
-    const { id } = e.currentTarget.dataset;
-    const sentenceId = id as string;
-    const bookId = this.data.bookId;
+    this.setData({
+      deleteSentenceId: e.currentTarget.dataset.id,
+      showDeleteDialog: true
+    })
+  },
 
-    wx.showModal({
-      title: '提示',
-      content: '确定要取消收藏该句子吗？',
-      confirmColor: '#ee0a24',
-      success: async (res) => {
-        if (res.confirm) {
-          eventBus.emit(AppEvent.FAVORITE_SENTENCE, { sentenceId, bookId, isFavorite: false })
-        }
-      }
-    });
+  confirmDelete() {
+    const sentenceId = this.data.deleteSentenceId
+    const bookId = this.data.bookId
+
+    eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
+      sentenceId,
+      bookId,
+      isFavorite: false
+    })
+
+    this.setData({
+      showDeleteDialog: false,
+      deleteSentenceId: ''
+    })
+  },
+
+  cancelDelete() {
+    this.setData({
+      showDeleteDialog: false,
+      deleteSentenceId: ''
+    })
   },
 
   // 本地搜索过滤
@@ -104,6 +116,8 @@ Page({
     this.playCurrentIndexAudio(index);
   },
 
+
+
   // 触发全部播放/暂停
   togglePlayAll() {
     wx.navigateTo({ url: Pages.sentencePlay })
@@ -120,8 +134,7 @@ Page({
 
   // 真正的添加逻辑（从 touchend 调用）
   onAddSentence() {
-    console.log('sentence list data:', this.data)
-    const url = `${Pages.sentenceInput}?bookId=${this.data.bookId}&bookName=${this.data.bookName}`
-    wx.navigateTo({ url })
+    console.log('add sentence')
+    this.setData({showGenerator:true})
   }
 });

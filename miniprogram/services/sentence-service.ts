@@ -1,7 +1,7 @@
 import { cloudFunctionName, CollectionName } from "../enums/app-enums";
 import sentenceStore from "../utils/sentenceStore";
 import sync from "../utils/sync"; // 统一使用 sync 内部的 store 单例
-import { callCloudFunction } from "./cloud-client";
+import { callCloudFunction } from "../utils/cloud-client";
 import cloudService from "./cloud-service";
 import { AppEvent } from "./event-type";
 import eventBus from "./EventBus";

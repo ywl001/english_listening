@@ -1,0 +1,38 @@
+<view class="page">
+
+  <van-cell-group inset>
+    <van-field value="{{inputText}}" label="输入句子" type="textarea" autosize rows="4" maxlength="500" placeholder="例如：今天天气真不错 或 The weather is nice today" bind:input="onInput" />
+    <van-cell title="{{detectedLang === 'zh' ? '检测到中文' : '检测到英文'}}" label="{{detectedLang === 'zh' ? '将翻译为英文' : '将翻译为中文'}}" />
+  </van-cell-group>
+
+  <van-cell-group inset wx:if="{{genError}}">
+    <van-cell title="生成失败" label="{{genError}}" />
+  </van-cell-group>
+
+  <van-cell-group inset wx:if="{{zh || en}}">
+
+    <van-cell wx:if="{{zh}}" title="中文" label="{{zh}}" value="朗读" bind:click="playZh">
+      <van-icon slot="right-icon" name="volume-o" size="20" />
+    </van-cell>
+
+    <van-cell wx:if="{{en}}" title="英文" label="{{en}}" value="朗读" bind:click="playEn">
+      <van-icon slot="right-icon" name="volume-o" size="20" />
+    </van-cell>
+
+  </van-cell-group>
+
+  <view class="bottom-placeholder"></view>
+
+  <view class="bottom-bar">
+    <block wx:if="{{tempAudioUrl && tempAudioZhUrl}}">
+      <van-button block type="success" loading="{{saving}}" disabled="{{!selectedBookId}}" bind:click="onSave">
+        保存到句子库
+      </van-button>
+    </block>
+
+    <van-button wx:else block type="primary" loading="{{generating}}" disabled="{{generating || !inputText}}" bind:click="onTranslateAndGenerate">
+      翻译并生成发音
+    </van-button>
+  </view>
+
+</view>

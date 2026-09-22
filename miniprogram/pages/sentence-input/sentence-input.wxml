@@ -49,7 +49,7 @@
   <!-- 底部固定按钮栏 -->
   <view class="bottom-bar">
     <block wx:if="{{tempAudioUrl && tempAudioZhUrl}}">
-      <button class="btn-outline" bindtap="onDiscardAndReset">重新输入</button>
+      <!-- <button class="btn-outline" bindtap="onDiscardAndReset">重新输入</button> -->
       <button class="btn-save" bindtap="onSave" disabled="{{saving || !selectedBookId}}">
         {{saving ? '保存中...' : '保存到句子库'}}
       </button>
