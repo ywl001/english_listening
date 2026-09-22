@@ -35,12 +35,12 @@ Component({
 
   observers: {
     bookId(value: string) {
+      console.log('geerator :',value)
       this.setData({ selectedBookId: value || '' })
     }
   },
 
   methods: {
-
     onInput(e: WechatMiniprogram.CustomEvent) {
       const inputText = e.detail.value
       const updates: Record<string, any> = {

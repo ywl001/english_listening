@@ -10,16 +10,14 @@ interface IAppOption {
   }
 
   userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback
-  openidReady:Promise<void>
+  openidReady: Promise<void>
 
   getPlayConfig(): PlayConfig
   ensureUserBook(): void
   updatePlayConfig(config: Partial<PlayConfig>): void
 
-  initOpenid():void
+  initOpenid(): void
 }
-
-
 
 type PlayMode = 'sequence' | 'test'
 
@@ -49,6 +47,7 @@ interface Sentence {
   mark?: SentenceMark | null
   isNew?: boolean
 
+  favorites?: string[]
   isFavorite?: boolean
 }
 
@@ -231,7 +230,7 @@ interface MarkIndex {
   total: number;
 }
 interface PendingTask<T> {
-  op:string
+  op: string
   data: T;
   retry: number;
   ts: number;

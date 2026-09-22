@@ -136,5 +136,15 @@ Page({
   onAddSentence() {
     console.log('add sentence')
     this.setData({showGenerator:true})
+  },
+
+  closeGenerator(){
+    this.setData({showGenerator:false})
+  },
+
+  onSentenceSaved(sentence:Sentence){
+    console.log(sentence)
+    sentencePlayManager.sentenceList.push(sentence)
+    this.refreshData()
   }
 });

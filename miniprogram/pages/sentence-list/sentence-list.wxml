@@ -13,17 +13,18 @@
   <!-- 句子列表 -->
   <view wx:if="{{displayList.length > 0}}" class="list">
 
-    <van-swipe-cell wx:for="{{displayList}}" wx:key="_id" right-width="{{80}}">
-      <van-cell title="{{index + 1}}. {{item.en || item.english}}" label="{{item.zh || item.chinese}}" border="{{false}}" is-link="{{false}}" bind:click="playSingleAudio" data-index="{{index}}" />
+    <view wx:for="{{displayList}}" wx:key="_id" class="swipe-item">
+      <van-swipe-cell right-width="{{80}}">
+        <van-cell custom-style="background: #e8f3ff;" title="{{index + 1}}. {{item.en || item.english}}" label="{{item.zh || item.chinese}}" border="{{false}}" is-link="{{false}}" bind:click="playSingleAudio" data-index="{{index}}" />
 
-      <view slot="right" class="delete-button" catchtap="onDelete" data-id="{{item._id}}">
-        <van-icon name="delete-o" size="22" color="#fff" />
-        <text>删除</text>
-      </view>
-    </van-swipe-cell>
+        <view slot="right" class="delete-button" catchtap="onDelete" data-id="{{item._id}}">
+          <van-icon name="delete-o" size="22" color="#fff" />
+          <text>删除</text>
+        </view>
+      </van-swipe-cell>
+    </view>
 
   </view>
-
   <!-- 空状态 -->
   <van-empty wx:else image="search" description="暂无相关句子" />
 
@@ -41,7 +42,7 @@
     </view>
   </van-dialog>
 
-  <van-popup show="{{showGenerator}}" custom-style="height: 90%;" position="bottom" round bind:close="closeGenerator">
+  <van-popup closeable show="{{showGenerator}}" custom-style="height: 95%;" position="bottom" round bind:close="closeGenerator">
     <sentence-generator book-id="{{bookId}}" bind:saved="onSentenceSaved" />
   </van-popup>
 

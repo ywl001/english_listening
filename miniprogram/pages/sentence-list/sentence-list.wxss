@@ -5,8 +5,13 @@
   background: #f7f8fa;
 }
 
+
 .list {
   margin-top: 16rpx;
+}
+.swipe-item {
+  margin-bottom: 8rpx;
+  border-bottom: #333 5rpx solid;
 }
 
 .delete-button {
@@ -35,7 +40,7 @@
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  z-index: 101;
+  z-index: 1;
 }
 
 .fab-add {

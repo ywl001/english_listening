@@ -6,19 +6,26 @@ import cloudService from "./cloud-service";
 import { AppEvent } from "./event-type";
 import eventBus from "./EventBus";
 import sentencePlayManager from "./sentence-play-manager";
+import sentencePlayList from "./sentence-play-list";
 
 export class SentenceService {
   async getPlayList(bookId: string, targetCount = 50): Promise<Sentence[]> {
-    if (sentenceStore.isCompleted(bookId)) {
-      console.log('本地数据完整，走本地构建播放列表');
-      return this.buildLocalPlayList(bookId, targetCount);
-    }
-    const list = await this.getInitSentencePlayList(bookId);
+    // if (sentenceStore.isCompleted(bookId)) {
+    //   console.log('本地数据完整，走本地构建播放列表');
+    //   return this.buildLocalPlayList(bookId, targetCount);
+    // }
+    // const list = await this.getInitSentencePlayList(bookId);
 
-    if (!sentenceStore.isCompleted(bookId)) {
-      this.syncAll(bookId).catch(console.error);
-    }
-    return list;
+    // if (!sentenceStore.isCompleted(bookId)) {
+    //   this.syncAll(bookId).catch(console.error);
+    // }
+    // return list;
+    const pl = await sentencePlayList.getPlayList(bookId)
+
+    console.log(pl.list)
+
+    return pl.list
+
   }
 
   private async getInitSentencePlayList(bookId: string): Promise<Sentence[]> {
