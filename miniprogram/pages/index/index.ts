@@ -1,4 +1,5 @@
 import { cloudFunctionName } from "../../enums/app-enums"
+import sentencePlayList from "../../services/sentence-play-list"
 import { callCloudFunction } from "../../utils/cloud-client"
 
 Page({
@@ -10,16 +11,23 @@ Page({
 
   },
 
+  cursor : null,
+  limit : 20,
+  bookId:'',
+
   /**
    * 生命周期函数--监听页面加载
    */
-  async onLoad() {
-    console.time("myTimer");
-    const res = await callCloudFunction(cloudFunctionName.syncSentence,{bookId:'f9ecc4af6a98d6fa05ab454f5e9f84fc'})
+  onLoad() {
 
-    console.log(res)
+  },
 
-    console.timeEnd("myTimer");
+  async test(){
+    const res = await sentencePlayList.getPlayList('f9ecc4af6a98d6fa05ab454f5e9f84fc',this.limit,this.cursor)
+    console.log(res.cursor)
+    console.log(res.list.map(item=>item.zh))
+    console.log('-----------------------------------------------------------------')
+    this.cursor = res.cursor
   },
 
 
