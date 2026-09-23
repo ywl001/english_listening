@@ -1,4 +1,4 @@
-export const db = wx.cloud.database()
+// export const db = wx.cloud.database()
 
 /**
  * 统一处理小程序端接口返回结果

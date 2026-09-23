@@ -25,15 +25,17 @@ Page({
       this.setData({ bookTitle: decodeURIComponent(options.title) });
     }
 
-    // 1. 初始化播放引擎
-    this.initEngine();
-    // 2. 自动开启播放
-    this.playEngine?.start();
     eventBus.on(AppEvent.REFRESH_SENTENCE_LIST,
       () => {
         console.log('play refresh')
         this.setData({ sentenceList: [...sentencePlayManager.sentenceList] })
       })
+
+    // 1. 初始化播放引擎
+    this.initEngine();
+    // 2. 自动开启播放
+    this.playEngine?.start();
+
   },
 
   initEngine() {

@@ -1,7 +1,11 @@
 import bookService from '../../services/book-service';
-import { BookType as BookContent, Pages } from '../../enums/app-enums';
+import { BookType as BookContent, BookType, Pages } from '../../enums/app-enums';
 import sentenceService from '../../services/sentence-service';
 import sentencePlayManager from '../../services/sentence-play-manager';
+import eventBus from '../../services/EventBus';
+import { AppEvent } from '../../services/event-type';
+import { initManagerAndNavigate } from '../../utils/util';
+import sentencePlayList from '../../services/sentence-play-list';
 
 Page({
   data: {
@@ -23,21 +27,16 @@ Page({
       this.setData({ settings: cachedSettings });
     }
 
-    this.loadData();
+    eventBus.on(AppEvent.GET_BOOK_SUCCESS, e => this.onGetBookSuccess(e))
+    eventBus.emit(AppEvent.GET_BOOK)
   },
 
-  async loadData() {
-    console.log('book list load book')
-    const allSentenceBooks = await bookService.getSentenceBooks();
-    const userBooks = await bookService.getUserBooks();
-    const userSentenceBooks = userBooks.filter(b => b.content === BookContent.sentence);
+  async onGetBookSuccess(books: Book[]) {
     await getApp().openidReady;
-    const _openid = getApp().globalData._openid;
-
-    this.setData({
-      systemBooks: allSentenceBooks.filter(b => b._openid !== _openid),
-      userBooks: userSentenceBooks
-    });
+    const _openid = getApp().globalData._openid
+    const userBooks = books.filter(item => item._openid === _openid && item.content === BookContent.sentence);
+    const systemBooks = books.filter(item => item.content === BookType.sentence && !item._openid);
+    this.setData({ userBooks, systemBooks })
   },
 
   switchTab(e: any) {
@@ -66,23 +65,29 @@ Page({
     const book: Book = e.detail.book;
     console.log(book)
     wx.showLoading({ title: '获取学习列表。', mask: true })
-    let url, list
+    let url: string, res
     const userSentenceBookId = (getApp() as IAppOption).globalData.originBookId
     if (book._id === userSentenceBookId) {
       url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
-      list = await sentenceService.getPlayList(book._id)
+      initManagerAndNavigate(url,book,sentenceService.getPlayList)
     } else if (book._openid) {
       url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
       console.log(book._id, book.name)
-      list = await sentenceService.getFavoriteSentences(book._id)
+      initManagerAndNavigate(url,book,sentenceService.getFavoritePlayList)
     }
     else {
       url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
-      list = await sentenceService.getPlayList(book._id)
+      initManagerAndNavigate(url,book,sentenceService.getPlayList)
+      // res = await sentenceService.getPlayList(book._id)
+      // console.log(res)
     }
-    sentencePlayManager.init(book, list)
-    wx.navigateTo({ url })
-    wx.hideLoading()
+
+    // eventBus.on(AppEvent.GET_PLAYLIST_SUCCESS, e => {
+    //   wx.navigateTo({ url })
+    //   wx.hideLoading()
+    // })
+    // sentencePlayManager.init(book)
+
   },
 
   onEditBook(e: any) {

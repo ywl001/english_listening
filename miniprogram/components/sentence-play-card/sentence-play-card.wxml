@@ -3,8 +3,7 @@
   <view class="card-content">
     <!-- 英文区域 -->
     <view class="card-section">
-      <text class="lang-tag">EN</text>
-      <text class="sentence-en">{{sentence.en || 'Life is like a box of chocolates.'}}</text>
+      <text class="sentence-en {{enShow ? 'show' : ''}}" catchtap="onTapEn">{{sentence.en || 'Life is like a box of chocolates.'}}</text>
     </view>
 
     <!-- 中间分隔线 -->
@@ -16,7 +15,6 @@
 
     <!-- 中文区域 -->
     <view class="card-section">
-      <text class="lang-tag">ZH</text>
       <text class="sentence-zh {{hideZh ? 'hidden' : ''}}">{{sentence.zh || '生活就像一盒巧克力。'}}</text>
     </view>
   </view>

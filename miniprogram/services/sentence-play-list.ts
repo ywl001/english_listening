@@ -1,22 +1,16 @@
 import sync from "../utils/sync"
 
-interface SentencePlayCursor {
-  reviewIndex: number
-  createdAt: number
-}
 
-interface SentencePlayResult {
-  list: Sentence[]
-  cursor?: SentencePlayCursor
-  hasMore: boolean
-}
+
+
 
 export class SentencePlayList {
 
-  async getPlayList(bookId: string, limit = 20, cursor?: SentencePlayCursor): Promise<SentencePlayResult> {
+  async getPlayList(bookId: string, limit = 20, cursor?: SentencePlayCursor): Promise<SentencePlaylistResult> {
     const marks = sync.markStore.get(bookId)
     const { includeIds, excludeIds } = this.getReviewIds(marks)
     const review = await this.getReviewList(bookId, includeIds, limit, cursor?.reviewIndex ?? 0)
+    console.log('get review result', review)
     const remain = limit - review.list.length
 
     if (remain <= 0) {
@@ -28,6 +22,7 @@ export class SentencePlayList {
     }
 
     const normal = await this.getNewSentenceList(bookId, excludeIds, remain, cursor?.createdAt ?? -1)
+    console.log('get normal result', normal)
     const markMap = new Map(marks.map(x => [x.sentenceId, x]))
     const favoriteSet = this.getGlobalFavoriteSet();
     console.log("favorites:", favoriteSet)
@@ -51,10 +46,11 @@ export class SentencePlayList {
     const favorites = sync.favStore.get(bookId).filter(x => !x.deleted)
     const sentenceIds = favorites.filter(x => !cursor || x.updatedAt < cursor).slice(0, limit)
 
+    console.log('favorite sentenceIds',sentenceIds)
     const marks = sync.markStore.get(bookId)
     const markMap = new Map(marks.map(x => [x.sentenceId, x]))
     const db = wx.cloud.database()
-    const _ = db.command
+
     if (!sentenceIds.length) {
       return { list: [], cursor: null }
     }
@@ -65,6 +61,7 @@ export class SentencePlayList {
 
 
     let list = res.data as Sentence[]
+    console.log('favorite list',list)
     list = await this.prepareSentences(list)
     list = list.map(sentence => ({
       ...sentence,
@@ -74,7 +71,7 @@ export class SentencePlayList {
 
     return {
       list,
-      cursor:  sentenceIds.length === limit ? sentenceIds[sentenceIds.length - 1].updatedAt : null
+      cursor: sentenceIds.length === limit ? sentenceIds[sentenceIds.length - 1].updatedAt : null
     }
   }
 
@@ -125,7 +122,7 @@ export class SentencePlayList {
     const db = wx.cloud.database()
     const _ = db.command
     const data = (await db.collection('sentence').where({ bookId, createdAt: _.gt(createdAt), _id: _.nin(excludeIds) }).orderBy('createdAt', 'asc').limit(limit + 1).get()).data as Sentence[]
-    const hasMore = data.length > limit
+    const hasMore = data.length === limit
     const list = data.slice(0, limit)
     const nextCreatedAt = list.length ? list[list.length - 1].createdAt : createdAt
 

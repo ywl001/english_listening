@@ -9,7 +9,7 @@ import sentencePlayManager from "./sentence-play-manager";
 import sentencePlayList from "./sentence-play-list";
 
 export class SentenceService {
-  async getPlayList(bookId: string, targetCount = 50): Promise<Sentence[]> {
+  async getPlayList(bookId: string, targetCount = 20,cursor?:SentencePlayCursor): Promise<SentencePlaylistResult> {
     // if (sentenceStore.isCompleted(bookId)) {
     //   console.log('本地数据完整，走本地构建播放列表');
     //   return this.buildLocalPlayList(bookId, targetCount);
@@ -20,12 +20,18 @@ export class SentenceService {
     //   this.syncAll(bookId).catch(console.error);
     // }
     // return list;
-    const pl = await sentencePlayList.getPlayList(bookId)
+    // const pl = await sentencePlayList.getPlayList(bookId)
 
-    console.log(pl.list)
+    const res =  await sentencePlayList.getPlayList(bookId,targetCount,cursor)
+    console.log(res)
+    return res
 
-    return pl.list
+  }
 
+  async getFavoritePlayList(bookId: string, targetCount = 20,cursor?:number) {
+    const res =  await sentencePlayList.getFavoritePlayList(bookId,targetCount,cursor)
+    console.log(res)
+    return res
   }
 
   private async getInitSentencePlayList(bookId: string): Promise<Sentence[]> {
@@ -128,7 +134,7 @@ export class SentenceService {
     }
 
     const playList = this.buildLocalPlayList(bookId, 50);
-    sentencePlayManager.replace(playList);
+    // sentencePlayManager.replace(playList);
     console.log('播放队列长度：', sentencePlayManager.queueLength);
     eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
     return total;

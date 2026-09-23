@@ -19,7 +19,12 @@ Component({
     stage: {
       type: Number,
       value: 0
-    }
+    },
+   
+  },
+
+  data:{
+    enShow:false
   },
 
   methods: {
@@ -28,6 +33,10 @@ Component({
     },
     onTapMastered() {
       this.triggerEvent('toggleMastered', { sentence: this.properties.sentence });
+    },
+
+    onTapEn(){
+      this.setData({enShow:!this.data.enShow})
     }
   }
 });

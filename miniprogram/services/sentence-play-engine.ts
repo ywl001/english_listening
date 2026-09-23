@@ -70,14 +70,14 @@ export class PlayEngine {
    * 获取当前播放的句子
    */
   public get currentSentence(): Sentence | null {
-    return this.listManager.getCurrent();
+    return this.listManager.currentSentence;
   }
 
   /**
    * 开始/启动播放（入口）
    */
   public start(): void {
-    const current = this.listManager.getCurrent();
+    const current = this.listManager.currentSentence;
     if (!current) {
       this.callbacks.onNotice('播放队列为空');
       return;

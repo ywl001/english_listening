@@ -85,20 +85,21 @@ interface ToggleFavoriteResult {
   bookId: string;
 }
 
-interface PlayListCursor {
-  reviewCursor: {
-    lastNextReviewAt: number
-    lastId: string
-  } | null
-  newSentenceCursor: {
-    lastCreatedAt: number
-    lastId: string
-  } | null
+interface SentencePlaylistRequest {
+  bookId: string
+  cursor?: SentencePlayCursor
+  limit?: number
 }
-interface PlayListResult {
+
+interface SentencePlaylistResult {
   list: Sentence[]
-  nextCursor: PlayListCursor
-  hasMore: boolean
+  cursor?: SentencePlayCursor
+  hasMore?: boolean
+}
+
+interface SentencePlayCursor {
+  reviewIndex: number
+  createdAt: number
 }
 
 interface FavoriteSentenceResult {

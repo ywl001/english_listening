@@ -1,42 +1,22 @@
 // 1. services/book-service.ts (纯粹的数据服务)
 
 import { BookType, cloudFunctionName } from "../enums/app-enums";
-import { dbRequest, db } from "../utils/dbHelper";
+import { dbRequest} from "../utils/dbHelper";
 import { callCloudFunction } from "../utils/cloud-client";
+import appStore from "./app-store";
 
 export class BookService {
-  private booksCache: Book[] | null = null;
-
-  async getBooks(): Promise<Book[]> {
-    if (this.booksCache === null) {
-      this.booksCache = await callCloudFunction(cloudFunctionName.getBooks, {});
-      // console.log(this.booksCache)
-    }
-    return this.booksCache || [];
+  async getBooks() {
+    const books = await callCloudFunction(cloudFunctionName.getBooks, {});
+    appStore.books = books
   }
-
-  async getSentenceBooks() {
-    const books = await this.getBooks()
-    return books.filter(item => item.content === BookType.sentence);
-  }
-
-  async getArticleBooks() {
-    const books = await this.getBooks()
-    return books.filter(item => item.content === BookType.article);
-  }
-
-  async getUserBooks() {
-    const books = await this.getBooks()
-    const _openid = getApp().globalData._openid
-    return books.filter(item => item._openid === _openid);
-  }
-
   /**
    * 创建词书。
    */
   async createBook(name: string, type: string): Promise<Book> {
     const bookName = name.trim()
     if (!bookName) throw new Error('词书名称不能为空')
+    const db = wx.cloud.database()
 
     const { data } = await dbRequest(
       db.collection('book').where({ name: bookName, type }).limit(1).get(),

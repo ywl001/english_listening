@@ -32,6 +32,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  background-color: beige;
   width: 100%;
   flex: 1;
   justify-content: center;
@@ -46,12 +47,17 @@
 }
 
 .sentence-en {
-  font-size: 64rpx;
-  font-weight: 800;
+  font-size: 48rpx;
+  font-weight: 400;
   color: #1A202C;
   text-align: center;
   line-height: 1.4;
   word-break: break-word;
+  opacity: 0.01;
+}
+
+.sentence-en.show{
+  opacity:1
 }
 
 .sentence-zh {
@@ -61,6 +67,11 @@
   text-align: center;
   line-height: 1.5;
   transition: opacity 0.2s ease;
+  opacity: 0.1;
+}
+
+.sentence-zh.show{
+  opacity: 1;
 }
 
 .sentence-zh.hidden {
@@ -94,6 +105,8 @@
 .card-actions {
   display: flex;
   justify-content: space-around;
+  background-color: aqua;
+
   width: 100%;
   padding-top: 100rpx;
   border-top: 1rpx solid #F7FAFC;

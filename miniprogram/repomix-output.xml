@@ -56,6 +56,11 @@ components/
     sentence-book-card.ts
     sentence-book-card.wxml
     sentence-book-card.wxss
+  sentence-generator/
+    sentence-generator.json
+    sentence-generator.ts
+    sentence-generator.wxml
+    sentence-generator.wxss
   sentence-play-card/
     sentence-play-card.json
     sentence-play-card.ts
@@ -74,6 +79,11 @@ pages/
     sentence-book-list.ts
     sentence-book-list.wxml
     sentence-book-list.wxss
+  sentence-input/
+    sentence-input.json
+    sentence-input.ts
+    sentence-input.wxml
+    sentence-input.wxss
   sentence-list/
     sentence-list.json
     sentence-list.ts
@@ -85,23 +95,24 @@ pages/
     sentence-play.wxml
     sentence-play.wxss
 services/
+  app-controller.ts
+  app-store.ts
   article-service.ts
   book-service.ts
-  cloud-client.ts
   cloud-service.ts
   event-type.ts
   EventBus.ts
-  sentence-listener.ts
   sentence-play-engine.ts
+  sentence-play-list.ts
   sentence-play-manager.ts
   sentence-service.ts
   translate-service.ts
   tts-service.ts
 utils/
+  cloud-client.ts
   dbHelper.ts
   local-store.ts
   sentenceStore.ts
-  sentenceUtils.ts
   sync.ts
   util.ts
 app.json
@@ -664,6 +675,408 @@ Component({
 }
 </file>
 
+<file path="components/sentence-generator/sentence-generator.json">
+{
+  "component": true,
+  "usingComponents": {
+    "van-cell": "@vant/weapp/cell/index",
+    "van-cell-group": "@vant/weapp/cell-group/index",
+    "van-field": "@vant/weapp/field/index",
+    "van-button": "@vant/weapp/button/index",
+    "van-icon": "@vant/weapp/icon/index"
+  }
+}
+</file>
+
+<file path="components/sentence-generator/sentence-generator.ts">
+import sentenceService from "../../services/sentence-service"
+import { TranslateService } from "../../services/translate-service"
+import { TtsService } from "../../services/tts-service"
+import sentenceStore from "../../utils/sentenceStore"
+
+const EMPTY_RESULT = {
+  zh: '',
+  en: '',
+  tempAudioUrl: '',
+  tempAudioZhUrl: '',
+  audioFileID: '',
+  audioZhFileID: '',
+  audioZhText: '',
+  enAudioText: '',
+  generatedInputText: '',
+  genError: ''
+}
+
+Component({
+  properties: {
+    bookId: {
+      type: String,
+      value: ''
+    }
+  },
+
+  data: {
+    inputText: '',
+    detectedLang: 'en' as 'zh' | 'en',
+    ...EMPTY_RESULT,
+    generating: false,
+    saving: false,
+    selectedBookId: ''
+  },
+
+  observers: {
+    bookId(value: string) {
+      console.log('geerator :', value)
+      this.setData({ selectedBookId: value || '' })
+    }
+  },
+
+  methods: {
+    onInput(e: WechatMiniprogram.CustomEvent) {
+      const inputText = e.detail.value
+      const updates: Record<string, any> = {
+        inputText,
+        detectedLang: this.detectLang(inputText)
+      }
+
+      if (
+        this.data.generatedInputText &&
+        inputText.trim() !== this.data.generatedInputText
+      ) {
+        this.discardPendingAudio()
+        Object.assign(updates, EMPTY_RESULT)
+      }
+
+      this.setData(updates)
+    },
+
+    detectLang(text: string): 'zh' | 'en' {
+      return /[\u4e00-\u9fa5]/.test(text) ? 'zh' : 'en'
+    },
+
+    async onTranslateAndGenerate() {
+      if (this.data.generating) return
+
+      const trimmed = this.data.inputText.trim()
+
+      if (!trimmed) {
+        wx.showToast({ title: '请输入内容', icon: 'none' })
+        return
+      }
+
+      await this.discardPendingAudio()
+
+      this.setData({
+        ...EMPTY_RESULT,
+        generating: true
+      })
+
+      wx.showLoading({ title: '翻译中...', mask: true })
+
+      try {
+        const { zh, en } = await TranslateService.translate(trimmed)
+
+        if (this.data.inputText.trim() !== trimmed) return
+
+        this.setData({ zh, en })
+
+        wx.showLoading({ title: '生成发音中...', mask: true })
+
+        const [zhAudio, enAudio] = await Promise.all([
+          TtsService.synthesize(zh),
+          TtsService.synthesize(en)
+        ])
+
+        if (this.data.inputText.trim() !== trimmed) {
+          await TtsService.deleteTemps(
+            [zhAudio?.fileID, enAudio?.fileID].filter(Boolean)
+          )
+          return
+        }
+
+        this.setData({
+          tempAudioZhUrl: zhAudio.url || '',
+          tempAudioUrl: enAudio.url || '',
+          audioZhFileID: zhAudio.fileID || '',
+          audioFileID: enAudio.fileID || '',
+          audioZhText: zh,
+          enAudioText: en,
+          generatedInputText: trimmed,
+          genError: ''
+        })
+
+        wx.showToast({ title: '生成成功', icon: 'success' })
+
+      } catch (e) {
+        console.error('翻译/生成失败', e)
+
+        const message = e instanceof Error ? e.message : '生成失败'
+
+        this.setData({ genError: message })
+
+        wx.showToast({
+          title: message,
+          icon: 'none'
+        })
+
+      } finally {
+        wx.hideLoading()
+        this.setData({ generating: false })
+      }
+    },
+
+    playZh() {
+      this.playAudio(this.data.tempAudioZhUrl)
+    },
+
+    playEn() {
+      this.playAudio(this.data.tempAudioUrl)
+    },
+
+    playAudio(url: string) {
+      if (!url) return
+
+      const audioCtx = wx.createInnerAudioContext()
+
+      audioCtx.src = url
+      audioCtx.play()
+
+      audioCtx.onError(res => {
+        console.error('音频播放失败', res)
+        wx.showToast({
+          title: '音频播放失败',
+          icon: 'none'
+        })
+      })
+    },
+
+    async onSave() {
+      if (this.data.saving) return
+
+      const {
+        zh,
+        en,
+        audioFileID,
+        audioZhFileID,
+        audioZhText,
+        enAudioText,
+        selectedBookId
+      } = this.data
+
+      if (!audioFileID || !audioZhFileID) {
+        wx.showToast({
+          title: '请先生成音频',
+          icon: 'none'
+        })
+        return
+      }
+
+      if (zh.trim() !== audioZhText || en.trim() !== enAudioText) {
+        wx.showToast({
+          title: '文字已修改，请重新生成发音',
+          icon: 'none'
+        })
+        return
+      }
+
+      if (!selectedBookId) {
+        wx.showToast({
+          title: '请先选择词书',
+          icon: 'none'
+        })
+        return
+      }
+
+      this.setData({ saving: true })
+      wx.showLoading({ title: '保存中...', mask: true })
+
+      try {
+        const timestamp = Date.now()
+
+        const [audio, audio_zh] = await Promise.all([
+          TtsService.moveToPermanent(
+            audioFileID,
+            `english/en/${timestamp}.mp3`
+          ),
+          TtsService.moveToPermanent(
+            audioZhFileID,
+            `english/zh/${timestamp}.mp3`
+          )
+        ])
+
+        const createdSentenceResult = await sentenceService.createSentence({
+          bookId: selectedBookId,
+          zh: zh.trim(),
+          en: en.trim(),
+          audio,
+          audio_zh
+        })
+
+        this.setData({
+          audioFileID: '',
+          audioZhFileID: ''
+        })
+
+        wx.hideLoading()
+
+        wx.showToast({
+          title: '保存成功',
+          icon: 'success'
+        })
+
+        console.log('createSentenceResult:',createdSentenceResult)
+
+        this.triggerEvent('saved', { sentence: createdSentenceResult })
+
+      } catch (e) {
+        console.error('保存句子失败', e)
+
+        wx.hideLoading()
+
+        wx.showToast({
+          title: '保存失败，请重试',
+          icon: 'none'
+        })
+
+      } finally {
+        this.setData({ saving: false })
+      }
+    },
+
+    async discardPendingAudio() {
+      const fileIDs = [
+        this.data.audioFileID,
+        this.data.audioZhFileID
+      ].filter(Boolean)
+
+      if (!fileIDs.length) return
+
+      this.setData({
+        audioFileID: '',
+        audioZhFileID: ''
+      })
+
+      try {
+        await TtsService.deleteTemps(fileIDs)
+      } catch (err) {
+        console.error('清理临时音频异常:', err)
+      }
+    }
+  },
+
+  detached() {
+    this.discardPendingAudio()
+  }
+})
+</file>
+
+<file path="components/sentence-generator/sentence-generator.wxml">
+<view class="page">
+
+  <view class="card">
+    <text class="label">输入句子（中文或英文）</text>
+    <textarea class="textarea" placeholder="例如：今天天气真不错 或 The weather is nice today" bindinput="onInput" value="{{inputText}}" maxlength="500" />
+    <text class="lang-hint">{{detectedLang === 'zh' ? '检测到：中文 → 将翻译为英文' : '检测到：英文 → 将翻译为中文'}}</text>
+  </view>
+
+  <van-cell-group inset wx:if="{{genError}}">
+    <van-cell title="生成失败" label="{{genError}}" />
+  </van-cell-group>
+
+  <van-cell-group  wx:if="{{zh || en}}">
+
+    <van-cell wx:if="{{zh}}" title="中文" label="{{zh}}"  bind:click="playZh" size="large">
+      <van-icon slot="right-icon" name="volume-o" size="20" />
+    </van-cell>
+
+    <van-cell wx:if="{{en}}" title="英文" label="{{en}}"  bind:click="playEn" size = 'large'>
+      <van-icon slot="right-icon" name="volume-o" size="20" />
+    </van-cell>
+
+  </van-cell-group>
+
+  <view class="bottom-placeholder"></view>
+
+  <view class="bottom-bar">
+    <block wx:if="{{tempAudioUrl && tempAudioZhUrl}}">
+      <van-button block type="primary" loading="{{saving}}" disabled="{{saving || !selectedBookId}}" bind:click="onSave">
+        保存到句子库
+      </van-button>
+    </block>
+
+    <van-button wx:else block type="info" loading="{{generating}}" disabled="{{generating || !inputText}}" bind:click="onTranslateAndGenerate">
+      翻译并生成发音
+    </van-button>
+  </view>
+
+</view>
+</file>
+
+<file path="components/sentence-generator/sentence-generator.wxss">
+.page {
+  min-height: 100vh;
+  padding: 24rpx 0;
+  box-sizing: border-box;
+  background: #f5f6fa;
+}
+.card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 24rpx rgba(31, 34, 51, 0.04);
+}
+
+.label {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1F2233;
+  margin-bottom: 16rpx;
+}
+
+.textarea {
+  width: 100%;
+  height: 180rpx;
+  background: #ebebeb;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 30rpx;
+  color: #1F2233;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+.lang-hint {
+  display: block;
+  font-size: 22rpx;
+  color: #6C5CE7;
+  margin-top: 12rpx;
+}
+
+.bottom-placeholder {
+  height: 140rpx;
+}
+
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4rpx 24rpx rgba(31, 34, 51, .06);
+  box-sizing: border-box;
+}
+
+.bottom-bar van-button {
+  flex: 1;
+}
+</file>
+
 <file path="components/sentence-play-card/sentence-play-card.json">
 {
   "component": true,
@@ -878,7 +1291,7 @@ export enum LocalStorageKey {
   PREMIX_MARK = 'mark',
   META_MARK = 'mark_meta',
   PREMIX_FAV = 'fav',
-  META_FAV = 'fav'
+  META_FAV = 'fav_meta'
 }
 
 export enum BookType {
@@ -891,7 +1304,8 @@ export enum Pages {
   index = "/pages/index/index",
   sentencePlay = '/pages/sentence-play/sentence-play',
   testPage = '/pages/test-page/test-page',
-  sentenceList = '/pages/sentence-list/sentence-list'
+  sentenceList = '/pages/sentence-list/sentence-list',
+  sentenceInput = '/pages/sentence-input/sentence-input'
 }
 
 export enum cloudFunctionName {
@@ -932,7 +1346,7 @@ export enum CollectionName{
 
 <file path="pages/index/index.ts">
 import { cloudFunctionName } from "../../enums/app-enums"
-import { callCloudFunction } from "../../services/cloud-client"
+import { callCloudFunction } from "../../utils/cloud-client"
 
 Page({
 
@@ -1030,9 +1444,13 @@ Page({
 
 <file path="pages/sentence-book-list/sentence-book-list.ts">
 import bookService from '../../services/book-service';
-import { BookType, Pages } from '../../enums/app-enums';
+import { BookType as BookContent, BookType, Pages } from '../../enums/app-enums';
 import sentenceService from '../../services/sentence-service';
 import sentencePlayManager from '../../services/sentence-play-manager';
+import eventBus from '../../services/EventBus';
+import { AppEvent } from '../../services/event-type';
+import { initManagerAndNavigate } from '../../utils/util';
+import sentencePlayList from '../../services/sentence-play-list';
 
 Page({
   data: {
@@ -1040,7 +1458,6 @@ Page({
     systemBooks: [] as Book[],
     userBooks: [] as Book[],
     showSettingsModal: false,
-    showBookCreate: false,
     settings: {
       order: 'EN_ZH',
       count: 10,
@@ -1054,21 +1471,17 @@ Page({
     if (cachedSettings) {
       this.setData({ settings: cachedSettings });
     }
-    await getApp().openidReady;
-    this.loadData();
+
+    eventBus.on(AppEvent.GET_BOOK_SUCCESS, e => this.onGetBookSuccess(e))
+    eventBus.emit(AppEvent.GET_BOOK)
   },
 
-  async loadData() {
-    console.log('book list load book')
-    const allSentenceBooks = await bookService.getSentenceBooks();
-    const userBooks = await bookService.getUserBooks();
-    const userSentenceBooks = userBooks.filter(b => b.content === BookType.sentence);
-    const _openid = getApp().globalData._openid;
-
-    this.setData({
-      systemBooks: allSentenceBooks.filter(b => b._openid !== _openid),
-      userBooks: userSentenceBooks
-    });
+  async onGetBookSuccess(books: Book[]) {
+    await getApp().openidReady;
+    const _openid = getApp().globalData._openid
+    const userBooks = books.filter(item => item._openid === _openid && item.content === BookContent.sentence);
+    const systemBooks = books.filter(item => item.content === BookType.sentence && !item._openid);
+    this.setData({ userBooks, systemBooks })
   },
 
   switchTab(e: any) {
@@ -1095,19 +1508,31 @@ Page({
 
   async onTapBook(e: any) {
     const book: Book = e.detail.book;
-    // console.log(book)
+    console.log(book)
     wx.showLoading({ title: '获取学习列表。', mask: true })
-    let url,list
-    if (book._openid) {
+    let url: string, res
+    const userSentenceBookId = (getApp() as IAppOption).globalData.originBookId
+    if (book._id === userSentenceBookId) {
       url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
-      list = await sentenceService.getPlayList(book._id)
-    } else {
-      url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
-      list = await sentenceService.getPlayList(book._id)
+      initManagerAndNavigate(url,book,sentenceService.getPlayList)
+    } else if (book._openid) {
+      url = `${Pages.sentenceList}?bookId=${book._id}&bookName=${book.name}`
+      console.log(book._id, book.name)
+      initManagerAndNavigate(url,book,sentencePlayList.getFavoritePlayList)
     }
-    sentencePlayManager.init(book, list)
-    wx.navigateTo({ url })
-    wx.hideLoading()
+    else {
+      url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
+      initManagerAndNavigate(url,book,sentenceService.getPlayList)
+      // res = await sentenceService.getPlayList(book._id)
+      // console.log(res)
+    }
+
+    // eventBus.on(AppEvent.GET_PLAYLIST_SUCCESS, e => {
+    //   wx.navigateTo({ url })
+    //   wx.hideLoading()
+    // })
+    // sentencePlayManager.init(book)
+
   },
 
   onEditBook(e: any) {
@@ -1128,14 +1553,9 @@ Page({
     });
   },
 
-  openCreateBook() {
-    console.log('create book')
-    this.setData({ showBookCreate: true })
-  },
-
   async onCreateBook(e: any) {
     const { name } = e.detail
-    const book = await bookService.createBook(name, BookType.sentence)
+    const book = await bookService.createBook(name, BookContent.sentence)
     this.setData({
       userBooks: this.data.userBooks.concat(book)
     })
@@ -1305,6 +1725,501 @@ page {
 }
 </file>
 
+<file path="pages/sentence-input/sentence-input.json">
+{
+  "usingComponents": {
+  }
+}
+</file>
+
+<file path="pages/sentence-input/sentence-input.ts">
+import sentenceService from "../../services/sentence-service"
+import { TranslateService } from "../../services/translate-service"
+import { TtsService } from "../../services/tts-service"
+import sentenceStore from "../../utils/sentenceStore"
+
+// 页面生成结果的初始状态
+const EMPTY_RESULT = {
+  zh: '', en: '',
+  tempAudioUrl: '', tempAudioZhUrl: '',
+  audioFileID: '', audioZhFileID: '',
+  audioZhText: '', enAudioText: '', // 统一属性名：audioZhText 和 enAudioText
+  generatedInputText: '', genError: ''
+}
+
+Page({
+  data: {
+    inputText: '',
+    detectedLang: 'en' as 'zh' | 'en',
+    ...EMPTY_RESULT,
+    generating: false,
+    saving: false,
+    selectedBookId: '',
+    selectedBookName: ''
+  },
+
+  bookId: '',
+
+  onLoad(option: any) {
+    this.bookId = option.bookId
+    console.log(this.bookId)
+    // 💡 补上这一行：同步给 data 中的 selectedBookId 赋值
+    if (this.bookId) {
+      this.setData({ selectedBookId: this.bookId })
+    }
+  },
+
+  /** 输入文字 */
+  onInput(e: WechatMiniprogram.TextareaInput) {
+    const inputText = e.detail.value
+    const updates: Record<string, any> = {
+      inputText,
+      detectedLang: this.detectLang(inputText)
+    }
+    // 如果已经生成过结果，且修改了文本，立刻清理上一轮未保存的临时音频
+    if (this.data.generatedInputText && inputText.trim() !== this.data.generatedInputText) {
+      this.discardPendingAudio() // 异步清理，不阻塞 UI 响应
+      Object.assign(updates, EMPTY_RESULT)
+    }
+    this.setData(updates)
+  },
+
+  /** 判断输入语言 */
+  detectLang(text: string): 'zh' | 'en' {
+    return /[\u4e00-\u9fa5]/.test(text) ? 'zh' : 'en'
+  },
+
+  async onTranslateAndGenerate() {
+    if (this.data.generating) return
+
+    const trimmed = this.data.inputText.trim()
+    if (!trimmed) { wx.showToast({ title: '请输入内容', icon: 'none' }); return }
+
+    await this.discardPendingAudio()
+
+    // 1. 设置生成状态，先清空旧结果
+    this.setData({ ...EMPTY_RESULT, generating: true })
+    wx.showLoading({ title: '翻译中...', mask: true })
+
+    try {
+      // 2. 翻译
+      const { zh, en } = await TranslateService.translate(trimmed)
+      if (this.data.inputText.trim() !== trimmed) return
+
+      // 💡 调整点：翻译完立刻渲染出文字，无需等待音频生成
+      this.setData({ zh, en })
+
+      // 3. 生成音频
+      wx.showLoading({ title: '生成发音中...', mask: true })
+      const [zhAudio, enAudio] = await Promise.all([
+        TtsService.synthesize(zh),
+        TtsService.synthesize(en)
+      ])
+
+      if (this.data.inputText.trim() !== trimmed) {
+        await TtsService.deleteTemps([zhAudio?.fileID, enAudio?.fileID].filter(Boolean))
+        return
+      }
+
+      // 打印日志排查：请在开发者工具 Console 确认这几个值是否正确存在！
+      console.log('Synthesize Success:', { zh, en, zhAudio, enAudio })
+
+      // 4. 关键：一次性将翻译和音频结果更新进 data
+      this.setData({
+        tempAudioZhUrl: zhAudio.url || '',
+        tempAudioUrl: enAudio.url || '',
+        audioZhFileID: zhAudio.fileID || '',
+        audioFileID: enAudio.fileID || '',
+        audioZhText: zh,
+        enAudioText: en,
+        generatedInputText: trimmed,
+        genError: ''
+      })
+
+      wx.showToast({ title: '生成成功', icon: 'success' })
+    } catch (e) {
+      console.error('翻译/生成失败', e)
+      const message = e instanceof Error ? e.message : '生成失败'
+      this.setData({ genError: message })
+      wx.showToast({ title: message, icon: 'none' })
+    } finally {
+      wx.hideLoading()
+      this.setData({ generating: false })
+    }
+  },
+
+  /** 播放音频方法 */
+  playAudio(e: WechatMiniprogram.CustomEvent) {
+    const url = e.currentTarget.dataset.url
+    if (!url) return
+
+    const audioCtx = wx.createInnerAudioContext()
+    audioCtx.src = url
+    audioCtx.play()
+
+    audioCtx.onError((res) => {
+      console.error('音频播放失败', res)
+      wx.showToast({ title: '音频播放失败', icon: 'none' })
+    })
+  },
+
+  /** 保存句子 */
+  async onSave() {
+    if (this.data.saving) return
+
+    const { zh, en, audioFileID, audioZhFileID, audioZhText, enAudioText, selectedBookId } = this.data
+
+    if (!audioFileID || !audioZhFileID) {
+      wx.showToast({ title: '请先生成音频', icon: 'none' }); return
+    }
+
+    // 文字和音频不一致校验
+    if (zh.trim() !== audioZhText || en.trim() !== enAudioText) {
+      wx.showToast({ title: '文字已修改，请重新生成发音', icon: 'none' })
+      return
+    }
+
+    if (!selectedBookId) {
+      wx.showToast({ title: '请先选择词书', icon: 'none' }); return
+    }
+
+    this.setData({ saving: true })
+    wx.showLoading({ title: '保存中...', mask: true })
+
+    try {
+      const timestamp = Date.now()
+
+      // 1. 临时音频 → 正式目录
+      const [audio, audio_zh] = await Promise.all([
+        TtsService.moveToPermanent(audioFileID, `english/en/${timestamp}.mp3`),
+        TtsService.moveToPermanent(audioZhFileID, `english/zh/${timestamp}.mp3`)
+      ])
+
+      // 2. 保存句子记录
+      const createdSentence = await sentenceService.createSentence({
+        bookId: selectedBookId,
+        zh: zh.trim(),
+        en: en.trim(),
+        audio,
+        audio_zh
+      })
+
+      // 3. 更新本地 SentenceStore 缓存
+      if (createdSentence) {
+        sentenceStore.prependOrUpdate(selectedBookId, [createdSentence])
+      }
+
+      // 迁移成功后，原临时文件已移动或变成正式文件，清空本地记录的临时 fileID，防止 onReset 重复删除
+      this.setData({ audioFileID: '', audioZhFileID: '' })
+
+      wx.hideLoading()
+      wx.showToast({ title: '保存成功', icon: 'success' })
+
+      // 重置 UI
+      this.onReset()
+    } catch (e) {
+      console.error('保存句子失败', e)
+      wx.hideLoading()
+      wx.showToast({ title: '保存失败，请重试', icon: 'none' })
+    } finally {
+      this.setData({ saving: false })
+    }
+  },
+
+  onReset() {
+    this.setData({ inputText: '', detectedLang: 'en', ...EMPTY_RESULT, generating: false, saving: false })
+  },
+
+  async onDiscardAndReset() {
+    await this.discardPendingAudio()
+    this.onReset()
+  },
+
+  /** 清理当前还没有保存的临时音频 */
+  async discardPendingAudio() {
+    const fileIDs = [this.data.audioFileID, this.data.audioZhFileID].filter(Boolean)
+    if (!fileIDs.length) return
+
+    // 先把 data 中的 fileID 清空，防止重复调用造成二次清理报错
+    this.setData({ audioFileID: '', audioZhFileID: '' })
+
+    try {
+      await TtsService.deleteTemps(fileIDs)
+    } catch (err) {
+      console.error('清理临时音频异常:', err)
+    }
+  },
+
+  onBack() { wx.navigateBack() },
+
+  /** 离开页面：清理未保存的临时文件 */
+  onUnload() {
+    // 页面卸载时同步触发清理（推荐在 TtsService.deleteTemps 内部做好容错，即使页面销毁请求也会发出）
+    this.discardPendingAudio()
+  }
+})
+</file>
+
+<file path="pages/sentence-input/sentence-input.wxml">
+<view class="page">
+  <view class="card">
+    <text class="label">输入句子（中文或英文）</text>
+    <textarea
+      class="textarea"
+      placeholder="例如：今天天气真不错 或 The weather is nice today"
+      bindinput="onInput"
+      value="{{inputText}}"
+      maxlength="500"
+    />
+    <text class="lang-hint">{{detectedLang === 'zh' ? '检测到：中文 → 将翻译为英文' : '检测到：英文 → 将翻译为中文'}}</text>
+  </view>
+
+  <!-- 错误提示 -->
+  <view class="result-card" wx:if="{{genError}}">
+    <text class="error-text">生成失败：{{genError}}</text>
+  </view>
+
+  <!-- 结果卡片：使用原生 text 显示翻译与音频控制 -->
+  <view class="result-card" wx:if="{{zh || en}}">
+    <!-- 中文译文栏 -->
+    <view class="text-group" wx:if="{{zh}}">
+      <view class="group-header">
+        <text class="group-label">中文</text>
+        <view class="play-btn" wx:if="{{tempAudioZhUrl}}" bindtap="playAudio" data-url="{{tempAudioZhUrl}}">
+          <text class="play-icon">🔊</text>
+          <text class="play-text">朗读</text>
+        </view>
+      </view>
+      <text class="result-text" user-select>{{zh}}</text>
+    </view>
+
+    <!-- 英文译文栏 -->
+    <view class="text-group" wx:if="{{en}}">
+      <view class="group-header">
+        <text class="group-label">英文</text>
+        <view class="play-btn" wx:if="{{tempAudioUrl}}" bindtap="playAudio" data-url="{{tempAudioUrl}}">
+          <text class="play-icon">🔊</text>
+          <text class="play-text">朗读</text>
+        </view>
+      </view>
+      <text class="result-text en-text" user-select>{{en}}</text>
+    </view>
+  </view>
+
+  <!-- 占位,防止内容被底部固定按钮栏遮住 -->
+  <view class="bottom-bar-placeholder"></view>
+
+  <!-- 底部固定按钮栏 -->
+  <view class="bottom-bar">
+    <block wx:if="{{tempAudioUrl && tempAudioZhUrl}}">
+      <!-- <button class="btn-outline" bindtap="onDiscardAndReset">重新输入</button> -->
+      <button class="btn-save" bindtap="onSave" disabled="{{saving || !selectedBookId}}">
+        {{saving ? '保存中...' : '保存到句子库'}}
+      </button>
+    </block>
+
+    <button
+      wx:else
+      class="btn-primary {{generating ? 'disabled' : ''}}"
+      bindtap="onTranslateAndGenerate"
+      disabled="{{generating || !inputText}}"
+    >
+      {{generating ? '处理中...' : '翻译并生成发音'}}
+    </button>
+  </view>
+</view>
+</file>
+
+<file path="pages/sentence-input/sentence-input.wxss">
+page {
+  background: #F5F6FA;
+}
+
+.page {
+  padding: 32rpx;
+  box-sizing: border-box;
+  min-height: 100vh;
+  position: relative;
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+}
+
+.card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 24rpx rgba(31, 34, 51, 0.04);
+}
+
+.label {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1F2233;
+  margin-bottom: 16rpx;
+}
+
+.textarea {
+  width: 100%;
+  height: 140rpx;
+  background: #F7F8FC;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 30rpx;
+  color: #1F2233;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+.lang-hint {
+  display: block;
+  font-size: 22rpx;
+  color: #6C5CE7;
+  margin-top: 12rpx;
+}
+
+/* 结果卡片 */
+.result-card {
+  margin-top: 24rpx;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  box-shadow: 0 4rpx 24rpx rgba(31, 34, 51, 0.04);
+}
+
+.text-group {
+  margin-bottom: 28rpx;
+}
+
+.text-group:last-child {
+  margin-bottom: 0;
+}
+
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.group-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #6C5CE7;
+  background: #F0EDFF;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+/* 原生播放按钮 */
+.play-btn {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  background: #F7F8FC;
+  padding: 6rpx 18rpx;
+  border-radius: 30rpx;
+  border: 1rpx solid #E5E7EB;
+}
+
+.play-btn:active {
+  opacity: 0.7;
+}
+
+.play-icon {
+  font-size: 22rpx;
+}
+
+.play-text {
+  font-size: 22rpx;
+  color: #4B5563;
+  font-weight: 500;
+}
+
+/* 结果文字样式 */
+.result-text {
+  display: block;
+  font-size: 32rpx;
+  color: #1F2233;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.en-text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.error-text {
+  display: block;
+  font-size: 26rpx;
+  color: #EF4444;
+}
+
+/* 底部固定按钮栏 */
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 32rpx;
+  padding-bottom: calc(20rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  box-shadow: 0 -4rpx 24rpx rgba(31, 34, 51, 0.06);
+  box-sizing: border-box;
+  z-index: 99;
+}
+
+.bottom-bar button {
+  flex: 1;
+  margin: 0;
+  height: 96rpx;
+  line-height: 96rpx;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: #6C5CE7;
+  color: #FFFFFF;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-primary.disabled {
+  opacity: 0.6;
+}
+
+.bottom-bar-placeholder {
+  height: calc(96rpx + 40rpx + constant(safe-area-inset-bottom));
+  height: calc(96rpx + 40rpx + env(safe-area-inset-bottom));
+}
+
+.btn-save {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+.btn-save::after {
+  border: none;
+}
+
+.btn-outline {
+  background: #FFFFFF;
+  color: #6C5CE7;
+  border: 2rpx solid #6C5CE7;
+}
+
+.btn-outline::after {
+  border: none;
+}
+</file>
+
 <file path="pages/sentence-list/sentence-list.json">
 {
   "navigationBarTitleText": "我的收藏",
@@ -1313,8 +2228,15 @@ page {
   "navigationBarTextStyle": "black",
   "enablePullDownRefresh": true,
   "usingComponents": {
+    "van-search": "@vant/weapp/search/index",
+    "van-cell": "@vant/weapp/cell/index",
     "van-swipe-cell": "@vant/weapp/swipe-cell/index",
-    "van-button": "@vant/weapp/button/index"
+    "van-button": "@vant/weapp/button/index",
+    "van-icon": "@vant/weapp/icon/index",
+    "van-empty": "@vant/weapp/empty/index",
+    "van-dialog": "@vant/weapp/dialog/index",
+    "van-popup": "@vant/weapp/popup/index",
+    "sentence-generator":"/components/sentence-generator/sentence-generator"
   }
 }
 </file>
@@ -1333,11 +2255,11 @@ Page({
     sentenceList: [] as Sentence[],
     displayList: [] as Sentence[],
     keyword: '',
-    // page: 1,
-    // pageSize: 20,
-    // hasMore: true,
-    // loading: false,
+    showDeleteDialog: false,
+    deleteSentenceId: '',
     bookId: '',
+    bookName: '',
+    showGenerator:false,
 
     // 全部播放控制状态
     isPlayingAll: false,
@@ -1358,24 +2280,25 @@ Page({
 
   onLoad(options: { bookName: string, bookId: string }) {
     const bookId = options.bookId || '';
-    console.log(sentencePlayManager.sentenceList)
-    
+    const bookName = options.bookName || ''
+
     this.setData(
       {
         sentenceList: sentencePlayManager.sentenceList,
         bookId,
+        bookName,
         displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
       }
     );
-    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST,this.refreshData)
+    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST, this.refreshData)
   },
 
   onUnload() {
     audioCtx.stop();
-    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST,this.refreshData)
+    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST, this.refreshData)
   },
 
-  refreshData(){
+  refreshData() {
     this.setData({
       sentenceList: sentencePlayManager.sentenceList,
       displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
@@ -1384,20 +2307,33 @@ Page({
 
   // 取消收藏：直接调用句子的 toggleFavorite 方法
   onDelete(e: WechatMiniprogram.CustomEvent) {
-    const { id } = e.currentTarget.dataset;
-    const sentenceId = id as string;
-    const bookId = this.data.bookId;
+    this.setData({
+      deleteSentenceId: e.currentTarget.dataset.id,
+      showDeleteDialog: true
+    })
+  },
 
-    wx.showModal({
-      title: '提示',
-      content: '确定要取消收藏该句子吗？',
-      confirmColor: '#ee0a24',
-      success: async (res) => {
-        if (res.confirm) {
-          eventBus.emit(AppEvent.FAVORITE_SENTENCE, { sentenceId, bookId, isFavorite: false })
-        }
-      }
-    });
+  confirmDelete() {
+    const sentenceId = this.data.deleteSentenceId
+    const bookId = this.data.bookId
+
+    eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
+      sentenceId,
+      bookId,
+      isFavorite: false
+    })
+
+    this.setData({
+      showDeleteDialog: false,
+      deleteSentenceId: ''
+    })
+  },
+
+  cancelDelete() {
+    this.setData({
+      showDeleteDialog: false,
+      deleteSentenceId: ''
+    })
   },
 
   // 本地搜索过滤
@@ -1424,9 +2360,11 @@ Page({
     this.playCurrentIndexAudio(index);
   },
 
+
+
   // 触发全部播放/暂停
   togglePlayAll() {
-    wx.navigateTo({url:Pages.sentencePlay})
+    wx.navigateTo({ url: Pages.sentencePlay })
   },
 
   // 播放指定索引位置的句子音频
@@ -1440,235 +2378,139 @@ Page({
 
   // 真正的添加逻辑（从 touchend 调用）
   onAddSentence() {
-    wx.showModal({
-      title: '添加新句子',
-      editable: true,
-      placeholderText: '请输入英文句子',
-      success: (res) => {
-        if (res.confirm && res.content) {
-          console.log('用户输入：', res.content);
-          // TODO: 调用添加接口
-        }
-      }
-    });
+    console.log('add sentence')
+    this.setData({showGenerator:true})
   },
+
+  closeGenerator(){
+    this.setData({showGenerator:false})
+  },
+
+  onSentenceSaved(e:WechatMiniprogram.CustomEvent){
+    console.log('list e',e)
+    const s = e.detail.sentence
+    sentencePlayManager.sentenceList.push(s)
+    this.refreshData()
+    this.closeGenerator()
+  }
 });
 </file>
 
 <file path="pages/sentence-list/sentence-list.wxml">
-<view class="container">
+<view class="page">
 
-  <!-- 1. 全屏拖拽区域 (Pointer-events 穿透，不挡住页面点击) -->
+  <!-- 可拖动添加按钮 -->
   <movable-area class="movable-area">
     <movable-view class="fab-add" direction="all" out-of-bounds="false" x="{{fabX}}" y="{{fabY}}" bindtap="onAddSentence">
-      <text class="fab-icon">+</text>
+      <van-icon name="plus" color="#fff" size="28" />
     </movable-view>
   </movable-area>
 
-  <!-- 搜索框 -->
-  <view class="search-bar">
-    <input class="search-input" placeholder="搜索收藏的句子" bindinput="onSearchInput" value="{{keyword}}" confirm-type="search" />
-  </view>
+  <!-- 搜索 -->
+  <van-search value="{{keyword}}" placeholder="搜索收藏的句子" shape="round" bind:change="onSearchInput" />
 
-  <!-- 列表 -->
-  <view class="list-wrapper">
-    <block wx:if="{{displayList.length > 0}}">
-      <view wx:for="{{displayList}}" wx:key="_id" class="card-item-wrapper">
-        <!-- Vant 滑动单元格组件 -->
-        <van-swipe-cell right-width="{{ 80 }}">
-          <!-- 主体卡片内容 -->
-          <view class="sentence-card {{currentIndex === index && isPlayingAll ? 'playing-card' : ''}}" bindtap="playSingleAudio" data-index="{{index}}">
-            <view class="card-left">
-              <view class="en-text">
-                <text class="index-num">{{index + 1}}. </text>{{item.en || item.english}}
-              </view>
-              <view class="zh-text">{{item.zh || item.chinese}}</view>
-            </view>
-          </view>
+  <!-- 句子列表 -->
+  <view wx:if="{{displayList.length > 0}}" class="list">
 
-          <!-- 右侧滑动出来的删除按钮 -->
-          <view slot="right" class="van-swipe-cell__right" catchtap="onDelete" data-id="{{item._id}}">
-            删除
-          </view>
-        </van-swipe-cell>
-      </view>
+    <view wx:for="{{displayList}}" wx:key="_id" class="swipe-item">
+      <van-swipe-cell right-width="{{80}}">
+        <van-cell custom-style="background: #e8f3ff;" title="{{index + 1}}. {{item.en || item.english}}" label="{{item.zh || item.chinese}}" border="{{false}}" is-link="{{false}}" bind:click="playSingleAudio" data-index="{{index}}" />
 
-      <view class="loading-status"></view>
-    </block>
-
-    <view wx:else class="empty-box">
-      <text>暂无相关句子</text>
+        <view slot="right" class="delete-button" catchtap="onDelete" data-id="{{item._id}}">
+          <van-icon name="delete-o" size="22" color="#fff" />
+          <text>删除</text>
+        </view>
+      </van-swipe-cell>
     </view>
+
   </view>
+  <!-- 空状态 -->
+  <van-empty wx:else image="search" description="暂无相关句子" />
 
   <!-- 底部播放按钮 -->
-  <view class="bottom-floating-bar" wx:if="{{sentenceList.length > 0}}">
-    <button class="play-all-btn" bindtap="togglePlayAll">
-      <text class="icon">🎧</text>
-      <text>{{isPlayingAll ? '暂停播放' : '全部播放收藏 (' + sentenceList.length + ')'}}</text>
-    </button>
+  <view wx:if="{{sentenceList.length > 0}}" class="bottom-bar">
+    <van-button block round type="warning" icon="audio" bind:click="togglePlayAll">
+      全部播放收藏
+    </van-button>
   </view>
+
+  <!-- 删除确认弹窗 -->
+  <van-dialog use-slot title="取消收藏" show="{{showDeleteDialog}}" show-cancel-button bind:confirm="confirmDelete" bind:cancel="cancelDelete" bind:close="cancelDelete">
+    <view class="dialog-content">
+      确定要取消收藏该句子吗？
+    </view>
+  </van-dialog>
+
+  <van-popup closeable show="{{showGenerator}}" custom-style="height: 95%;" position="bottom" round bind:close="closeGenerator">
+    <sentence-generator book-id="{{bookId}}" bind:saved="onSentenceSaved" />
+  </van-popup>
+
 </view>
 </file>
 
 <file path="pages/sentence-list/sentence-list.wxss">
-page {
-  background-color: #f7f8fa;
+.page {
   min-height: 100vh;
-}
-
-.container {
-  padding: 0 24rpx 140rpx;
+  padding-bottom: 140rpx;
   box-sizing: border-box;
-  width: 100%;
+  background: #f7f8fa;
 }
 
-/* ========== 搜索框 ========== */
-.search-bar {
-  width: 100%;
-  margin-bottom: 24rpx;
-  box-sizing: border-box;
+
+.list {
+  margin-top: 16rpx;
+}
+.swipe-item {
+  margin-bottom: 8rpx;
+  border-bottom: #333 5rpx solid;
 }
 
-.search-input {
-  width: 100%;
-  background: #ffffff;
-  height: 80rpx;
-  line-height: 80rpx;
-  border-radius: 40rpx;
-  padding: 0 32rpx;
-  font-size: 28rpx;
-  color: #333333;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.03);
-  box-sizing: border-box;
-  text-align: center;
-}
-
-/* ========== 滑动卡片容器 ========== */
-.card-item-wrapper {
-  margin-bottom: 20rpx;
-  border-radius: 20rpx;
-  overflow: hidden; /* 防止滑动背景超出圆角 */
-}
-
-.sentence-card {
-  width: 100%;
-  box-sizing: border-box;
-  background: #ffffff;
-  padding: 32rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 2rpx solid transparent;
-  transition: all 0.2s ease;
-}
-
-.playing-card {
-  background-color: #eef6ff;
-  border-color: #2f80ed;
-}
-
-.card-left {
-  flex: 1;
-}
-
-.en-text {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #1a1a1a;
-  line-height: 1.4;
-  margin-bottom: 12rpx;
-}
-
-.index-num {
-  color: #1a1a1a;
-}
-
-.zh-text {
-  font-size: 26rpx;
-  color: #666666;
-}
-
-/* ========== 滑动删除按钮样式 ========== */
-.van-swipe-cell__right {
+.delete-button {
+  width: 160rpx;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 160rpx; /* 对应 wxml 中的 right-width="{{ 80 }}" (80px = 160rpx) */
-  height: 100%;
-  font-size: 28rpx;
-  color: #ffffff;
-  background-color: #ee0a24; /* Vant 默认危险红色 */
-  font-weight: 500;
+  gap: 8rpx;
+  background: #ee0a24;
+  color: #fff;
+  font-size: 26rpx;
 }
 
-/* ========== 底部悬浮按钮 ========== */
-.bottom-floating-bar {
+.bottom-bar {
   position: fixed;
-  bottom: 40rpx;
   left: 24rpx;
   right: 24rpx;
+  bottom: calc(24rpx + env(safe-area-inset-bottom));
   z-index: 100;
 }
 
-.play-all-btn {
-  width: 100% !important;
-  height: 96rpx;
-  background: #ffde94;
-  color: #5c3c00;
-  border-radius: 48rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-  box-shadow: 0 8rpx 24rpx rgba(255, 222, 148, 0.55);
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  line-height: normal !important;
-}
-
-.play-all-btn::after {
-  border: none;
-}
-
-.play-all-btn .icon {
-  margin-right: 12rpx;
-  font-size: 34rpx;
-  display: flex;
-  align-items: center;
-}
-
-/* ========== 拖拽容器 ========== */
 .movable-area {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100vw;
   height: 100vh;
-  pointer-events: none; /* 关键：透传点击事件，不挡住列表滑动 */
-  z-index: 101;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .fab-add {
-  pointer-events: auto; /* 关键：让按钮本身响应点击和拖拽 */
   width: 110rpx;
   height: 110rpx;
   border-radius: 50%;
-  background: #2f80ed;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(47, 128, 237, 0.4);
+  background: #2f80ed;
+  box-shadow: 0 8rpx 24rpx rgba(47, 128, 237, .4);
+  pointer-events: auto;
 }
 
-.fab-icon {
-  color: #fff;
-  font-size: 56rpx;
-  font-weight: 300;
-  line-height: 1;
-  margin-top: -6rpx;
+.dialog-content {
+  padding: 32rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #333;
 }
 </file>
 
@@ -1708,15 +2550,17 @@ Page({
       this.setData({ bookTitle: decodeURIComponent(options.title) });
     }
 
-    // 1. 初始化播放引擎
-    this.initEngine();
-    // 2. 自动开启播放
-    this.playEngine?.start();
     eventBus.on(AppEvent.REFRESH_SENTENCE_LIST,
       () => {
         console.log('play refresh')
         this.setData({ sentenceList: [...sentencePlayManager.sentenceList] })
       })
+
+    // 1. 初始化播放引擎
+    this.initEngine();
+    // 2. 自动开启播放
+    this.playEngine?.start();
+
   },
 
   initEngine() {
@@ -2160,9 +3004,141 @@ page {
 }
 </file>
 
+<file path="services/app-controller.ts">
+import bookService from "./book-service";
+import { AppEvent, FavoritePayload, MarkPayload } from "./event-type";
+import eventBus from "./EventBus";
+import sentencePlayList from "./sentence-play-list";
+import sentencePlayManager from "./sentence-play-manager";
+import sentenceService from "./sentence-service";
+
+export class AppController {
+
+  private cursor?: SentencePlayCursor
+
+  init() {
+    eventBus.on(AppEvent.GET_BOOK, e => this.onGetBooks())
+    eventBus.on(AppEvent.FAVORITE_SENTENCE, e => this.favoriteSentence(e))
+    eventBus.on(AppEvent.MARK_SENTENCE, e => this.markSentence(e))
+    eventBus.on(AppEvent.GET_PLAYLIST, e => this.onGetPlaylist(e))
+  }
+
+  async onGetBooks(): Promise<void> {
+    bookService.getBooks()
+  }
+
+  private favoriteSentence(payload: FavoritePayload) {
+    try {
+      console.log('listener payload:', payload)
+      const app = getApp<IAppOption>();
+      const favoriteBookId = app?.globalData?.favoriteBookId as string;
+
+      sentenceService.toggleFavorite(payload.sentenceId, favoriteBookId, payload.isFavorite);
+      // 同步回管理器队列
+      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: payload.isFavorite });
+      if (sentencePlayManager.bookId === favoriteBookId && payload.isFavorite === false) {
+        console.log('收藏列表删除数据了')
+        sentencePlayManager.removeSentence(payload.sentenceId)
+        eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
+      }
+    } catch (err) {
+      console.error('[EventListener] 切换收藏失败，尝试回滚状态:', err);
+      // 失败时回滚
+      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: !payload.isFavorite });
+      wx.showToast({ title: '收藏同步失败', icon: 'none' });
+    }
+  }
+
+  private async markSentence(payload: MarkPayload) {
+    try {
+      const nextStage = payload.currentStage < 8 ? payload.currentStage + 1 : 8;
+      const nextReviewAt = this.calculateNextReviewAt(payload.currentStage);
+
+      const updatedMark = {
+        stage: nextStage,
+        nextReviewAt: nextReviewAt,
+        updatedAt: Date.now()
+      };
+
+      // 更新管理器队列中的 mark 对象
+      sentencePlayManager.updateSentence(payload.sentenceId, { mark: updatedMark as any });
+
+      // 发起后台 API 保存
+      await sentenceService.upsertMark(
+        payload.sentenceId,
+        { stage: nextStage, nextReviewAt },
+        sentencePlayManager.bookId
+      );
+    } catch (err) {
+      console.error('[EventListener] 标记更新失败:', err);
+      wx.showToast({ title: '掌握进度保存失败', icon: 'none' });
+    }
+  }
+
+  private async onGetPlaylist(bookId:string) {
+    console.log('发送了事件 get play list')
+    const res = await sentencePlayList.getPlayList(bookId, 20, this.cursor)
+    this.cursor = res.cursor
+    console.log('appController res',res)
+    eventBus.emit(AppEvent.GET_PLAYLIST_SUCCESS, res.list)
+  }
+
+  // 艾宾浩斯间隔算法
+  private calculateNextReviewAt(currentStage: number): number {
+    const nextStage = currentStage + 1;
+    const intervalsInMinutes: Record<number, number> = {
+      1: 5,           // 5 分钟
+      2: 30,          // 30 分钟
+      3: 12 * 60,     // 12 小时
+      4: 24 * 60,     // 1 天
+      5: 2 * 24 * 60, // 2 天
+      6: 4 * 24 * 60, // 4 天
+      7: 7 * 24 * 60, // 7 天
+      8: 15 * 24 * 60,// 15 天
+    };
+
+    const minutes = intervalsInMinutes[nextStage] || 30 * 24 * 60;
+    return Date.now() + minutes * 60 * 1000;
+  }
+
+}
+
+const appController = new AppController()
+export default appController
+</file>
+
+<file path="services/app-store.ts">
+console.log('AppStore.ts loaded')
+
+import { AppEvent } from "./event-type"
+import eventBus from "./EventBus"
+
+export class AppStore {
+  constructor(){
+    console.log('app store contructor')
+  }
+  init(){}
+  private _books: Book[]=[]
+
+  get books() {
+    return this._books
+  }
+
+  set books(value: Book[]) {
+    if (value && value != this._books){
+      this._books = value
+      eventBus.emit(AppEvent.GET_BOOK_SUCCESS,value)
+    }
+  }
+}
+
+const appStore = new AppStore()
+export default appStore
+</file>
+
 <file path="services/article-service.ts">
 import { cloudFunctionName } from "../enums/app-enums";
-import { callCloudFunction } from "./cloud-client";
+import { callCloudFunction } from "../utils/cloud-client";
 
 /**
  * 获取文章/课文列表
@@ -2180,42 +3156,22 @@ export async function getArticleSentences(articleId: string): Promise<ArticleSen
 // 1. services/book-service.ts (纯粹的数据服务)
 
 import { BookType, cloudFunctionName } from "../enums/app-enums";
-import { dbRequest, db } from "../utils/dbHelper";
-import { callCloudFunction } from "./cloud-client";
+import { dbRequest} from "../utils/dbHelper";
+import { callCloudFunction } from "../utils/cloud-client";
+import appStore from "./app-store";
 
 export class BookService {
-  private booksCache: Book[] | null = null;
-
-  async getBooks(): Promise<Book[]> {
-    if (this.booksCache === null) {
-      this.booksCache = await callCloudFunction(cloudFunctionName.getBooks, {});
-      // console.log(this.booksCache)
-    }
-    return this.booksCache || [];
+  async getBooks() {
+    const books = await callCloudFunction(cloudFunctionName.getBooks, {});
+    appStore.books = books
   }
-
-  async getSentenceBooks() {
-    const books = await this.getBooks()
-    return books.filter(item => item.content === BookType.sentence);
-  }
-
-  async getArticleBooks() {
-    const books = await this.getBooks()
-    return books.filter(item => item.content === BookType.article);
-  }
-
-  async getUserBooks() {
-    const books = await this.getBooks()
-    const _openid = getApp().globalData._openid
-    return books.filter(item => item._openid === _openid);
-  }
-
   /**
    * 创建词书。
    */
   async createBook(name: string, type: string): Promise<Book> {
     const bookName = name.trim()
     if (!bookName) throw new Error('词书名称不能为空')
+    const db = wx.cloud.database()
 
     const { data } = await dbRequest(
       db.collection('book').where({ name: bookName, type }).limit(1).get(),
@@ -2250,53 +3206,8 @@ const bookService = new BookService();
 export default bookService;
 </file>
 
-<file path="services/cloud-client.ts">
-// miniprogram/services/cloud-client.ts
-
-export interface ApiResponse<T = any> {
-  code: number
-  data?: T
-  msg?: string
-}
-
-/**
- * 统一调用云函数的封装
- */
-export async function callCloudFunction<T = any>(
-  name: string,
-  data: Record<string, any> = {}
-): Promise<T> {
-  try {
-    const res = await wx.cloud.callFunction({
-      name,
-      data
-    })
-
-    const result = res.result as ApiResponse<T>
-
-    // 如果接口定义了 code 状态码
-    if (result && typeof result.code === 'number') {
-      if (result.code !== 0) {
-        throw new Error(result.msg || `Cloud function ${name} error`)
-      }
-      return result.data as T
-    }
-
-    // 若无 code 直接返回 raw result
-    return res.result as T
-  } catch (err: any) {
-    console.error(`[Cloud Call Error] ${name}:`, err)
-    wx.showToast({
-      title: err.message || '网络或服务异常',
-      icon: 'none'
-    })
-    throw err
-  }
-}
-</file>
-
 <file path="services/cloud-service.ts">
-export class CloudService {
+export class SentencePlayList {
   async getSentencesByIds(collection: string, bookId: string, includeIds: string[], excludeIds: string[] = [], limit = 20): Promise<Sentence[]> {
 
     const db = wx.cloud.database()
@@ -2311,14 +3222,14 @@ export class CloudService {
       bookId
     }).limit(limit).get()).data
 
-    if(first.length >=limit){
+    if (first.length >= limit) {
       list = first
-    }else if (!includeIds.length){
-      list =  (await db.collection(collection).where({
+    } else if (!includeIds.length) {
+      list = (await db.collection(collection).where({
         _id: _.nin(excludeIds),
         bookId
       }).limit(limit).get()).data as Sentence[]
-    }else{
+    } else {
       const exclude = [...new Set([...excludeIds, ...first.map(x => x._id)])]
 
       const rest = (await db.collection(collection).where({
@@ -2326,10 +3237,10 @@ export class CloudService {
         bookId
       }).limit(limit - first.length).get()).data
 
-      list = [...first, ...rest] 
+      list = [...first, ...rest]
     }
 
-    list = list.map(item=>({
+    list = list.map(item => ({
       ...item,
       audio: this.toFullFileId(item.audio),
       audio_zh: this.toFullFileId(item.audio_zh)
@@ -2380,7 +3291,7 @@ export class CloudService {
     }))
   }
 }
-const cloudService = new CloudService()
+const cloudService = new SentencePlayList()
 export default cloudService
 </file>
 
@@ -2399,13 +3310,21 @@ export interface MarkPayload {
 export enum AppEvent {
   MARK_SENTENCE = 'markSentence',
   FAVORITE_SENTENCE = 'favoriteSentence',
-  REFRESH_SENTENCE_LIST = 'refreshSentenceList'
+  REFRESH_SENTENCE_LIST = 'refreshSentenceList',
+  GET_BOOK = 'getBook',
+  GET_BOOK_SUCCESS = 'getBookSuccess',
+  GET_PLAYLIST = 'getPlaylist',
+  GET_PLAYLIST_SUCCESS = 'getPlaylistSuccess'
 }
 
 export interface EventPayloadMap {
   [AppEvent.MARK_SENTENCE]:any,
   [AppEvent.FAVORITE_SENTENCE]:FavoritePayload,
   [AppEvent.REFRESH_SENTENCE_LIST]:void,
+  [AppEvent.GET_BOOK_SUCCESS]:Book[],
+  [AppEvent.GET_BOOK]:void,
+  [AppEvent.GET_PLAYLIST]:string,
+  [AppEvent.GET_PLAYLIST_SUCCESS]:Sentence[],
 }
 </file>
 
@@ -2471,83 +3390,6 @@ class EventBus {
 }
 const eventBus = new EventBus()
 export default eventBus
-</file>
-
-<file path="services/sentence-listener.ts">
-import sentenceService from "./sentence-service";
-import sentencePlayManager from "./sentence-play-manager";
-import { AppEvent, FavoritePayload, MarkPayload } from "./event-type";
-import eventBus from "./EventBus";
-
-// 艾宾浩斯间隔算法
-function calculateNextReviewAt(currentStage: number): number {
-  const nextStage = currentStage + 1;
-  const intervalsInMinutes: Record<number, number> = {
-    1: 5,           // 5 分钟
-    2: 30,          // 30 分钟
-    3: 12 * 60,     // 12 小时
-    4: 24 * 60,     // 1 天
-    5: 2 * 24 * 60, // 2 天
-    6: 4 * 24 * 60, // 4 天
-    7: 7 * 24 * 60, // 7 天
-    8: 15 * 24 * 60,// 15 天
-  };
-
-  const minutes = intervalsInMinutes[nextStage] || 30 * 24 * 60;
-  return Date.now() + minutes * 60 * 1000;
-}
-
-export function initSentenceEventListeners() {
-  // 1. 监听收藏事件
-  eventBus.on(AppEvent.FAVORITE_SENTENCE, async (payload: FavoritePayload) => {
-    try {
-      console.log('listener payload:',payload)
-      const app = getApp<IAppOption>();
-      const favoriteBookId = app?.globalData?.favoriteBookId as string;
-
-      sentenceService.toggleFavorite(payload.sentenceId, favoriteBookId,payload.isFavorite);
-      // 同步回管理器队列
-      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: payload.isFavorite });
-      if(sentencePlayManager.bookId === favoriteBookId && payload.isFavorite === false){
-        console.log('收藏列表删除数据了')
-        sentencePlayManager.removeSentence(payload.sentenceId)
-        eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
-      }
-    } catch (err) {
-      console.error('[EventListener] 切换收藏失败，尝试回滚状态:', err);
-      // 失败时回滚
-      sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: !payload.isFavorite });
-      wx.showToast({ title: '收藏同步失败', icon: 'none' });
-    }
-  });
-
-  // 2. 监听掌握/标记事件
-  eventBus.on(AppEvent.MARK_SENTENCE, async (payload: MarkPayload) => {
-    try {
-      const nextStage = payload.currentStage + 1;
-      const nextReviewAt = calculateNextReviewAt(payload.currentStage);
-
-      const updatedMark = {
-        stage: nextStage,
-        nextReviewAt: nextReviewAt,
-        updatedAt: Date.now()
-      };
-
-      // 更新管理器队列中的 mark 对象
-      sentencePlayManager.updateSentence(payload.sentenceId, { mark: updatedMark as any });
-
-      // 发起后台 API 保存
-      await sentenceService.upsertMark(
-        payload.sentenceId,
-        { stage: nextStage, nextReviewAt },
-        sentencePlayManager.bookId
-      );
-    } catch (err) {
-      console.error('[EventListener] 标记更新失败:', err);
-      wx.showToast({ title: '掌握进度保存失败', icon: 'none' });
-    }
-  });
-}
 </file>
 
 <file path="services/sentence-play-engine.ts">
@@ -2621,14 +3463,14 @@ export class PlayEngine {
    * 获取当前播放的句子
    */
   public get currentSentence(): Sentence | null {
-    return this.listManager.getCurrent();
+    return this.listManager.currentSentence;
   }
 
   /**
    * 开始/启动播放（入口）
    */
   public start(): void {
-    const current = this.listManager.getCurrent();
+    const current = this.listManager.currentSentence;
     if (!current) {
       this.callbacks.onNotice('播放队列为空');
       return;
@@ -2870,330 +3712,601 @@ export class PlayEngine {
 }
 </file>
 
-<file path="services/sentence-play-manager.ts">
-export class SentencePlayListManager {
-  private playQueue: Sentence[] = []
-  private currentIndex = 0
-  private _bookId = ''
+<file path="services/sentence-play-list.ts">
+import sync from "../utils/sync"
 
-  public init(book: Book, list: Sentence[]): void {
-    this.reset()
-    this._bookId = book._id
-    this.playQueue = list
+
+
+
+
+export class SentencePlayList {
+
+  async getPlayList(bookId: string, limit = 20, cursor?: SentencePlayCursor): Promise<SentencePlaylistResult> {
+    const marks = sync.markStore.get(bookId)
+    const { includeIds, excludeIds } = this.getReviewIds(marks)
+    const review = await this.getReviewList(bookId, includeIds, limit, cursor?.reviewIndex ?? 0)
+    console.log('get review result', review)
+    const remain = limit - review.list.length
+
+    if (remain <= 0) {
+      return {
+        list: await this.prepareSentences(review.list),
+        cursor: review.hasMore ? { reviewIndex: review.nextIndex, createdAt: cursor?.createdAt ?? -1 } : undefined,
+        hasMore: review.hasMore
+      }
+    }
+
+    const normal = await this.getNewSentenceList(bookId, excludeIds, remain, cursor?.createdAt ?? -1)
+    console.log('get normal result', normal)
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+    const favoriteSet = this.getGlobalFavoriteSet();
+    console.log("favorites:", favoriteSet)
+
+    let list = await this.prepareSentences([...review.list, ...normal.list])
+    list = list.map(sentence => ({
+      ...sentence,
+      isFavorite: favoriteSet.has(sentence._id),
+      mark: markMap.get(sentence._id)
+    }))
+    const hasMore = review.hasMore || normal.hasMore
+
+    return {
+      list,
+      cursor: hasMore ? { reviewIndex: review.nextIndex, createdAt: normal.nextCreatedAt } : undefined,
+      hasMore
+    }
+  }
+
+  async getFavoritePlayList(bookId: string, limit = 20, cursor?: number) {
+    const favorites = sync.favStore.get(bookId).filter(x => !x.deleted)
+    const sentenceIds = favorites.filter(x => !cursor || x.updatedAt < cursor).slice(0, limit)
+
+    console.log('favorite sentenceIds',sentenceIds)
+    const marks = sync.markStore.get(bookId)
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+    const db = wx.cloud.database()
+
+    if (!sentenceIds.length) {
+      return { list: [], cursor: null }
+    }
+
+    const res = await db.collection('sentence').where({
+      _id: db.command.in(sentenceIds.map(x => x.sentenceId))
+    }).get()
+
+
+    let list = res.data as Sentence[]
+    console.log('favorite list',list)
+    list = await this.prepareSentences(list)
+    list = list.map(sentence => ({
+      ...sentence,
+      isFavorite: true,
+      mark: markMap.get(sentence._id)
+    }))
+
+    return {
+      list,
+      cursor: sentenceIds.length === limit ? sentenceIds[sentenceIds.length - 1].updatedAt : null
+    }
+  }
+
+  // 1. 增加一个获取全局收藏集合的方法
+  private getGlobalFavoriteSet(): Set<string> {
+    // getAll() 会拉取所有分片里的收藏数据
+    const allFavorites = sync.favStore.getAll();
+
+    // 过滤掉已删除的，只留下有效的 sentenceId
+    const validFavoriteIds = allFavorites
+      .filter(x => !x.deleted)
+      .map(x => x.sentenceId);
+    console.log('validFavoriteIds', validFavoriteIds)
+
+    return new Set(validFavoriteIds);
+  }
+
+  private getReviewIds(marks: SentenceMark[]) {
+    const now = Date.now();
+    const include = marks
+      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id));
+
+    // ✅ 改为统一使用 sentenceId 匹配，避免 _id 拼写格式干扰
+    const includeSentenceIds = new Set(include.map(x => x.sentenceId));
+
+    return {
+      includeIds: include.map(x => x.sentenceId),
+      excludeIds: marks.filter(x => !includeSentenceIds.has(x.sentenceId)).map(x => x.sentenceId)
+    };
+  }
+
+  private async getReviewList(bookId: string, reviewIds: string[], limit: number, startIndex: number) {
+    const ids = reviewIds.slice(startIndex, startIndex + limit)
+    if (!ids.length) return { list: [], nextIndex: startIndex, hasMore: false }
+
+    const db = wx.cloud.database()
+    const _ = db.command
+    const data = (await db.collection('sentence').where({ _id: _.in(ids), bookId }).get()).data as Sentence[]
+    const map = new Map(data.map(x => [x._id, x]))
+    const list = ids.map(id => map.get(id)).filter((x): x is Sentence => !!x)
+    const nextIndex = startIndex + ids.length
+
+    return { list, nextIndex, hasMore: nextIndex < reviewIds.length }
+  }
+
+  private async getNewSentenceList(bookId: string, excludeIds: string[], limit: number, createdAt: number) {
+    const db = wx.cloud.database()
+    const _ = db.command
+    const data = (await db.collection('sentence').where({ bookId, createdAt: _.gt(createdAt), _id: _.nin(excludeIds) }).orderBy('createdAt', 'asc').limit(limit + 1).get()).data as Sentence[]
+    const hasMore = data.length === limit
+    const list = data.slice(0, limit)
+    const nextCreatedAt = list.length ? list[list.length - 1].createdAt : createdAt
+
+    return { list, nextCreatedAt, hasMore }
+  }
+
+  private async prepareSentences(list: Sentence[]) {
+    const fullList = list.map(item => ({ ...item, audio: this.toFullFileId(item.audio), audio_zh: this.toFullFileId(item.audio_zh) }))
+    return this.getAudioUrls(fullList)
+  }
+
+  private toFullFileId(path: string = ''): string {
+    const STORAGE_PREFIX = 'cloud://cloud1-d0gyvvq93ab34b8b7.636c-cloud1-d0gyvvq93ab34b8b7-1333600691/'
+    if (!path) return ''
+    if (path.startsWith('cloud://') || path.startsWith('http')) return path
+
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path
+    return `${STORAGE_PREFIX}${cleanPath}`
+  }
+
+
+  private async getAudioUrls<T extends { audio?: string; audio_zh?: string }>(
+    list: T[]
+  ): Promise<T[]> {
+
+    const ids = [...new Set(
+      list.flatMap(item => [
+        item.audio,
+        item.audio_zh
+      ]).filter((x): x is string => !!x?.startsWith('cloud://'))
+    )]
+
+    if (!ids.length) return list
+    const map = new Map<string, string>()
+    for (let i = 0; i < ids.length; i += 50) {
+      const res = await wx.cloud.getTempFileURL({
+        fileList: ids.slice(i, i + 50)
+      })
+
+      res.fileList.forEach(item => {
+        if (item.status === 0) {
+          map.set(item.fileID, item.tempFileURL)
+        }
+      })
+    }
+
+    return list.map(item => ({
+      ...item,
+      audio: map.get(item.audio || '') || item.audio,
+      audio_zh: map.get(item.audio_zh || '') || item.audio_zh
+    }))
+  }
+}
+
+const sentencePlayList = new SentencePlayList()
+export default sentencePlayList
+</file>
+
+<file path="services/sentence-play-manager.ts">
+// 定义分页加载器函数类型，解耦具体 API 服务
+export type ListFetcher = (cursor: SentencePlayCursor | null, limit: number) => Promise<SentencePlaylistResult>;
+
+export class SentencePlayListManager {
+  private playQueue: Sentence[] = [];
+  private currentIndex: number = 0;
+  private _bookId: string = ''
+
+  // 分页/预加载状态控制
+  private fetcher: ListFetcher | null = null;
+  private nextCursor: SentencePlayCursor | null = null;
+  private hasMore: boolean = true;
+  private isLoading: boolean = false;
+
+  // 预加载阈值：当剩余未播句子少于等于 3 条时，自动触发 loadMore
+  private readonly PRELOAD_THRESHOLD = 3;
+
+  /**
+   * 初始化播放队列
+   * @param initialData 初始数据列表
+   * @param fetcher 可选：获取后续分页数据的回调函数（解耦不同来源的数据请求）
+   */
+  public init(book: Book, initialData: SentencePlaylistResult, fetcher?: ListFetcher): void {
+    this.reset(); // 初始化前先重置
+    this._bookId = book._id;
+    this.playQueue = initialData.list || [];
+    this.nextCursor = initialData.cursor || null;
+    this.hasMore = initialData.hasMore ?? false;
+    this.fetcher = fetcher || null;
   }
 
   public get currentIndexNum(): number {
-    return this.currentIndex
+    return this.currentIndex;
   }
 
   public get queueLength(): number {
-    return this.playQueue.length
+    return this.playQueue.length;
   }
 
   public get sentenceList(): Sentence[] {
-    return this.playQueue
+    return this.playQueue;
   }
 
-  public get bookId(): string {
+  public get bookId() {
     return this._bookId
   }
 
   public getCurrent(): Sentence | null {
-    return this.playQueue[this.currentIndex] || null
+    if (this.currentIndex >= 0 && this.currentIndex < this.playQueue.length) {
+      return this.playQueue[this.currentIndex];
+    }
+    return null;
   }
 
   public get currentSentence(): Sentence | null {
-    return this.getCurrent()
+    return this.getCurrent();
   }
 
+  /**
+   * 播放下一句（附带自动预加载判定）
+   */
   public next(): Sentence | null {
     if (this.currentIndex < this.playQueue.length - 1) {
-      this.currentIndex++
-      return this.getCurrent()
+      this.currentIndex++;
+
+      const remainCount = this.playQueue.length - 1 - this.currentIndex;
+      if (remainCount <= this.PRELOAD_THRESHOLD && this.hasMore && !this.isLoading) {
+        this.loadMore();
+      }
+
+      return this.getCurrent();
     }
-    return null
+    return null;
   }
 
+  /**
+   * 播放上一句
+   */
   public prev(): Sentence | null {
     if (this.currentIndex > 0) {
-      this.currentIndex--
-      return this.getCurrent()
+      this.currentIndex--;
+      return this.getCurrent();
     }
-    return null
+    return null;
   }
 
+  /**
+   * 偷看当前指针前后第 offset 个位置的句子
+   */
   public peek(offset: number): Sentence | null {
-    const idx = this.currentIndex + offset
-    return this.playQueue[idx] || null
+    const idx = this.currentIndex + offset;
+    if (idx >= 0 && idx < this.playQueue.length) {
+      return this.playQueue[idx];
+    }
+    return null;
   }
 
+  /**
+   * 更新队列中指定句子的属性（例如修改收藏状态/掌握状态）
+   */
   public updateSentence(sentenceId: string, partialData: Partial<Sentence>): void {
-    const target = this.playQueue.find(s => s._id === sentenceId)
-    if (target) Object.assign(target, partialData)
-  }
-
-  public removeSentence(sentenceId: string): void {
-    const idx = this.playQueue.findIndex(s => s._id === sentenceId)
-    if (idx === -1) return
-
-    this.playQueue.splice(idx, 1)
-
-    if (idx < this.currentIndex) {
-      this.currentIndex--
-    } else if (this.currentIndex >= this.playQueue.length) {
-      this.currentIndex = Math.max(0, this.playQueue.length - 1)
+    const target = this.playQueue.find(s => s._id === sentenceId);
+    if (target) {
+      Object.assign(target, partialData);
     }
   }
 
-  public replace(list: Sentence[]): void {
-    const currentId = this.getCurrent()?._id
-    this.playQueue = list
-
-    const index = currentId
-      ? this.playQueue.findIndex(x => x._id === currentId)
-      : -1
-
-    this.currentIndex = index >= 0 ? index : 0
+  /**
+   * 从当前队列中移除某句子（适用于“标记为掌握后不再播放”等场景）
+   */
+  public removeSentence(sentenceId: string): void {
+    const idx = this.playQueue.findIndex(s => s._id === sentenceId);
+    if (idx !== -1) {
+      this.playQueue.splice(idx, 1);
+      // 如果删除的是当前节点之前的项，指针往前平移
+      if (idx < this.currentIndex) {
+        this.currentIndex = Math.max(0, this.currentIndex - 1);
+      }
+      // 边界兜底保护
+      if (this.currentIndex >= this.playQueue.length) {
+        this.currentIndex = Math.max(0, this.playQueue.length - 1);
+      }
+    }
   }
 
+  /**
+   * 静默预加载更多句子追加到队列末尾
+   */
+  public async loadMore(targetCount = 20): Promise<boolean> {
+    if (this.isLoading || !this.hasMore || !this.fetcher) {
+      return false;
+    }
+
+    this.isLoading = true;
+    try {
+      const res = await this.fetcher(this.nextCursor, targetCount);
+
+      if (res && res.list && res.list.length > 0) {
+        // this.playQueue = [...this.playQueue, ...res.list];
+        this.playQueue = this.playQueue.concat(res.list)
+        this.nextCursor = res.cursor || null;
+        this.hasMore = res.hasMore ?? false;
+        return true;
+      } else {
+        this.hasMore = false;
+      }
+    } catch (error) {
+      console.error('[SentencePlayListManager] 预加载句子失败:', error);
+    } finally {
+      this.isLoading = false;
+    }
+    return false;
+  }
+
+  /**
+   * 清空重置队列
+   */
   public reset(): void {
-    this.playQueue = []
-    this.currentIndex = 0
+    this.playQueue = [];
+    this.currentIndex = 0;
+    this.nextCursor = null;
+    this.hasMore = true;
+    this.isLoading = false;
+    this.fetcher = null;
     this._bookId = ''
   }
 }
 
-export default new SentencePlayListManager()
+export default new SentencePlayListManager();
 </file>
 
 <file path="services/sentence-service.ts">
 import { cloudFunctionName, CollectionName } from "../enums/app-enums";
-import { LocalShardStore } from "../utils/local-store";
 import sentenceStore from "../utils/sentenceStore";
-import sync from "../utils/sync";
-import { callCloudFunction } from "./cloud-client";
+import sync from "../utils/sync"; // 统一使用 sync 内部的 store 单例
+import { callCloudFunction } from "../utils/cloud-client";
 import cloudService from "./cloud-service";
 import { AppEvent } from "./event-type";
 import eventBus from "./EventBus";
 import sentencePlayManager from "./sentence-play-manager";
-
+import sentencePlayList from "./sentence-play-list";
 
 export class SentenceService {
-  async getPlayList(bookId: string, targetCount = 50): Promise<Sentence[]> {
-    if (sentenceStore.isCompleted(bookId)) {
-      console.log('本地')
-      return this.buildLocalPlayList(bookId, targetCount)
-    }
-    const list = await this.getInitSentencePlayList(bookId)
+  async getPlayList(bookId: string, targetCount = 20,cursor?:SentencePlayCursor): Promise<SentencePlaylistResult> {
+    // if (sentenceStore.isCompleted(bookId)) {
+    //   console.log('本地数据完整，走本地构建播放列表');
+    //   return this.buildLocalPlayList(bookId, targetCount);
+    // }
+    // const list = await this.getInitSentencePlayList(bookId);
 
-    if (!sentenceStore.isCompleted(bookId)) {
-      this.syncAll(bookId).catch(console.error)
-    }
-    return list
+    // if (!sentenceStore.isCompleted(bookId)) {
+    //   this.syncAll(bookId).catch(console.error);
+    // }
+    // return list;
+    // const pl = await sentencePlayList.getPlayList(bookId)
+
+    const res =  await sentencePlayList.getPlayList(bookId,targetCount,cursor)
+    console.log(res)
+    return res
+
+  }
+
+  async getFavoritePlayList(bookId: string, targetCount = 20,cursor?:number) {
+    const res =  await sentencePlayList.getFavoritePlayList(bookId,targetCount,cursor)
+    console.log(res)
+    return res
   }
 
   private async getInitSentencePlayList(bookId: string): Promise<Sentence[]> {
-    const marks = sync.markStore.get(bookId)
+    // ✅ 统一从 sync 获取存储实例
+    const marks = sync.markStore.get(bookId);
 
-    const { includeIds, excludeIds } = this.getReviewIds(marks)
-    const res = await cloudService.getSentencesByIds(CollectionName.sentence, bookId, includeIds, excludeIds)
-    const favorites = sync.favStore.get(bookId)
+    const { includeIds, excludeIds } = this.getReviewIds(marks);
+    const res = await cloudService.getSentencesByIds(CollectionName.sentence, bookId, includeIds, excludeIds);
+    const favorites = sync.favStore.get(bookId);
 
-    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
-    const favoriteSet = new Set(favorites.filter(x => !x.deleted).map(x => x.sentenceId))
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+    // ✅ 过滤掉已经标记为 deleted: true 的记录
+    const favoriteSet = new Set(favorites.filter(x => !x.deleted).map(x => x.sentenceId));
 
-    const list = res
-      .map(sentence => ({
-        ...sentence,
-        isFavorite: favoriteSet.has(sentence._id),
-        mark: markMap.get(sentence._id)
-      }))
+    const list = res.map(sentence => ({
+      ...sentence,
+      isFavorite: favoriteSet.has(sentence._id),
+      mark: markMap.get(sentence._id)
+    }));
 
-    return list
+    return list;
   }
 
   private getReviewIds(marks: SentenceMark[]) {
-    const now = Date.now()
+    const now = Date.now();
     const include = marks
       .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
-      .sort((a, b) => a.nextReviewAt - b.nextReviewAt || a._id.localeCompare(b._id))
+      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id));
 
-    const includeSet = new Set(include.map(x => x._id))
+    // ✅ 改为统一使用 sentenceId 匹配，避免 _id 拼写格式干扰
+    const includeSentenceIds = new Set(include.map(x => x.sentenceId));
 
     return {
       includeIds: include.map(x => x.sentenceId),
-      excludeIds: marks.filter(x => !includeSet.has(x._id)).map(x => x.sentenceId)
-    }
+      excludeIds: marks.filter(x => !includeSentenceIds.has(x.sentenceId)).map(x => x.sentenceId)
+    };
   }
 
+  // 1. 增加一个获取全局收藏集合的方法
+  private getGlobalFavoriteSet(): Set<string> {
+    // getAll() 会拉取所有分片里的收藏数据
+    const allFavorites = sync.favStore.getAll();
 
+    // 过滤掉已删除的，只留下有效的 sentenceId
+    const validFavoriteIds = allFavorites
+      .filter(x => !x.deleted)
+      .map(x => x.sentenceId);
+
+    return new Set(validFavoriteIds);
+  }
+
+  // 2. 在 buildLocalPlayList 中使用全局收藏 Set
   private buildLocalPlayList(bookId: string, targetCount: number): Sentence[] {
-    const sentences = sentenceStore.get(bookId)
-    const marks = sync.markStore.get(bookId)
-    const favorites = sync.favStore.get(bookId)
+    const sentences = sentenceStore.get(bookId); // 实体书里的句子
+    const marks = sync.markStore.get(bookId);     // 该实体书下的标注
 
-    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
-    const favoriteSet = new Set(favorites.map(x => x.sentenceId))
-    const now = Date.now()
+    // 🛡️ 核心改变：拿全局有效的收藏集合，而不是针对某个 bookId 去拿
+    const favoriteSet = this.getGlobalFavoriteSet();
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+    const now = Date.now();
 
     const review = marks
       .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
-      .sort((a, b) => a.nextReviewAt - b.nextReviewAt || a._id.localeCompare(b._id))
+      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id))
       .map(x => sentences.find(s => s._id === x.sentenceId))
-      .filter((x): x is Sentence => !!x)
+      .filter((x): x is Sentence => !!x);
 
-    const reviewIds = new Set(review.map(x => x._id))
+    const reviewIds = new Set(review.map(x => x._id));
 
     const fresh = sentences
       .filter(x => !markMap.has(x._id) && !reviewIds.has(x._id))
-      .sort((a, b) => a.createdAt - b.createdAt || a._id.localeCompare(b._id))
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || a._id.localeCompare(b._id));
 
     const list = [...review, ...fresh]
       .slice(0, targetCount)
       .map(sentence => ({
         ...sentence,
-        isFavorite: favoriteSet.has(sentence._id),
+        isFavorite: favoriteSet.has(sentence._id), // ✅ 无论在哪个收藏夹，只要收藏了就是 true
         mark: markMap.get(sentence._id)
-      }))
+      }));
 
-    return list
+    return list;
   }
 
   async syncAll(bookId: string): Promise<number> {
-    let cursor = sentenceStore.getCursor(bookId)
-    let total = 0
+    let cursor = sentenceStore.getCursor(bookId);
+    let total = 0;
 
     while (true) {
-      const res = await callCloudFunction(
+      const res = await callCloudFunction<{ list: Sentence[]; nextCursor: number; hasMore: boolean }>(
         cloudFunctionName.syncSentence,
         { bookId, cursor, limit: 100 }
-      )
+      );
 
-      sentenceStore.saveBatch(bookId, res.list, res.nextCursor, res.hasMore)
-      total += res.list.length
-      cursor = res.nextCursor
+      sentenceStore.saveBatch(bookId, res.list, res.nextCursor, res.hasMore);
+      total += res.list.length;
+      cursor = res.nextCursor;
 
-      if (!res.hasMore) break
+      if (!res.hasMore) break;
     }
 
-    const playList = this.buildLocalPlayList(bookId, 50)
-    sentencePlayManager.replace(playList)
-    console.log(sentencePlayManager.queueLength)
-    eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
-    return total
+    const playList = this.buildLocalPlayList(bookId, 50);
+    // sentencePlayManager.replace(playList);
+    console.log('播放队列长度：', sentencePlayManager.queueLength);
+    eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
+    return total;
   }
 
-
-  /**
-   * 录入一条新句子。
-   * - 不管传入的 bookId 是哪本词书，句子物理内容都会被存进用户的默认库"用户句子"；
-   * - 如果 bookId 不是默认库本身，云函数会在同一个事务里顺手建一条引用，
-   *   让句子"看起来"出现在你选的那本词书里；
-   * - 两步在同一个事务里，不会出现存了内容但引用没建上的半吊子状态。
-   */
-  async createSentence(data: Sentence): Promise<string> {
-    const res = await callCloudFunction<{ sentenceId: string }>(
+  async createSentence( data: Partial<Sentence>): Promise<Sentence> {
+    const res = await callCloudFunction(
       cloudFunctionName.createSentence,
       data
-    )
-    return res.sentenceId
+    );
+    return res as Sentence;
   }
 
-  /**
-   * 跨词书搜索句子（中文或英文，模糊匹配）
-   */
   async searchSentences(keyword: string): Promise<Sentence[]> {
-    return callCloudFunction(cloudFunctionName.searchSentences, { keyword })
+    return callCloudFunction(cloudFunctionName.searchSentences, { keyword });
   }
 
   /**
-   * 获取指定词书/收藏夹中的句子列表
-   * @param bookId 词书ID（可以是系统收藏夹 fav_${_openid}，也可以是自建词书ID）
-   * @param page 页码（可选，用于分页）
-   * @param pageSize 每页条数（可选，默认 20）
+   * 获取引用书/收藏夹中的句子列表（支持跨实体书查找）
    */
-  async getFavoriteSentences(bookId: string): Promise<Sentence[]> {
-    const sentences = sentenceStore.get(bookId)
-    const favorites = sync.favStore.get(bookId)
-    const marks = sync.markStore.get(bookId)
+  async getFavoriteSentences(refBookId: string): Promise<Sentence[]> {
+    // 1. 拿到引用书分片下的所有收藏记录
+    // const favorites = sync.favStore.get(refBookId);
+    // const activeFavorites = favorites.filter(x => !x.deleted);
 
-    const sentenceMap = new Map(sentences.map(x => [x._id, x]))
-    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+    // if (activeFavorites.length === 0) return [];
 
-    const list = favorites
-      .filter(x => !x.deleted)
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .map(fav => {
-        const sentence = sentenceMap.get(fav.sentenceId)
-        if (!sentence) return null
+    // // 2. 收集需要查找的 sentenceId
+    // const targetIds = activeFavorites.map(f => f.sentenceId);
 
-        return {
-          ...sentence,
-          mark: markMap.get(sentence._id) || null,
-          isFavorite: true,
-          favCreatedAt: fav.updatedAt
-        }
-      })
-      .filter((x) => !!x)
+    // // 3. 利用批量查找接口直接一次性查出所有句子对象
+    // const sentenceMap = sentenceStore.findMany(targetIds);
+    // const favoriteSet = this.getGlobalFavoriteSet();
 
-    return list as Sentence[]
+    // const list = activeFavorites
+    //   .sort((a, b) => b.updatedAt - a.updatedAt)
+    //   .map(fav => {
+    //     const sentence = sentenceMap.get(fav.sentenceId);
+    //     if (!sentence) return null;
+
+    //     // 获取句子所属实体书的标注
+    //     const marks = sync.markStore.get(sentence.bookId);
+    //     const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+
+    //     return {
+    //       ...sentence,
+    //       mark: markMap.get(sentence._id) || null,
+    //       isFavorite: favoriteSet.has(sentence._id),
+    //       favCreatedAt: fav.updatedAt
+    //     };
+    //   })
+
+    // return list as Sentence[];
+    const pl = await sentencePlayList.getFavoritePlayList(refBookId)
+    return pl.list as Sentence[]
   }
-
   /**
-   * @param sentenceId 句子ID
-   * @param patch 待更新的字段
-   * @param bookId 词书ID（选填）
+   * 更新标记
    */
-  upsertMark(
-    sentenceId: string,
-    patch: Partial<SentenceMark> = {},
-    bookId: string
-  ) {
-    const markStore = new LocalShardStore(CollectionName.sentenceMark)
-    this.upsert(markStore, sentenceId, bookId, patch)
+  upsertMark(sentenceId: string, patch: Partial<SentenceMark> = {}, bookId: string) {
+    // ✅ 使用 sync.markStore，避免重新 new 导致实例错位
+    this.upsert(sync.markStore, sentenceId, bookId, patch);
   }
 
   /**
    * 切换收藏状态
+   * @param targetFavoriteState 目标状态：true 为要收藏，false 为要取消收藏
    */
-  toggleFavorite(
-    sentenceId: string,
-    bookId: string,
-    isFavorite: boolean
-  ) {
-    const favStore = new LocalShardStore(CollectionName.sentenceFavorite)
-    this.upsert(favStore, sentenceId, bookId, { deleted: isFavorite })
+  toggleFavorite(sentenceId: string, bookId: string, targetFavoriteState: boolean) {
+    // ✅ 使用 sync.favStore，且 deleted = !targetFavoriteState
+    console.log('fav写入时的 bookId:', bookId);
+    this.upsert(sync.favStore, sentenceId, bookId, { deleted: !targetFavoriteState });
   }
 
-  upsert(store: LocalShardStore<SentenceMark | SentenceFavorite>, sentenceId: string, bookId: string, data: any) {
+  private upsert(store: any, sentenceId: string, bookId: string, data: any) {
     const _openid = (getApp() as IAppOption).globalData._openid;
     if (!_openid) {
       throw new Error('_openid 尚未获取，请确保已登录或完成获取');
     }
-    // 拼装防重主键 ID: ${bookId}__${sentenceId}
+
     const _id = `${_openid}__${sentenceId}`;
     const now = Date.now();
 
-    const existing = store.find(_openid + '__' + sentenceId)
+    const existing = store.find(_id);
 
-    const merged = existing
-      ? { ...existing, ...data, updatedAt: now }
-      : {
-        _id,
-        _openid,
-        sentenceId,
-        bookId,
-        ...data,
-        updatedAt: now,
-      };
+    const merged = {
+      ...(existing || {}),
+      ...data,
+      _id: existing?._id || _id,
+      _openid: existing?._openid || _openid,
+      sentenceId: sentenceId,
+      bookId: bookId || existing?.bookId,
+      updatedAt: now,
+    };
+
     if (!merged.bookId) {
-      // 本地缓存按 bookId 分片，没有 bookId 无法缓存，只走云端
-      console.warn('[toggleFavorite] 缺少 bookId，跳过本地缓存', _id);
+      console.warn('[upsert] 缺少 bookId，跳过本地缓存', _id);
     } else {
       store.upsert(merged);
     }
 
-    // ========== 2. 任务入队（持久化，防丢） ==========
     const meta = store.getMeta();
     meta.pendingQueue.push({
       op: 'upsert',
@@ -3203,19 +4316,19 @@ export class SentenceService {
     });
     store.saveMeta(meta);
 
-    // ========== 3. 后台同步云端（不阻塞调用方） ==========
     sync.flushQueue(store).catch((err) =>
       console.error('[sync] flushPendingQueue 异常', err)
     );
   }
 }
-const sentenceService = new SentenceService()
-export default sentenceService
+
+const sentenceService = new SentenceService();
+export default sentenceService;
 </file>
 
 <file path="services/translate-service.ts">
 import { cloudFunctionName } from "../enums/app-enums"
-import { callCloudFunction } from "./cloud-client"
+import { callCloudFunction } from "../utils/cloud-client"
 
 export class TranslateService {
   static async translate(text: string): Promise<{
@@ -3246,7 +4359,7 @@ export class TranslateService {
 
 <file path="services/tts-service.ts">
 import { cloudFunctionName } from "../enums/app-enums"
-import { callCloudFunction } from "./cloud-client"
+import { callCloudFunction } from "../utils/cloud-client"
 
 export class TtsService {
   static async synthesize(text: string): Promise<TtsResult> {
@@ -3318,8 +4431,53 @@ export class TtsService {
 }
 </file>
 
+<file path="utils/cloud-client.ts">
+// miniprogram/services/cloud-client.ts
+
+export interface ApiResponse<T = any> {
+  code: number
+  data?: T
+  msg?: string
+}
+
+/**
+ * 统一调用云函数的封装
+ */
+export async function callCloudFunction<T = any>(
+  name: string,
+  data: Record<string, any> = {}
+): Promise<T> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name,
+      data
+    })
+
+    const result = res.result as ApiResponse<T>
+
+    // 如果接口定义了 code 状态码
+    if (result && typeof result.code === 'number') {
+      if (result.code !== 0) {
+        throw new Error(result.msg || `Cloud function ${name} error`)
+      }
+      return result.data as T
+    }
+
+    // 若无 code 直接返回 raw result
+    return res.result as T
+  } catch (err: any) {
+    console.error(`[Cloud Call Error] ${name}:`, err)
+    wx.showToast({
+      title: err.message || '网络或服务异常',
+      icon: 'none'
+    })
+    throw err
+  }
+}
+</file>
+
 <file path="utils/dbHelper.ts">
-export const db = wx.cloud.database()
+// export const db = wx.cloud.database()
 
 /**
  * 统一处理小程序端接口返回结果
@@ -3386,21 +4544,19 @@ export function fail(message = 'error', code = -1): ApiFail {
 </file>
 
 <file path="utils/local-store.ts">
-// utils/localStore.ts
-
 import { CollectionName } from "../enums/app-enums";
-
 
 export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
 
-  private metaKey;
+  private metaKey: string;
   constructor(private collection: CollectionName) {
-    this.metaKey = collection + '_meta'
+    this.metaKey = collection + '_meta';
   }
 
   getCollection() {
     return this.collection;
   }
+
   // ---------- meta ----------
   getMeta(): SyncMeta<T> {
     return (
@@ -3449,13 +4605,14 @@ export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
     );
   }
 
-
   // ---------- 合并（同步拉取 + 乐观更新共用） ----------
-  // 按 keyOf 去重，timeOf 新盖旧，返回实际变更条数
   merge(items: T[]): number {
+    if (!Array.isArray(items) || items.length === 0) return 0;
+
     const groups = new Map<string, T[]>();
     for (const it of items) {
-      const b = it.bookId;
+      // 容错处理：确保 bookId 存在，若无则归类到 'default'
+      const b = it.bookId || 'default';
       if (!groups.has(b)) groups.set(b, []);
       groups.get(b)!.push(it);
     }
@@ -3464,11 +4621,18 @@ export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
     for (const [bookId, batch] of groups) {
       const local = this.get(bookId);
       let dirty = false;
+
       for (const it of batch) {
         const k = it._id;
-        const i = local.findIndex((x) => it._id === k);
+        // 核心修复 1：使用 x._id === k 比较本地项与当前项
+        const i = local.findIndex((x) => x._id === k);
+
         if (i >= 0) {
-          if (it.updatedAt > local[i]['updatedAt']) {
+          // 核心修复 2：统一转换为时间戳进行可靠比较
+          const cloudTime = new Date(it.updatedAt || 0).getTime();
+          const localTime = new Date(local[i].updatedAt || 0).getTime();
+
+          if (cloudTime > localTime) {
             local[i] = it;
             changed++;
             dirty = true;
@@ -3479,6 +4643,7 @@ export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
           dirty = true;
         }
       }
+
       if (dirty) this.save(bookId, local);
     }
     return changed;
@@ -3488,7 +4653,6 @@ export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
     this.merge([item]);
   }
 
-  // 跨分片按唯一键查找
   find(key: string): T | null {
     for (const x of this.getAll()) {
       if (x._id === key) return x;
@@ -3499,79 +4663,166 @@ export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
 </file>
 
 <file path="utils/sentenceStore.ts">
+export interface SentenceLocalCache {
+  list: Sentence[];
+  cursor: number;
+  completed: boolean;
+  updatedAt: number;
+}
+
 export class SentenceStore {
+  // 统一的 Key 前缀，建议使用确切的分隔字符
+  private readonly PREFIX = 'sentence_entity_';
+
   private key(bookId: string) {
-    return `sentence_${bookId}`
+    return `${this.PREFIX}${bookId}`;
   }
 
-  getCache(bookId: string): SentenceCache {
-    return wx.getStorageSync<SentenceCache>(this.key(bookId)) || {
+  getCache(bookId: string): SentenceLocalCache {
+    return wx.getStorageSync<SentenceLocalCache>(this.key(bookId)) || {
       list: [],
       cursor: 0,
       completed: false,
       updatedAt: 0
-    }
+    };
   }
 
   get(bookId: string): Sentence[] {
-    return this.getCache(bookId).list
+    return this.getCache(bookId).list;
   }
 
   getCursor(bookId: string): number {
-    return this.getCache(bookId).cursor
+    return this.getCache(bookId).cursor;
   }
 
   isCompleted(bookId: string): boolean {
-    return this.getCache(bookId).completed
+    return this.getCache(bookId).completed;
   }
 
   has(bookId: string): boolean {
-    return this.get(bookId).length > 0
+    return this.get(bookId).length > 0;
+  }
+
+  /**
+   * 补全：查找单条句子
+   * @param sentenceId 句子ID
+   * @param bookId 可选：句子的实体书ID。如果传了则快速精准查找；不传则全局遍历本地所有实体书查找
+   */
+  find(sentenceId: string, bookId?: string): Sentence | null {
+    // 1. 如果传了 bookId，直接取该书分片查找（O(N) 在单个分片内，速度极快）
+    if (bookId) {
+      const list = this.get(bookId);
+      return list.find(s => s._id === sentenceId) || null;
+    }
+
+    // 2. 如果没传 bookId，获取本地所有存储的实体书分片 Key，逐个分片匹配
+    const allKeys = wx.getStorageInfoSync().keys.filter(k => k.startsWith(this.PREFIX));
+
+    for (const key of allKeys) {
+      const cache = wx.getStorageSync<SentenceLocalCache>(key);
+      if (cache && Array.isArray(cache.list)) {
+        const found = cache.list.find(s => s._id === sentenceId);
+        if (found) return found; // 找到即返回
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 批量查询句子（辅助引用书逻辑）
+   * @param sentenceIds 句子ID数组
+   */
+  findMany(sentenceIds: string[]): Map<string, Sentence> {
+    const idSet = new Set(sentenceIds);
+    const result = new Map<string, Sentence>();
+    if (idSet.size === 0) return result;
+
+    const allKeys = wx.getStorageInfoSync().keys.filter(k => k.startsWith(this.PREFIX));
+
+    for (const key of allKeys) {
+      if (result.size === idSet.size) break; // 全部找到，提前终止循环
+
+      const cache = wx.getStorageSync<SentenceLocalCache>(key);
+      if (cache && Array.isArray(cache.list)) {
+        for (const item of cache.list) {
+          if (idSet.has(item._id) && !result.has(item._id)) {
+            result.set(item._id, item);
+          }
+        }
+      }
+    }
+
+    return result;
   }
 
   saveBatch(bookId: string, list: Sentence[], cursor: number, hasMore: boolean): void {
-    const cache = this.getCache(bookId)
-    const map = new Map(cache.list.map(x => [x._id, x]))
+    const cache = this.getCache(bookId);
+    const map = new Map(cache.list.map(x => [x._id, x]));
 
     for (const sentence of list) {
-      map.set(sentence._id, sentence)
+      map.set(sentence._id, sentence);
     }
 
-    cache.list = [...map.values()]
-    cache.cursor = cursor
-    cache.completed = !hasMore
-    cache.updatedAt = Date.now()
+    cache.list = [...map.values()];
+    cache.cursor = cursor;
+    cache.completed = !hasMore;
+    cache.updatedAt = Date.now();
 
-    wx.setStorageSync(this.key(bookId), cache)
+    wx.setStorageSync(this.key(bookId), cache);
   }
 
   remove(bookId: string): void {
-    wx.removeStorageSync(this.key(bookId))
+    wx.removeStorageSync(this.key(bookId));
   }
 
-  clear(): void {
-    wx.getStorageInfoSync().keys
-      .filter(key => key.startsWith('sentence_'))
-      .forEach(key => wx.removeStorageSync(key))
-  }
+ /**
+   * 新增/更新句子
+   */
+ prependOrUpdate(bookId: string, sentences: Sentence | Sentence[]): void {
+  const items = Array.isArray(sentences) ? sentences : [sentences];
+  if (!items.length) return;
+
+  const cache = this.getCache(bookId);
+  
+  // 1. 用 Map 存入新句子
+  const map = new Map<string, Sentence>();
+  items.forEach(item => map.set(item._id, item));
+
+  // 2. 将本地原有的句子追加到 Map 中（如果 ID 冲突，Map 会保留上面的新数据，不被旧数据覆盖）
+  cache.list.forEach(item => {
+    if (!map.has(item._id)) {
+      map.set(item._id, item);
+    }
+  });
+
+  // 3. 更新缓存列表与时间戳
+  cache.list = Array.from(map.values());
+  cache.updatedAt = Date.now();
+
+  wx.setStorageSync(this.key(bookId), cache);
 }
 
-export default new SentenceStore()
-</file>
+/**
+ * 修复：严谨匹配实体句子的 Key 前缀，防止误删 sentenceMark_ 和 sentenceFavorite_
+ */
+clear(): void {
+  wx.getStorageInfoSync().keys
+    .filter(key => key.startsWith(this.PREFIX))
+    .forEach(key => wx.removeStorageSync(key));
+}
+}
 
-<file path="utils/sentenceUtils.ts">
-
+export default new SentenceStore();
 </file>
 
 <file path="utils/sync.ts">
-// utils/sync.ts
-
 import { cloudFunctionName, CollectionName } from '../enums/app-enums';
 import { LocalShardStore } from './local-store';
 
 export class Sync {
-  markStore = new LocalShardStore<SentenceMark>(CollectionName.sentenceMark)
-  favStore = new LocalShardStore<SentenceFavorite>(CollectionName.sentenceFavorite)
+  markStore = new LocalShardStore<SentenceMark>(CollectionName.sentenceMark);
+  favStore = new LocalShardStore<SentenceFavorite>(CollectionName.sentenceFavorite);
 
   async syncFromCloud(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<number> {
     const meta = store.getMeta();
@@ -3587,30 +4838,29 @@ export class Sync {
 
       const result = (res.result as { list: any[]; cursor: number; hasMore: boolean }) || { list: [], cursor, hasMore: false };
 
-      fetched += store.merge(result.list);
+      console.log('云端数据：', result);
+
+      if (result.list && result.list.length > 0) {
+        fetched += store.merge(result.list);
+      }
+
       cursor = typeof result.cursor === 'number' ? result.cursor : cursor;
       hasMore = !!result.hasMore;
+
+      // 实时保存游标，避免中途断开重复拉取
+      meta.cursor = cursor;
+      store.saveMeta(meta);
     }
 
-    meta.cursor = cursor;
-    store.saveMeta(meta);
     return fetched;
   }
 
-  /**
- * 把 pendingQueue 中的任务逐条写入云端。
- * 成功一条出队一条；失败则 retry+1 并停止本轮（等下次进入再试）。
- */
   async flushQueue(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<void> {
     const meta = store.getMeta();
-    console.log(meta.pendingQueue)
 
     while (meta.pendingQueue.length > 0) {
       const task = meta.pendingQueue[0];
-      console.log('pending task', task)
       try {
-        // 用 set 全量写入：天然幂等，队列重放不会产生脏数据
-        // _openid 由云端自动管理，写入前剔除，与你原来的行为保持一致
         const { _id, _openid, ...data } = task.data as any;
         await wx.cloud
           .database()
@@ -3622,7 +4872,6 @@ export class Sync {
       } catch (e) {
         task.retry += 1;
         if (task.retry >= 5) {
-          // 重试 5 次仍失败：丢弃并上报，防止卡死整个队列
           console.error('[sync] 任务重试超限，丢弃', task.data._id, e);
           meta.pendingQueue.shift();
         } else {
@@ -3659,28 +4908,29 @@ export class Sync {
   }
 }
 
-export default new Sync()
+export default new Sync();
 </file>
 
 <file path="utils/util.ts">
-export const formatTime = (date: Date) => {
-  const year = date.getFullYear()
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const hour = date.getHours()
-  const minute = date.getMinutes()
-  const second = date.getSeconds()
+import sentencePlayManager from "../services/sentence-play-manager"
 
-  return (
-    [year, month, day].map(formatNumber).join('/') +
-    ' ' +
-    [hour, minute, second].map(formatNumber).join(':')
-  )
-}
+export async function initManagerAndNavigate(url: string, book: Book, getPlayList: Function) {
+  console.log(book)
+  const needInit = book._id !== sentencePlayManager.bookId || sentencePlayManager.sentenceList.length === 0
+  if (needInit) {
+    console.log('重新获取学习列表')
+    wx.showLoading({ title: '获取学习列表。', mask: true })
+    try {
+      const pl = await getPlayList(book._id, 20)
+      console.log(pl)
+      sentencePlayManager.init(book, pl, (cursor, limit) => getPlayList(book._id, limit, cursor))
+      console.log('manager:',sentencePlayManager)
+    } finally {
+      wx.hideLoading()
+    }
+  }
 
-const formatNumber = (n: number) => {
-  const s = n.toString()
-  return s[1] ? s : '0' + s
+  wx.navigateTo({ url })
 }
 </file>
 
@@ -3690,7 +4940,8 @@ const formatNumber = (n: number) => {
     "pages/sentence-book-list/sentence-book-list",
     "pages/index/index",
     "pages/sentence-play/sentence-play",
-    "pages/sentence-list/sentence-list"
+    "pages/sentence-list/sentence-list",
+    "pages/sentence-input/sentence-input"
   ],
   "window": {
     "navigationBarTextStyle": "black",
@@ -3704,9 +4955,10 @@ const formatNumber = (n: number) => {
 
 <file path="app.ts">
 import { cloudFunctionName } from "./enums/app-enums"
-import { callCloudFunction } from "./services/cloud-client"
-import { initSentenceEventListeners } from "./services/sentence-listener"
+import { callCloudFunction } from "./utils/cloud-client"
 import sync from "./utils/sync"
+import appController from "./services/app-controller"
+import appStore from "./services/app-store"
 
 // app.ts
 App<IAppOption>({
@@ -3714,13 +4966,23 @@ App<IAppOption>({
   },
 
   openidReady: Promise.resolve(),
-  
+
   async onLaunch() {
+
     // 初始化云环境
     wx.cloud.init({
       env: 'cloud1-d0gyvvq93ab34b8b7',
       traceUser: true
     })
+
+    console.log('cloud init success')
+
+    await appStore.init()
+    await appController.init()
+
+    console.log('appStore instance:', appStore)
+    console.log('appController instance:', appController)
+
 
     this.openidReady = this.initOpenid() as any
     // 运行期间屏幕亮
@@ -3728,32 +4990,12 @@ App<IAppOption>({
       keepScreenOn: true
     })
 
-    // // ========== 第一步：确保拿到 _openid（缓存或云端，只此一处） ==========
-    // let _openid: string | '' = wx.getStorageSync('_openid');
-    // if (!_openid) {
-    //   try {
-    //     const res = await wx.cloud.callFunction({ name: 'getOpenId' });
-    //     _openid = (res.result as { _openid: string })._openid;
-    //     wx.setStorageSync('_openid', _openid);
-    //   } catch (e) {
-    //     console.error('获取 _openid 失败', e);
-    //     // 这里可以选择 return，或继续启动（同步会失败，本地缓存兜底）
-    //   }
-    // }
-    // this.globalData._openid = _openid;
-    // console.log(this.globalData._openid)
-
-    // 确保用户的默认词书（"用户句子"）存在。
-    // 云函数内部是幂等的，这里不用 await 阻塞启动，失败了也不影响正常使用——
-    // 后续录入句子等操作里如果发现默认库缺失，会再次兜底触发。
     await this.openidReady
     this.ensureUserBook()
 
     sync.startSync()
 
     // 启动eventBus监听程序
-    initSentenceEventListeners();
-
   },
 
   async ensureUserBook() {
@@ -3788,9 +5030,10 @@ App<IAppOption>({
 
     return this.globalData.playConfig
   },
-  async initOpenid():Promise<void> {
+  async initOpenid(): Promise<void> {
     const res = await wx.cloud.callFunction({ name: 'getOpenId' });
     const _openid = (res.result as { _openid: string })._openid;
+    console.log('get openid', _openid)
     this.globalData._openid = _openid
   },
   updatePlayConfig(config) {
