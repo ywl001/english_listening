@@ -35,7 +35,7 @@ Component({
 
   observers: {
     bookId(value: string) {
-      console.log('geerator :',value)
+      console.log('geerator :', value)
       this.setData({ selectedBookId: value || '' })
     }
   },
@@ -213,20 +213,13 @@ Component({
           )
         ])
 
-        const createdSentence = await sentenceService.createSentence({
+        const createdSentenceResult = await sentenceService.createSentence({
           bookId: selectedBookId,
           zh: zh.trim(),
           en: en.trim(),
           audio,
           audio_zh
         })
-
-        if (createdSentence) {
-          sentenceStore.prependOrUpdate(
-            selectedBookId,
-            [createdSentence]
-          )
-        }
 
         this.setData({
           audioFileID: '',
@@ -240,7 +233,9 @@ Component({
           icon: 'success'
         })
 
-        this.triggerEvent('saved', { sentence: createdSentence })
+        console.log('createSentenceResult:',createdSentenceResult)
+
+        this.triggerEvent('saved', { sentence: createdSentenceResult })
 
       } catch (e) {
         console.error('保存句子失败', e)

@@ -12,6 +12,7 @@ interface SentencePlayResult {
 }
 
 export class SentencePlayList {
+
   async getPlayList(bookId: string, limit = 20, cursor?: SentencePlayCursor): Promise<SentencePlayResult> {
     const marks = sync.markStore.get(bookId)
     const { includeIds, excludeIds } = this.getReviewIds(marks)
@@ -46,9 +47,35 @@ export class SentencePlayList {
     }
   }
 
-  getFavoritePlayList(){
-    const favoriteSet = this.getGlobalFavoriteSet();
+  async getFavoritePlayList(bookId: string, limit = 20, cursor?: number) {
+    const favorites = sync.favStore.get(bookId).filter(x => !x.deleted)
+    const sentenceIds = favorites.filter(x => !cursor || x.updatedAt < cursor).slice(0, limit)
 
+    const marks = sync.markStore.get(bookId)
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+    const db = wx.cloud.database()
+    const _ = db.command
+    if (!sentenceIds.length) {
+      return { list: [], cursor: null }
+    }
+
+    const res = await db.collection('sentence').where({
+      _id: db.command.in(sentenceIds.map(x => x.sentenceId))
+    }).get()
+
+
+    let list = res.data as Sentence[]
+    list = await this.prepareSentences(list)
+    list = list.map(sentence => ({
+      ...sentence,
+      isFavorite: true,
+      mark: markMap.get(sentence._id)
+    }))
+
+    return {
+      list,
+      cursor:  sentenceIds.length === limit ? sentenceIds[sentenceIds.length - 1].updatedAt : null
+    }
   }
 
   // 1. 增加一个获取全局收藏集合的方法
@@ -60,7 +87,7 @@ export class SentencePlayList {
     const validFavoriteIds = allFavorites
       .filter(x => !x.deleted)
       .map(x => x.sentenceId);
-    console.log('validFavoriteIds',validFavoriteIds)
+    console.log('validFavoriteIds', validFavoriteIds)
 
     return new Set(validFavoriteIds);
   }

@@ -11,7 +11,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@vant/weapp": "^1.11.7"
+    "@vant/weapp": "^1.11.7",
+    "mini-stores": "^2.3.0"
   },
   "devDependencies": {
     "miniprogram-api-typings": "^5.2.3"

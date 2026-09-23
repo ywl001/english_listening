@@ -10,6 +10,7 @@ exports.main = async (event) => {
   if (!en || !zh) return { code: 400, msg: '中英文内容不能为空' }
   if (!OPENID) return { code: 400, msg: '_openid 不能为空' }
 
+  //我的句子book._id
   const originBookId = `origin_${OPENID}`
 
   if (bookId !== originBookId) {
@@ -26,30 +27,22 @@ exports.main = async (event) => {
   try {
     const now = Date.now()
 
-    const sentence = {
-      _id: addRes._id,
+    let s = {
       bookId: originBookId,
       en,
       zh,
       audio: audio || '',
       audio_zh: audio_zh || '',
       createdAt: now,
-      _openid: OPENID
+      _openid: OPENID,
     }
 
     const { _id: sentenceId } = await transaction.collection('sentence').add({
-      data: {
-        bookId: originBookId,
-        en,
-        zh,
-        audio: audio || '',
-        audio_zh: audio_zh || '',
-        createdAt: now,
-        _openid: OPENID
-      }
+      data: s
     })
 
     if (bookId !== originBookId) {
+      s.favorites = [bookId]
       await transaction.collection('sentenceFavorite').add({
         data: {
           _id: `${OPENID}__${sentenceId}`,
@@ -61,11 +54,10 @@ exports.main = async (event) => {
         }
       })
     }
-
-
+    s.mark = null;
 
     await transaction.commit()
-    return { code: 0, msg: 'success', data: { sentenceId } }
+    return { code: 0, msg: 'success', data: s}
   } catch (err) {
     await transaction.rollback().catch(() => {})
     console.error('[createSentence] 保存句子失败:', err)

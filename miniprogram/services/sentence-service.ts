@@ -151,37 +151,39 @@ export class SentenceService {
    */
   async getFavoriteSentences(refBookId: string): Promise<Sentence[]> {
     // 1. 拿到引用书分片下的所有收藏记录
-    const favorites = sync.favStore.get(refBookId);
-    const activeFavorites = favorites.filter(x => !x.deleted);
+    // const favorites = sync.favStore.get(refBookId);
+    // const activeFavorites = favorites.filter(x => !x.deleted);
 
-    if (activeFavorites.length === 0) return [];
+    // if (activeFavorites.length === 0) return [];
 
-    // 2. 收集需要查找的 sentenceId
-    const targetIds = activeFavorites.map(f => f.sentenceId);
+    // // 2. 收集需要查找的 sentenceId
+    // const targetIds = activeFavorites.map(f => f.sentenceId);
 
-    // 3. 利用批量查找接口直接一次性查出所有句子对象
-    const sentenceMap = sentenceStore.findMany(targetIds);
-    const favoriteSet = this.getGlobalFavoriteSet();
+    // // 3. 利用批量查找接口直接一次性查出所有句子对象
+    // const sentenceMap = sentenceStore.findMany(targetIds);
+    // const favoriteSet = this.getGlobalFavoriteSet();
 
-    const list = activeFavorites
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .map(fav => {
-        const sentence = sentenceMap.get(fav.sentenceId);
-        if (!sentence) return null;
+    // const list = activeFavorites
+    //   .sort((a, b) => b.updatedAt - a.updatedAt)
+    //   .map(fav => {
+    //     const sentence = sentenceMap.get(fav.sentenceId);
+    //     if (!sentence) return null;
 
-        // 获取句子所属实体书的标注
-        const marks = sync.markStore.get(sentence.bookId);
-        const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+    //     // 获取句子所属实体书的标注
+    //     const marks = sync.markStore.get(sentence.bookId);
+    //     const markMap = new Map(marks.map(x => [x.sentenceId, x]));
 
-        return {
-          ...sentence,
-          mark: markMap.get(sentence._id) || null,
-          isFavorite: favoriteSet.has(sentence._id),
-          favCreatedAt: fav.updatedAt
-        };
-      })
+    //     return {
+    //       ...sentence,
+    //       mark: markMap.get(sentence._id) || null,
+    //       isFavorite: favoriteSet.has(sentence._id),
+    //       favCreatedAt: fav.updatedAt
+    //     };
+    //   })
 
-    return list as Sentence[];
+    // return list as Sentence[];
+    const pl = await sentencePlayList.getFavoritePlayList(refBookId)
+    return pl.list as Sentence[]
   }
   /**
    * 更新标记

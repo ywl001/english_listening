@@ -142,9 +142,11 @@ Page({
     this.setData({showGenerator:false})
   },
 
-  onSentenceSaved(sentence:Sentence){
-    console.log(sentence)
-    sentencePlayManager.sentenceList.push(sentence)
+  onSentenceSaved(e:WechatMiniprogram.CustomEvent){
+    console.log('list e',e)
+    const s = e.detail.sentence
+    sentencePlayManager.sentenceList.push(s)
     this.refreshData()
+    this.closeGenerator()
   }
 });
