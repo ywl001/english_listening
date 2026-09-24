@@ -9,6 +9,7 @@ export class AppStore {
   }
   init(){}
   private _books: Book[]=[]
+  private _currentBook?:Book
 
   get books() {
     return this._books
@@ -19,6 +20,14 @@ export class AppStore {
       this._books = value
       eventBus.emit(AppEvent.GET_BOOK_SUCCESS,value)
     }
+  }
+
+  get currentBook(){
+    return this._currentBook as Book
+  }
+
+  set currentBook(value:Book){
+    this._currentBook = value
   }
 }
 

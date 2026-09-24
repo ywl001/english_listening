@@ -133,9 +133,6 @@ export class SentencePlayList {
       .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
       .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id));
 
-    // ✅ 改为统一使用 sentenceId 匹配，避免 _id 拼写格式干扰
-    // const includeSentenceIds = new Set(include.map(x => x.sentenceId));
-
     return {
       includeIds: include.map(x => x.sentenceId),
       excludeIds: marks.map(x => x.sentenceId)

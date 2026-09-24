@@ -63,8 +63,8 @@ Page({
 
   async onTapBook(e: any) {
     const book: Book = e.detail.book;
+    eventBus.emit(AppEvent.SET_CURRENT_BOOK,book)
     console.log(book)
-    wx.showLoading({ title: '获取学习列表。', mask: true })
     let url: string, res
     const userSentenceBookId = (getApp() as IAppOption).globalData.originBookId
     if (book._id === userSentenceBookId) {
@@ -78,15 +78,7 @@ Page({
     else {
       url = `${Pages.sentencePlay}?bookId=${book._id}&bookName=${book.name}`
       initManagerAndNavigate(url,book,sentenceService.getPlayList)
-      // res = await sentenceService.getPlayList(book._id)
-      // console.log(res)
     }
-
-    // eventBus.on(AppEvent.GET_PLAYLIST_SUCCESS, e => {
-    //   wx.navigateTo({ url })
-    //   wx.hideLoading()
-    // })
-    // sentencePlayManager.init(book)
 
   },
 

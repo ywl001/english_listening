@@ -1,3 +1,4 @@
+import appStore from "./app-store";
 import bookService from "./book-service";
 import { AppEvent, FavoritePayload, MarkPayload } from "./event-type";
 import eventBus from "./EventBus";
@@ -14,6 +15,9 @@ export class AppController {
     eventBus.on(AppEvent.FAVORITE_SENTENCE, e => this.favoriteSentence(e))
     eventBus.on(AppEvent.MARK_SENTENCE, e => this.markSentence(e))
     eventBus.on(AppEvent.GET_PLAYLIST, e => this.onGetPlaylist(e))
+    eventBus.on(AppEvent.SET_CURRENT_BOOK,e=>{
+      appStore.currentBook = e
+    })
   }
 
   async onGetBooks(): Promise<void> {

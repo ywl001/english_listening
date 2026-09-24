@@ -16,7 +16,8 @@ export enum AppEvent {
   GET_BOOK = 'getBook',
   GET_BOOK_SUCCESS = 'getBookSuccess',
   GET_PLAYLIST = 'getPlaylist',
-  GET_PLAYLIST_SUCCESS = 'getPlaylistSuccess'
+  GET_PLAYLIST_SUCCESS = 'getPlaylistSuccess',
+  SET_CURRENT_BOOK = 'setCurrentBook'
 }
 
 export interface EventPayloadMap {
@@ -27,4 +28,5 @@ export interface EventPayloadMap {
   [AppEvent.GET_BOOK]:void,
   [AppEvent.GET_PLAYLIST]:string,
   [AppEvent.GET_PLAYLIST_SUCCESS]:Sentence[],
+  [AppEvent.SET_CURRENT_BOOK]:Book,
 }
