@@ -1,4 +1,5 @@
 import { Pages } from "../../enums/app-enums";
+import appStore from "../../services/app-store";
 import { AppEvent } from "../../services/event-type";
 import eventBus from "../../services/EventBus";
 import sentencePlayManager from "../../services/sentence-play-manager";
@@ -63,6 +64,7 @@ Page({
 
   // 取消收藏：直接调用句子的 toggleFavorite 方法
   onDelete(e: WechatMiniprogram.CustomEvent) {
+    console.log(appStore.currentBook.isCustom)
     this.setData({
       deleteSentenceId: e.currentTarget.dataset.id,
       showDeleteDialog: true
