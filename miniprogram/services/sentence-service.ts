@@ -7,6 +7,7 @@ import { AppEvent } from "./event-type";
 import eventBus from "./EventBus";
 import sentencePlayManager from "./sentence-play-manager";
 import sentencePlayList from "./sentence-play-list";
+import appStore from "./app-store";
 
 export class SentenceService {
   async getPlayList(bookId: string, targetCount = 20,cursor?:SentencePlayCursor): Promise<SentencePlaylistResult> {
@@ -34,111 +35,114 @@ export class SentenceService {
     return res
   }
 
-  private async getInitSentencePlayList(bookId: string): Promise<Sentence[]> {
-    // ✅ 统一从 sync 获取存储实例
-    const marks = sync.markStore.get(bookId);
+  // private async getInitSentencePlayList(bookId: string): Promise<Sentence[]> {
+  //   // ✅ 统一从 sync 获取存储实例
+  //   const marks = appStore.markStore.value?.get(bookId);
+  //   if(marks) {
 
-    const { includeIds, excludeIds } = this.getReviewIds(marks);
-    const res = await cloudService.getSentencesByIds(CollectionName.sentence, bookId, includeIds, excludeIds);
-    const favorites = sync.favStore.get(bookId);
+  //   }
 
-    const markMap = new Map(marks.map(x => [x.sentenceId, x]));
-    // ✅ 过滤掉已经标记为 deleted: true 的记录
-    const favoriteSet = new Set(favorites.filter(x => !x.deleted).map(x => x.sentenceId));
+  //   const { includeIds, excludeIds } = this.getReviewIds(marks);
+  //   const res = await cloudService.getSentencesByIds(CollectionName.sentence, bookId, includeIds, excludeIds);
+  //   const favorites = appStore.favStore.value.get(bookId);
 
-    const list = res.map(sentence => ({
-      ...sentence,
-      isFavorite: favoriteSet.has(sentence._id),
-      mark: markMap.get(sentence._id)
-    }));
+  //   const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+  //   // ✅ 过滤掉已经标记为 deleted: true 的记录
+  //   const favoriteSet = new Set(favorites.filter(x => !x.deleted).map(x => x.sentenceId));
 
-    return list;
-  }
+  //   const list = res.map(sentence => ({
+  //     ...sentence,
+  //     isFavorite: favoriteSet.has(sentence._id),
+  //     mark: markMap.get(sentence._id)
+  //   }));
 
-  private getReviewIds(marks: SentenceMark[]) {
-    const now = Date.now();
-    const include = marks
-      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
-      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id));
+  //   return list;
+  // }
 
-    // ✅ 改为统一使用 sentenceId 匹配，避免 _id 拼写格式干扰
-    const includeSentenceIds = new Set(include.map(x => x.sentenceId));
+  // private getReviewIds(marks: SentenceMark[]) {
+  //   const now = Date.now();
+  //   const include = marks
+  //     .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+  //     .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id));
 
-    return {
-      includeIds: include.map(x => x.sentenceId),
-      excludeIds: marks.filter(x => !includeSentenceIds.has(x.sentenceId)).map(x => x.sentenceId)
-    };
-  }
+  //   // ✅ 改为统一使用 sentenceId 匹配，避免 _id 拼写格式干扰
+  //   const includeSentenceIds = new Set(include.map(x => x.sentenceId));
+
+  //   return {
+  //     includeIds: include.map(x => x.sentenceId),
+  //     excludeIds: marks.filter(x => !includeSentenceIds.has(x.sentenceId)).map(x => x.sentenceId)
+  //   };
+  // }
 
   // 1. 增加一个获取全局收藏集合的方法
-  private getGlobalFavoriteSet(): Set<string> {
-    // getAll() 会拉取所有分片里的收藏数据
-    const allFavorites = sync.favStore.getAll();
+  // private getGlobalFavoriteSet(): Set<string> {
+  //   // getAll() 会拉取所有分片里的收藏数据
+  //   const allFavorites = appStore.favStore.value?.getAll();
 
-    // 过滤掉已删除的，只留下有效的 sentenceId
-    const validFavoriteIds = allFavorites
-      .filter(x => !x.deleted)
-      .map(x => x.sentenceId);
+  //   // 过滤掉已删除的，只留下有效的 sentenceId
+  //   const validFavoriteIds = allFavorites
+  //     .filter(x => !x.deleted)
+  //     .map(x => x.sentenceId);
 
-    return new Set(validFavoriteIds);
-  }
+  //   return new Set(validFavoriteIds);
+  // }
 
-  // 2. 在 buildLocalPlayList 中使用全局收藏 Set
-  private buildLocalPlayList(bookId: string, targetCount: number): Sentence[] {
-    const sentences = sentenceStore.get(bookId); // 实体书里的句子
-    const marks = sync.markStore.get(bookId);     // 该实体书下的标注
+  // // 2. 在 buildLocalPlayList 中使用全局收藏 Set
+  // private buildLocalPlayList(bookId: string, targetCount: number): Sentence[] {
+  //   const sentences = sentenceStore.get(bookId); // 实体书里的句子
+  //   const marks = appStore.markStore.value.get(bookId);     // 该实体书下的标注
 
-    // 🛡️ 核心改变：拿全局有效的收藏集合，而不是针对某个 bookId 去拿
-    const favoriteSet = this.getGlobalFavoriteSet();
-    const markMap = new Map(marks.map(x => [x.sentenceId, x]));
-    const now = Date.now();
+  //   // 🛡️ 核心改变：拿全局有效的收藏集合，而不是针对某个 bookId 去拿
+  //   const favoriteSet = this.getGlobalFavoriteSet();
+  //   const markMap = new Map(marks.map(x => [x.sentenceId, x]));
+  //   const now = Date.now();
 
-    const review = marks
-      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
-      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id))
-      .map(x => sentences.find(s => s._id === x.sentenceId))
-      .filter((x): x is Sentence => !!x);
+  //   const review = marks
+  //     .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+  //     .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id))
+  //     .map(x => sentences.find(s => s._id === x.sentenceId))
+  //     .filter((x): x is Sentence => !!x);
 
-    const reviewIds = new Set(review.map(x => x._id));
+  //   const reviewIds = new Set(review.map(x => x._id));
 
-    const fresh = sentences
-      .filter(x => !markMap.has(x._id) && !reviewIds.has(x._id))
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || a._id.localeCompare(b._id));
+  //   const fresh = sentences
+  //     .filter(x => !markMap.has(x._id) && !reviewIds.has(x._id))
+  //     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || a._id.localeCompare(b._id));
 
-    const list = [...review, ...fresh]
-      .slice(0, targetCount)
-      .map(sentence => ({
-        ...sentence,
-        isFavorite: favoriteSet.has(sentence._id), // ✅ 无论在哪个收藏夹，只要收藏了就是 true
-        mark: markMap.get(sentence._id)
-      }));
+  //   const list = [...review, ...fresh]
+  //     .slice(0, targetCount)
+  //     .map(sentence => ({
+  //       ...sentence,
+  //       isFavorite: favoriteSet.has(sentence._id), // ✅ 无论在哪个收藏夹，只要收藏了就是 true
+  //       mark: markMap.get(sentence._id)
+  //     }));
 
-    return list;
-  }
+  //   return list;
+  // }
 
-  async syncAll(bookId: string): Promise<number> {
-    let cursor = sentenceStore.getCursor(bookId);
-    let total = 0;
+  // async syncAll(bookId: string): Promise<number> {
+  //   let cursor = sentenceStore.getCursor(bookId);
+  //   let total = 0;
 
-    while (true) {
-      const res = await callCloudFunction<{ list: Sentence[]; nextCursor: number; hasMore: boolean }>(
-        cloudFunctionName.syncSentence,
-        { bookId, cursor, limit: 100 }
-      );
+  //   while (true) {
+  //     const res = await callCloudFunction<{ list: Sentence[]; nextCursor: number; hasMore: boolean }>(
+  //       cloudFunctionName.syncSentence,
+  //       { bookId, cursor, limit: 100 }
+  //     );
 
-      sentenceStore.saveBatch(bookId, res.list, res.nextCursor, res.hasMore);
-      total += res.list.length;
-      cursor = res.nextCursor;
+  //     sentenceStore.saveBatch(bookId, res.list, res.nextCursor, res.hasMore);
+  //     total += res.list.length;
+  //     cursor = res.nextCursor;
 
-      if (!res.hasMore) break;
-    }
+  //     if (!res.hasMore) break;
+  //   }
 
-    const playList = this.buildLocalPlayList(bookId, 50);
-    // sentencePlayManager.replace(playList);
-    console.log('播放队列长度：', sentencePlayManager.queueLength);
-    eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
-    return total;
-  }
+  //   const playList = this.buildLocalPlayList(bookId, 50);
+  //   // sentencePlayManager.replace(playList);
+  //   console.log('播放队列长度：', sentencePlayManager.queueLength);
+  //   eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
+  //   return total;
+  // }
 
   async createSentence( data: Partial<Sentence>): Promise<Sentence> {
     const res = await callCloudFunction(
@@ -157,7 +161,7 @@ export class SentenceService {
    */
   async getFavoriteSentences(refBookId: string): Promise<Sentence[]> {
     // 1. 拿到引用书分片下的所有收藏记录
-    // const favorites = sync.favStore.get(refBookId);
+    // const favorites = appStore.favStore.value.get(refBookId);
     // const activeFavorites = favorites.filter(x => !x.deleted);
 
     // if (activeFavorites.length === 0) return [];
@@ -176,7 +180,7 @@ export class SentenceService {
     //     if (!sentence) return null;
 
     //     // 获取句子所属实体书的标注
-    //     const marks = sync.markStore.get(sentence.bookId);
+    //     const marks = appStore.markStore.value.get(sentence.bookId);
     //     const markMap = new Map(marks.map(x => [x.sentenceId, x]));
 
     //     return {
@@ -195,8 +199,8 @@ export class SentenceService {
    * 更新标记
    */
   upsertMark(sentenceId: string, patch: Partial<SentenceMark> = {}, bookId: string) {
-    // ✅ 使用 sync.markStore，避免重新 new 导致实例错位
-    this.upsert(sync.markStore, sentenceId, bookId, patch);
+    // ✅ 使用 appStore.markStore.value，避免重新 new 导致实例错位
+    this.upsert(appStore.markStore.value, sentenceId, bookId, patch);
   }
 
   /**
@@ -204,13 +208,18 @@ export class SentenceService {
    * @param targetFavoriteState 目标状态：true 为要收藏，false 为要取消收藏
    */
   toggleFavorite(sentenceId: string, bookId: string, targetFavoriteState: boolean) {
-    // ✅ 使用 sync.favStore，且 deleted = !targetFavoriteState
+    // ✅ 使用 appStore.favStore.value，且 deleted = !targetFavoriteState
     console.log('fav写入时的 bookId:', bookId);
-    this.upsert(sync.favStore, sentenceId, bookId, { deleted: !targetFavoriteState });
+    const data={
+      deleted: !targetFavoriteState,
+      refBookId: appStore.currentFavoriteBook.value?._id
+    }
+    this.upsert(appStore.favStore.value, sentenceId, bookId, data);
   }
 
   private upsert(store: any, sentenceId: string, bookId: string, data: any) {
-    const _openid = (getApp() as IAppOption).globalData._openid;
+    const _openid = appStore._openid.value
+
     if (!_openid) {
       throw new Error('_openid 尚未获取，请确保已登录或完成获取');
     }

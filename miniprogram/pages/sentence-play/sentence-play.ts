@@ -5,6 +5,8 @@ import sentencePlayManager from "../../services/sentence-play-manager";
 
 Page({
   data: {
+    showModal: false,
+    autoSavePreference: false,
     bookTitle: '',
     currentIndex: 0,
     totalCount: 0,
@@ -14,6 +16,10 @@ Page({
     hideZh: false,
     isLooping: false,
     playbackRate: 1.0,
+    myBooks: [
+      { id: '1', name: '我的金句本', isSelected: true },
+      { id: '2', name: '英语名言', isSelected: false }
+    ]
     // isFavorite: false,
     // stage: 0
   },
@@ -203,5 +209,24 @@ Page({
 
   onBack() {
     wx.navigateBack();
+  },
+
+
+  handleCloseModal() {
+    this.setData({ showModal: false });
+  },
+
+  handleSelectBook(e: { detail: { bookId: string } }) {
+    console.log('选择的书籍ID：', e.detail.bookId);
+    // 处理收藏/取消收藏逻辑...
+  },
+
+  handleCreateBook() {
+    console.log('触发新建句集');
+    // 跳转或弹出新建句集输入框...
+  },
+
+  handleAutoSaveChange(e: { detail: { value: boolean } }) {
+    this.setData({ autoSavePreference: e.detail.value });
   }
 });

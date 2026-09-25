@@ -1,14 +1,16 @@
 // 1. services/book-service.ts (纯粹的数据服务)
 
-import { BookType, cloudFunctionName } from "../enums/app-enums";
+import { BookContent, cloudFunctionName } from "../enums/app-enums";
 import { dbRequest} from "../utils/dbHelper";
 import { callCloudFunction } from "../utils/cloud-client";
 import appStore from "./app-store";
+import eventBus from "./EventBus";
+import { AppEvent } from "./event-type";
 
 export class BookService {
   async getBooks() {
     const books = await callCloudFunction(cloudFunctionName.getBooks, {});
-    appStore.books = books
+    return books
   }
   /**
    * 创建词书。

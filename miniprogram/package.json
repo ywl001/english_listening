@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@preact/signals-core": "^1.14.4",
     "@vant/weapp": "^1.11.7"
   },
   "devDependencies": {

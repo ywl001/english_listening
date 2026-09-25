@@ -1,0 +1,99 @@
+.modal-header {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header .title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-header .close-btn {
+  position: absolute;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  background-color: #f5f5f5;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.book-list {
+  max-height: 320px;
+}
+
+.book-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f9f9f9;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.book-info {
+  display: flex;
+  align-items: center;
+}
+
+.book-cover {
+  width: 40px;
+  height: 48px;
+  border-radius: 6px;
+  margin-right: 12px;
+  background-color: #eee;
+}
+
+.book-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.star-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* 新建句集特定样式 */
+.add-book-item {
+  background-color: #f9f9f9;
+  justify-content: flex-start;
+}
+
+.add-icon-box {
+  width: 40px;
+  height: 48px;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 12px;
+  background-color: #fff;
+}
+
+.add-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ff5000;
+}
+
+/* 底部自动收藏选项 */
+.footer-option {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.footer-text {
+  font-size: 13px;
+  color: #999;
+}

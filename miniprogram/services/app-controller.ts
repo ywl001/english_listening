@@ -11,26 +11,28 @@ export class AppController {
   private cursor?: SentencePlayCursor
 
   init() {
-    eventBus.on(AppEvent.GET_BOOK, e => this.onGetBooks())
+    eventBus.on(AppEvent.GET_BOOKS, e => this.onGetBooks())
     eventBus.on(AppEvent.FAVORITE_SENTENCE, e => this.favoriteSentence(e))
     eventBus.on(AppEvent.MARK_SENTENCE, e => this.markSentence(e))
     eventBus.on(AppEvent.GET_PLAYLIST, e => this.onGetPlaylist(e))
-    eventBus.on(AppEvent.SET_CURRENT_BOOK,e=>{
-      appStore.currentBook = e
-    })
+
+    // eventBus.on(AppEvent.SET_CURRENT_BOOK,e=>{
+    //   appStore.currentBook = e
+    // })
   }
 
   async onGetBooks(): Promise<void> {
-    bookService.getBooks()
+    const books = await bookService.getBooks()
+    appStore.books.value = books
   }
 
   private favoriteSentence(payload: FavoritePayload) {
     try {
       console.log('listener payload:', payload)
-      const app = getApp<IAppOption>();
-      const favoriteBookId = app?.globalData?.favoriteBookId as string;
+      const favoriteBookId = appStore.currentFavoriteBook.value?._id as string
+      console.log('favorite book id')
 
-      sentenceService.toggleFavorite(payload.sentenceId, favoriteBookId, payload.isFavorite);
+      sentenceService.toggleFavorite(payload.sentenceId, payload.bookId, payload.isFavorite);
       // 同步回管理器队列
       sentencePlayManager.updateSentence(payload.sentenceId, { isFavorite: payload.isFavorite });
       if (sentencePlayManager.bookId === favoriteBookId && payload.isFavorite === false) {

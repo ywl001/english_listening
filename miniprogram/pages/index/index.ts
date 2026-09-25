@@ -23,11 +23,11 @@ Page({
   },
 
   async test(){
-    const res = await sentencePlayList.getPlayList('f9ecc4af6a98d6fa05ab454f5e9f84fc',this.limit,this.cursor)
+    const res = await sentencePlayList.getPlayList('f9ecc4af6a98d6fa05ab454f5e9f84fc',this.limit,this.cursor as any)
     console.log(res.cursor)
     console.log(res.list.map(item=>item.zh))
     console.log('-----------------------------------------------------------------')
-    this.cursor = res.cursor
+    this.cursor = res.cursor as any
   },
 
 

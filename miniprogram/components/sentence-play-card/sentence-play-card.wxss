@@ -111,11 +111,16 @@
 }
 
 .action-btn {
-  padding: 14rpx 40rpx;
-  background-color: #F7FAFC;
-  border-radius: 30rpx;
-  border: 1rpx solid #E2E8F0;
-  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+}
+
+.action-text {
+  font-size: 24rpx;
+  line-height: 32rpx;
 }
 
 .action-btn.active {

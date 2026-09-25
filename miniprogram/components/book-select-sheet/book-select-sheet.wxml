@@ -1,0 +1,56 @@
+<van-popup
+  show="{{ show }}"
+  position="bottom"
+  round
+  custom-style="padding: 20px 16px 24px 16px; border-radius: 20px 20px 0 0;"
+  bind:close="onClose"
+>
+  <!-- 头部：标题与关闭按钮 -->
+  <view class="modal-header">
+    <text class="title">将句子收藏至</text>
+    <view class="close-btn" bindtap="onClose">
+      <van-icon name="cross" size="16px" color="#999" />
+    </view>
+  </view>
+
+  <!-- 书籍列表 -->
+  <scroll-view scroll-y class="book-list">
+    <block wx:for="{{ bookList }}" wx:key="id">
+      <view class="book-item" data-id="{{ item.id }}" bindtap="onSelectBook">
+        <view class="book-info">
+          <!-- 书籍封面图，可替换为默认图或实图 -->
+          <image class="book-cover" src="{{ item.cover || '/assets/default-book.png' }}" mode="aspectFill" />
+          <text class="book-name">{{ item.name }}</text>
+        </view>
+        <!-- 收藏状态图标 -->
+        <view class="star-icon">
+          <van-icon 
+            name="{{ item.isSelected ? 'star' : 'star-o' }}" 
+            size="22px" 
+            color="{{ item.isSelected ? '#ff4d4f' : '#ccc' }}" 
+          />
+        </view>
+      </view>
+    </block>
+
+    <!-- 新建句集按钮 -->
+    <view class="book-item add-book-item" bindtap="onCreateNewBook">
+      <view class="add-icon-box">
+        <van-icon name="plus" size="16px" color="#999" />
+      </view>
+      <text class="add-text">新建句集</text>
+    </view>
+  </scroll-view>
+
+  <!-- 底部：自动收藏复选框 -->
+  <view class="footer-option" bindtap="toggleAutoSave">
+    <van-checkbox 
+      value="{{ autoSave }}" 
+      icon-size="16px"
+      checked-color="#ff4d4f"
+      bind:change="onAutoSaveChange"
+    >
+      <text class="footer-text">自动收藏至上次添加句子的句集</text>
+    </van-checkbox>
+  </view>
+</van-popup>

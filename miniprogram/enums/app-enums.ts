@@ -1,6 +1,6 @@
 export enum LocalStorageKey {
   // progress_sequence = 'progress',
-  // Progress_favorite = 'favorite',
+  CURRENT_FAVORITE_BOOK = 'currentFavoriteBook',
   // progress_test = 'progress_test'
 
   PREMIX_MARK = 'mark',
@@ -9,9 +9,14 @@ export enum LocalStorageKey {
   META_FAV = 'fav_meta'
 }
 
-export enum BookType {
+export enum BookContent {
   sentence = 'sentence',
   article = 'article'
+}
+
+export enum BookType {
+  original = 'original',
+  ref = 'ref'
 }
 
 export enum Pages {

@@ -14,25 +14,12 @@
 
   <!-- 2. 中央卡片滑动区域 -->
   <view class="card-wrapper">
-    <swiper 
-      class="card-swiper"
-      current="{{currentIndex}}"
-      duration="300"
-      bindchange="onSwiperChange"
-    >
+    <swiper class="card-swiper" current="{{currentIndex}}" duration="300" bindchange="onSwiperChange">
       <block wx:for="{{sentenceList}}" wx:key="_id">
         <swiper-item class="swiper-item-inner">
           <!-- 点击卡片区域触发播放/暂停 -->
           <view class="card-touch-area" bindtap="onTogglePlay">
-            <sentence-play-card 
-              sentence="{{item}}" 
-              hideZh="{{hideZh}}"
-              isFavorite="{{item.isFavorite}}"
-              stage="{{item.mark.stage || 0}}"
-              data-data = "{{item}}"
-              bind:toggleFavorite="onToggleFavorite"
-              bind:toggleMastered="onMarkLearned"
-            />
+            <sentence-play-card sentence="{{item}}" hideZh="{{hideZh}}" isFavorite="{{item.isFavorite}}" stage="{{item.mark.stage || 0}}" data-data="{{item}}" bind:toggleFavorite="onToggleFavorite" bind:toggleMastered="onMarkLearned" />
           </view>
         </swiper-item>
       </block>
@@ -75,4 +62,6 @@
       <text class="icon">►►</text>
     </view>
   </view>
+
+  <book-select-sheet show="{{ showModal }}" book-list="{{ myBooks }}" auto-save="{{ autoSavePreference }}" bind:close="handleCloseModal" bind:select="handleSelectBook" bind:create="handleCreateBook" bind:autoSaveChange="handleAutoSaveChange" />
 </view>

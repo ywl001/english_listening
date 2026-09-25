@@ -1,4 +1,4 @@
-import { cloudFunctionName } from "./enums/app-enums"
+import { cloudFunctionName, LocalStorageKey } from "./enums/app-enums"
 import { callCloudFunction } from "./utils/cloud-client"
 import sync from "./utils/sync"
 import appController from "./services/app-controller"
@@ -48,10 +48,18 @@ App<IAppOption>({
       cloudFunctionName.ensureUserBook,
       {}
     );
+    
+    if(!wx.getStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK)){
+      wx.setStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK,userBooks.favoriteBook)
+      appStore.currentFavoriteBook.value = userBooks.favoriteBook
+    }else{
+      appStore.currentFavoriteBook.value = wx.getStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK)
+    }
+    
 
-    console.log('默认词书信息:', userBooks);
-    console.log('录入词书ID:', userBooks.originBookId);
-    console.log('收藏词书ID:', userBooks.favoriteBookId);
+    // console.log('默认词书信息:', userBooks);
+    // console.log('录入词书ID:', userBooks.originBookId);
+    // console.log('收藏词书ID:', userBooks.favoriteBookId);
 
     // 缓存到 globalData 或 Storage
     this.globalData.originBookId = userBooks.originBookId;
@@ -78,6 +86,7 @@ App<IAppOption>({
     const res = await wx.cloud.callFunction({ name: 'getOpenId' });
     const _openid = (res.result as { _openid: string })._openid;
     console.log('get openid', _openid)
+    appStore._openid.value = _openid
     this.globalData._openid = _openid
   },
   updatePlayConfig(config) {

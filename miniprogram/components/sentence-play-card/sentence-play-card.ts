@@ -1,3 +1,6 @@
+import appStore from "../../services/app-store";
+import { bindSignal } from "../../utils/signal-bind";
+
 Component({
   properties: {
     sentence: {
@@ -20,11 +23,26 @@ Component({
       type: Number,
       value: 0
     },
-   
+
   },
 
-  data:{
-    enShow:false
+
+  data: {
+    enShow: false,
+    currentFavoriteBook: null,
+    _disposeCurrentBook: null as any
+
+  },
+
+  lifetimes: {
+    attached() {
+      this.data._disposeCurrentBook = bindSignal(this, appStore.currentFavoriteBook,
+        'currentFavoriteBook')
+    },
+
+    detached() {
+      this.data._disposeCurrentBook?.()
+    }
   },
 
   methods: {
@@ -35,8 +53,8 @@ Component({
       this.triggerEvent('toggleMastered', { sentence: this.properties.sentence });
     },
 
-    onTapEn(){
-      this.setData({enShow:!this.data.enShow})
+    onTapEn() {
+      this.setData({ enShow: !this.data.enShow })
     }
   }
 });

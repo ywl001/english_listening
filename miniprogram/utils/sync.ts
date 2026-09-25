@@ -1,10 +1,15 @@
 import { cloudFunctionName, CollectionName } from '../enums/app-enums';
+import appStore from '../services/app-store';
 import { LocalShardStore } from './local-store';
 
 export class Sync {
-  markStore = new LocalShardStore<SentenceMark>(CollectionName.sentenceMark);
-  favStore = new LocalShardStore<SentenceFavorite>(CollectionName.sentenceFavorite);
+  // markStore = new LocalShardStore<SentenceMark>(CollectionName.sentenceMark);
+  // favStore = new LocalShardStore<SentenceFavorite>(CollectionName.sentenceFavorite);
 
+  constructor(){
+    appStore.markStore.value = new LocalShardStore<SentenceMark>(CollectionName.sentenceMark);
+    appStore.favStore.value = new LocalShardStore<SentenceFavorite>(CollectionName.sentenceFavorite);
+  }
   async syncFromCloud(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<number> {
     const meta = store.getMeta();
     let cursor = meta.cursor;
@@ -74,17 +79,19 @@ export class Sync {
   async startSync(): Promise<void> {
     this.syncState.syncing = true;
     try {
-      await this.flushQueue(this.markStore);
-      await this.flushQueue(this.favStore);
-      await this.syncFromCloud(this.markStore);
-      await this.syncFromCloud(this.favStore);
+      if(appStore.markStore.value && appStore.favStore.value){
+        await this.flushQueue(appStore.markStore.value);
+        await this.flushQueue(appStore.favStore.value);
+        await this.syncFromCloud(appStore.markStore.value);
+        await this.syncFromCloud(appStore.favStore.value);
+      }
       this.syncState.lastError = null;
     } catch (err) {
       this.syncState.lastError = err as Error;
       console.error('[sync] 失败', err);
     } finally {
       this.syncState.syncing = false;
-      this.syncState.pendingCount = this.markStore.getMeta().pendingQueue.length;
+      this.syncState.pendingCount = appStore.markStore?.value?.getMeta().pendingQueue.length || 0;
     }
   }
 }

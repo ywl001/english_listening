@@ -22,10 +22,13 @@
   <!-- 底部新增按钮区域 -->
   <view class="card-actions">
     <view class="action-btn {{isFavorite ? 'active' : ''}}" catchtap="onTapFavorite">
-      <text class="action-text">收藏</text>
+      <van-icon name="like-o" size="24px" />
+      <text class="action-text">{{currentFavoriteBook.name || '收藏夹'}}</text>
     </view>
     <view class="action-btn {{ stage > 0 ? 'active' : ''}}" catchtap="onTapMastered">
       <text class="action-text">已会{{stage > 0 ? '+' + stage : ''}}</text>
     </view>
   </view>
+
+ 
 </view>

@@ -17,7 +17,7 @@
       <van-swipe-cell right-width="{{80}}">
         <van-cell custom-style="background: #e8f3ff;" title="{{index + 1}}. {{item.en || item.english}}" label="{{item.zh || item.chinese}}" border="{{false}}" is-link="{{false}}" bind:click="playSingleAudio" data-index="{{index}}" />
 
-        <view slot="right" class="delete-button" catchtap="onDelete" data-id="{{item._id}}">
+        <view slot="right" class="delete-button" catchtap="onDelete" data-data="{{item}}">
           <van-icon name="delete-o" size="22" color="#fff" />
           <text>删除</text>
         </view>

@@ -1,11 +1,13 @@
 import bookService from '../../services/book-service';
-import { BookType as BookContent, BookType, Pages } from '../../enums/app-enums';
+import { BookContent, Pages } from '../../enums/app-enums';
 import sentenceService from '../../services/sentence-service';
 import sentencePlayManager from '../../services/sentence-play-manager';
 import eventBus from '../../services/EventBus';
 import { AppEvent } from '../../services/event-type';
 import { initManagerAndNavigate } from '../../utils/util';
 import sentencePlayList from '../../services/sentence-play-list';
+import { bindSignal } from '../../utils/signal-bind';
+import appStore from '../../services/app-store';
 
 Page({
   data: {
@@ -21,22 +23,19 @@ Page({
     }
   },
 
+  books:[],
+  disposeBooks:null as any,
+
   async onLoad() {
     const cachedSettings = wx.getStorageSync('playback_settings');
     if (cachedSettings) {
       this.setData({ settings: cachedSettings });
     }
 
-    eventBus.on(AppEvent.GET_BOOK_SUCCESS, e => this.onGetBookSuccess(e))
-    eventBus.emit(AppEvent.GET_BOOK)
-  },
-
-  async onGetBookSuccess(books: Book[]) {
-    await getApp().openidReady;
-    const _openid = getApp().globalData._openid
-    const userBooks = books.filter(item => item._openid === _openid && item.content === BookContent.sentence);
-    const systemBooks = books.filter(item => item.content === BookType.sentence && !item._openid);
-    this.setData({ userBooks, systemBooks })
+    bindSignal(this, appStore.userBooks, 'userBooks')
+    bindSignal(this, appStore.systemBooks, 'systemBooks')
+  
+    eventBus.emit(AppEvent.GET_BOOKS)
   },
 
   switchTab(e: any) {
@@ -63,7 +62,7 @@ Page({
 
   async onTapBook(e: any) {
     const book: Book = e.detail.book;
-    eventBus.emit(AppEvent.SET_CURRENT_BOOK,book)
+    // eventBus.emit(AppEvent.SET_CURRENT_BOOK,book)
     console.log(book)
     let url: string, res
     const userSentenceBookId = (getApp() as IAppOption).globalData.originBookId

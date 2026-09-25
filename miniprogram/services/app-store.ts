@@ -1,35 +1,51 @@
-console.log('AppStore.ts loaded')
+import { signal, computed } from "@preact/signals-core";
+import { BookContent, BookType } from "../enums/app-enums";
+import { LocalShardStore } from "../utils/local-store";
 
-import { AppEvent } from "./event-type"
-import eventBus from "./EventBus"
+import { AppEvent } from "./event-type";
+import eventBus from "./EventBus";
 
 export class AppStore {
-  constructor(){
-    console.log('app store contructor')
-  }
-  init(){}
-  private _books: Book[]=[]
-  private _currentBook?:Book
+  _openid = signal<string>('')
+  
+  books = signal<Book[]>([]);
 
-  get books() {
-    return this._books
-  }
+  userBooks = computed(() => {
+    const openid = getApp().globalData._openid;
+    return this.books.value.filter(
+      (item) => item._openid === openid && item.content === BookContent.sentence
+    );
+  });
 
-  set books(value: Book[]) {
-    if (value && value != this._books){
-      this._books = value
-      eventBus.emit(AppEvent.GET_BOOK_SUCCESS,value)
-    }
-  }
+  systemBooks = computed(() =>
+    this.books.value.filter(
+      (item) => item.content === BookContent.sentence && !item._openid
+    )
+  );
 
-  get currentBook(){
-    return this._currentBook as Book
-  }
+  refBooks = computed(() =>
+    this.books.value.filter(
+      (item) => item.content === BookContent.sentence && item.type === "ref"
+    )
+  );
 
-  set currentBook(value:Book){
-    this._currentBook = value
+  currentBook = signal<Book | undefined>(undefined);
+
+  currentFavoriteBook = signal<Book | undefined>(undefined);
+
+  markStore = signal<LocalShardStore<SentenceMark> | undefined>(undefined)
+  
+  favStore = signal<LocalShardStore<SentenceFavorite> | undefined>(undefined)
+
+  constructor() {
+    console.log("app store contructor");
+    eventBus.on(AppEvent.GET_BOOK_SUCCESS, (books: Book[]) => {
+      console.log("get boos success");
+      this.books.value = books;
+    });
   }
+  init() {}
 }
 
-const appStore = new AppStore()
-export default appStore
+const appStore = new AppStore();
+export default appStore;

@@ -184,6 +184,7 @@ interface Book {
   _openid?: string;
   itemCount?: number
   isCustom?: boolean
+  type?: string
 }
 
 interface ApiResponse<T = any> {

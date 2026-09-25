@@ -9,16 +9,16 @@ const db = cloud.database();
 
 const DEFAULT_BOOKS = [
   {
-    role: 'origin',
+    type: 'origin',
     prefix: 'origin',
     name: '我的录入',
-    type: 'sentence',
+    content: 'sentence',
   },
   {
-    role: 'favorite',
+    type: 'ref',
     prefix: 'fav',
     name: '我的收藏',
-    type: 'sentence',
+    content: 'sentence',
   }
 ];
 
@@ -57,8 +57,8 @@ exports.main = async (event, context) => {
 
     const resultBooks = await Promise.all(bookPromises);
 
-    const originBook = resultBooks.find(b => b.role === 'origin');
-    const favoriteBook = resultBooks.find(b => b.role === 'favorite');
+    const originBook = resultBooks.find(b => b.type === 'origin');
+    const favoriteBook = resultBooks.find(b => b.type === 'ref');
 
     return {
       code: 0,

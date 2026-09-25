@@ -1,9 +1,10 @@
 import sync from "../utils/sync"
+import appStore from "./app-store"
 
 export class SentencePlayList {
 
   async getPlayList(bookId: string, limit = 20, cursor?: SentencePlayCursor): Promise<SentencePlaylistResult> {
-    const marks = sync.markStore.get(bookId) || []
+    const marks = appStore.markStore.value?.get(bookId) || []
     const { includeIds, excludeIds } = this.getReviewIds(marks)
 
     const review = await this.getReviewList(bookId, includeIds, limit, cursor?.reviewIndex ?? 0)
@@ -59,7 +60,7 @@ export class SentencePlayList {
 
   async getFavoritePlayList(bookId: string, limit = 20, cursor?: number) {
     // 1. 获取收藏列表，过滤掉已删除的，并按 updatedAt 降序排列（最新的排在最前面）
-    const favorites = (sync.favStore.get(bookId) || [])
+    const favorites = (appStore.favStore.value?.get(bookId) || [])
       .filter(x => !x.deleted)
       .sort((a, b) => b.updatedAt - a.updatedAt)
   
@@ -73,7 +74,7 @@ export class SentencePlayList {
       return { list: [], cursor: null }
     }
   
-    const marks = sync.markStore.get(bookId) || []
+    const marks = appStore.markStore.value?.get(bookId) || []
     const markMap = new Map(marks.map(x => [x.sentenceId, x]))
     const db = wx.cloud.database()
     const _ = db.command
@@ -113,14 +114,33 @@ export class SentencePlayList {
     }
   }
 
+  
+
+  private addFavoriteInfo(markMap:Map<string,SentenceMark>,sentences:Sentence[]){
+    const allFavorites = appStore.favStore.value?.getAll();
+    const favMap = new Map<string,string[]>()
+    allFavorites?.forEach(item=>{
+      if(favMap.has(item.sentenceId)){
+        favMap.get(item.sentenceId)?.push(item.bookId)
+      }else{
+        favMap.set(item.sentenceId,[])
+      }
+    })
+    return sentences.map(item=>({
+      ...sentences,
+      favorites:favMap.get(item._id),
+      mark:markMap.get(item._id)
+    }))
+  }
+
   // 1. 增加一个获取全局收藏集合的方法
   private getGlobalFavoriteSet(): Set<string> {
     // getAll() 会拉取所有分片里的收藏数据
-    const allFavorites = sync.favStore.getAll();
+    const allFavorites = appStore.favStore.value?.getAll();
 
     // 过滤掉已删除的，只留下有效的 sentenceId
     const validFavoriteIds = allFavorites
-      .filter(x => !x.deleted)
+      ?.filter(x => !x.deleted)
       .map(x => x.sentenceId);
     // console.log('validFavoriteIds', validFavoriteIds)
 

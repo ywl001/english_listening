@@ -16,7 +16,7 @@ Page({
     deleteSentenceId: '',
     bookId: '',
     bookName: '',
-    showGenerator:false,
+    showGenerator: false,
 
     // 全部播放控制状态
     isPlayingAll: false,
@@ -64,7 +64,10 @@ Page({
 
   // 取消收藏：直接调用句子的 toggleFavorite 方法
   onDelete(e: WechatMiniprogram.CustomEvent) {
-    console.log(appStore.currentBook.isCustom)
+    console.log(e)
+    const data:Sentence = e.currentTarget.dataset.data
+    
+
     this.setData({
       deleteSentenceId: e.currentTarget.dataset.id,
       showDeleteDialog: true
@@ -72,19 +75,21 @@ Page({
   },
 
   confirmDelete() {
-    const sentenceId = this.data.deleteSentenceId
-    const bookId = this.data.bookId
+    // const sentenceId = this.data.deleteSentenceId
+    // const bookId = this.data.bookId
+    // console.log(bookId)
+    // if (appStore.currentBook.isCustom) {
+    //   eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
+    //     sentenceId,
+    //     bookId,
+    //     isFavorite: false
+    //   })
 
-    eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
-      sentenceId,
-      bookId,
-      isFavorite: false
-    })
-
-    this.setData({
-      showDeleteDialog: false,
-      deleteSentenceId: ''
-    })
+    //   this.setData({
+    //     showDeleteDialog: false,
+    //     deleteSentenceId: ''
+    //   })
+    // }
   },
 
   cancelDelete() {
@@ -137,15 +142,15 @@ Page({
   // 真正的添加逻辑（从 touchend 调用）
   onAddSentence() {
     console.log('add sentence')
-    this.setData({showGenerator:true})
+    this.setData({ showGenerator: true })
   },
 
-  closeGenerator(){
-    this.setData({showGenerator:false})
+  closeGenerator() {
+    this.setData({ showGenerator: false })
   },
 
-  onSentenceSaved(e:WechatMiniprogram.CustomEvent){
-    console.log('list e',e)
+  onSentenceSaved(e: WechatMiniprogram.CustomEvent) {
+    console.log('list e', e)
     const s = e.detail.sentence
     sentencePlayManager.sentenceList.push(s)
     this.refreshData()
