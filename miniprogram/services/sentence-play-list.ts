@@ -1,190 +1,159 @@
-import sync from "../utils/sync"
 import appStore from "./app-store"
+import sentenceFileStore from "../utils/sentence-file-store"
 
+/**
+ * 播放列表构建（本地计算，不再查云端）：
+ * - 句子数据来自 SentenceFileStore（文件系统），mark/favorite 来自本地分片存储
+ * - 实体书列表 = 复习到期的句子（nextReviewAt <= now，按到期时间升序）在前 + 无 mark 的新句子在后
+ * - 会话内分页用"已服务名单"去重：点过已会的句子自然离开池子，没点的跨会话自动回捞
+ * - 引用书列表 = favStore 的收藏记录顺序，句子本体从各书本地缓存反查，缺的按 _id 拉一次并回写缓存
+ */
 export class SentencePlayList {
 
+  // 会话内已服务的句子（分页去重），startNewSession 清空
+  private served = new Map<string, Set<string>>()
+
+  /**
+   * 开始新的学习会话（重新初始化播放队列时调用）：
+   * 清空已服务名单，下次 getPlayList 从头构建
+   */
+  public startNewSession(bookId: string): void {
+    this.served.delete(bookId)
+  }
+
   async getPlayList(bookId: string, limit = 20, cursor?: SentencePlayCursor): Promise<SentencePlaylistResult> {
+    const sentences = sentenceFileStore.getSentences(bookId)
     const marks = appStore.markStore.value?.get(bookId) || []
-    const { includeIds, excludeIds } = this.getReviewIds(marks)
-
-    const review = await this.getReviewList(bookId, includeIds, limit, cursor?.reviewIndex ?? 0)
-
-    const remain = limit - review.list.length
     const markMap = new Map(marks.map(x => [x.sentenceId, x]))
     const favoriteSet = this.getGlobalFavoriteSet()
+    const favBookMap = this.getGlobalFavoriteBookMap()
+    const now = Date.now()
 
-    // 如果复习句子已经填满了 limit
-    if (remain <= 0) {
-      let list = await this.prepareSentences(review.list)
-      // ✅ 修复 Bug 2：补全 isFavorite 和 mark 状态
-      list = list.map(sentence => ({
-        ...sentence,
-        isFavorite: favoriteSet.has(sentence._id),
-        mark: markMap.get(sentence._id)
-      }))
+    // 复习队列：到期 mark 按到期时间升序（句子可能已被删，过滤掉）
+    const sentenceMap = new Map(sentences.map(s => [s._id, s]))
+    const due = marks
+      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
+      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0))
+      .map(x => sentenceMap.get(x.sentenceId))
+      .filter((x): x is Sentence => !!x)
 
-      return {
-        list,
-        cursor: review.hasMore ?
-          {
-            reviewIndex: review.nextIndex,
-            createdAt: cursor?.createdAt ?? -1
-          }
-          : undefined,
-        hasMore: review.hasMore
-      }
-    }
+    // 新句子：无 mark（含多端同步来的 mark）
+    const fresh = sentences.filter(s => !markMap.has(s._id))
 
-    // 补充查新句子
-    const normal = await this.getNewSentenceList(bookId, excludeIds, remain, cursor?.createdAt ?? -1)
+    // 会话内分页：跳过本会话已服务的（cursor 参数仅为兼容旧签名，内部不使用）
+    const servedSet = this.served.get(bookId) || new Set<string>()
+    const dueAvail = due.filter(s => !servedSet.has(s._id))
+    const freshAvail = fresh.filter(s => !servedSet.has(s._id))
 
-    let list = await this.prepareSentences([...review.list, ...normal.list])
+    // 复习优先填满，不足的用新句子补齐：复习 3 条 + 新 17 条；复习 ≥ limit 则全复习
+    const picked = [
+      ...dueAvail.slice(0, limit),
+      ...freshAvail.slice(0, Math.max(0, limit - Math.min(dueAvail.length, limit)))
+    ]
+    picked.forEach(s => servedSet.add(s._id))
+    this.served.set(bookId, servedSet)
+
+    const remaining = (dueAvail.length + freshAvail.length) - picked.length
+
+    let list = await this.prepareSentences(picked)
     list = list.map(sentence => ({
       ...sentence,
       isFavorite: favoriteSet.has(sentence._id),
-      mark: markMap.get(sentence._id)
+      favorites: favBookMap.get(sentence._id) || [],
+      mark: markMap.get(sentence._id) || null
     }))
 
-    const hasMore = review.hasMore || normal.hasMore
-
+    const hasMore = remaining > 0
     return {
       list,
-      cursor: hasMore ? {
-        reviewIndex: review.nextIndex,
-        createdAt: normal.nextCreatedAt
-      }
-        : undefined,
+      cursor: hasMore ? { reviewIndex: 0, createdAt: 0 } : undefined,
       hasMore
     }
   }
 
   async getFavoritePlayList(bookId: string, limit = 20, cursor?: number) {
-    // 1. 获取收藏列表，过滤掉已删除的，并按 updatedAt 降序排列（最新的排在最前面）
+    // 1. 收藏记录：过滤已删除，按 updatedAt 降序
     const favorites = (appStore.favStore.value?.get(bookId) || [])
       .filter(x => !x.deleted)
       .sort((a, b) => b.updatedAt - a.updatedAt)
-  
-    // 2. 根据游标 (cursor 时间戳) 进行精确分页过滤
+
+    // 2. 游标分页
     const filteredFavorites = favorites.filter(x => !cursor || x.updatedAt < cursor)
-    
-    // 3. 截取当前页需要的条目
-    const sentenceIds = filteredFavorites.slice(0, limit)
-  
-    if (!sentenceIds.length) {
+    const page = filteredFavorites.slice(0, limit)
+
+    if (!page.length) {
       return { list: [], cursor: null }
     }
-  
-    const marks = appStore.markStore.value?.get(bookId) || []
-    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
-    const db = wx.cloud.database()
-    const _ = db.command
-  
-    // 4. 从数据库查询对应的句子详情
-    const ids = sentenceIds.map(x => x.sentenceId)
-    const res = await db.collection('sentence').where({
-      _id: _.in(ids)
-    }).get()
-  
-    const rawList = res.data as Sentence[]
-  
-    // ✅ 修复 Bug 2：按 sentenceIds 原本的顺序重新排列数据库查出来的句子（解决 in 查询乱序问题）
-    const sentenceMap = new Map(rawList.map(item => [item._id, item]))
-    const sortedList = ids
-      .map(id => sentenceMap.get(id))
+
+    // 3. 句子解析：优先本地文件缓存（句子所在实体书），缺的按 _id 拉云端并回写缓存
+    const sentenceMap = new Map<string, Sentence>()
+    const missing = []
+    for (const rec of page) {
+      const s = rec.bookId
+        ? sentenceFileStore.getSentences(rec.bookId).find(x => x._id === rec.sentenceId)
+        : undefined
+      if (s) sentenceMap.set(rec.sentenceId, s)
+      else missing.push(rec)
+    }
+    if (missing.length) {
+      const db = wx.cloud.database()
+      const _ = db.command
+      // 小程序端单次 get 上限 20 条，批大小必须 ≤ 20
+      for (let i = 0; i < missing.length; i += 20) {
+        const ids = missing.slice(i, i + 20).map(x => x.sentenceId)
+        const res = await db.collection('sentence').where({ _id: _.in(ids) }).limit(20).get()
+        for (const s of res.data as Sentence[]) {
+          sentenceMap.set(s._id, s)
+          // 回写来源书的本地缓存（未打开过的书），后续免查
+          sentenceFileStore.upsertSentence(s)
+        }
+      }
+    }
+
+    // 4. 保持收藏记录的顺序（in 查询乱序问题已不存在，这里按记录顺序取）
+    const sortedList = page
+      .map(rec => sentenceMap.get(rec.sentenceId))
       .filter((x): x is Sentence => !!x)
-  
-    // 5. 补充音频 CDN/临时链接
+
+    // 5. 全局 mark 与多夹子信息
+    const marks = appStore.markStore.value?.getAll() || []
+    const markMap = new Map(marks.map(x => [x.sentenceId, x]))
+    const favBookMap = this.getGlobalFavoriteBookMap()
+
     let list = await this.prepareSentences(sortedList)
-  
-    // 6. 附加 isFavorite 和 mark 状态
     list = list.map(sentence => ({
       ...sentence,
       isFavorite: true,
-      mark: markMap.get(sentence._id)
+      favorites: favBookMap.get(sentence._id) || [bookId],
+      mark: markMap.get(sentence._id) || null
     }))
-  
-    // ✅ 修复 Bug 1 & 3：计算下一次加载的游标
-    // 只有当经过游标过滤后的剩余数量超过了 limit 时，才说明后面还有更多数据
+
     const hasMore = filteredFavorites.length > limit
-    const nextCursor = hasMore ? sentenceIds[sentenceIds.length - 1].updatedAt : null
-  
-    return {
-      list,
-      cursor: nextCursor
-    }
+    const nextCursor = hasMore ? page[page.length - 1].updatedAt : null
+
+    return { list, cursor: nextCursor }
   }
 
-  
-
-  private addFavoriteInfo(markMap:Map<string,SentenceMark>,sentences:Sentence[]){
-    const allFavorites = appStore.favStore.value?.getAll();
-    const favMap = new Map<string,string[]>()
-    allFavorites?.forEach(item=>{
-      if(favMap.has(item.sentenceId)){
-        favMap.get(item.sentenceId)?.push(item.bookId)
-      }else{
-        favMap.set(item.sentenceId,[])
+  // 每个句子当前被收藏在哪些夹子里：sentenceId -> refBookId[]
+  private getGlobalFavoriteBookMap(): Map<string, string[]> {
+    const map = new Map<string, string[]>()
+    for (const fav of appStore.favStore.value?.getAll() || []) {
+      if (fav.deleted) continue
+      const arr = map.get(fav.sentenceId)
+      if (arr) {
+        if (!arr.includes(fav.refBookId)) arr.push(fav.refBookId)
+      } else {
+        map.set(fav.sentenceId, [fav.refBookId])
       }
-    })
-    return sentences.map(item=>({
-      ...sentences,
-      favorites:favMap.get(item._id),
-      mark:markMap.get(item._id)
-    }))
+    }
+    return map
   }
 
-  // 1. 增加一个获取全局收藏集合的方法
   private getGlobalFavoriteSet(): Set<string> {
-    // getAll() 会拉取所有分片里的收藏数据
-    const allFavorites = appStore.favStore.value?.getAll();
-
-    // 过滤掉已删除的，只留下有效的 sentenceId
-    const validFavoriteIds = allFavorites
-      ?.filter(x => !x.deleted)
-      .map(x => x.sentenceId);
-    // console.log('validFavoriteIds', validFavoriteIds)
-
-    return new Set(validFavoriteIds);
-  }
-
-  private getReviewIds(marks: SentenceMark[]) {
-    const now = Date.now();
-    const include = marks
-      .filter(x => x.nextReviewAt && x.nextReviewAt <= now)
-      .sort((a, b) => (a.nextReviewAt || 0) - (b.nextReviewAt || 0) || a._id.localeCompare(b._id));
-
-    return {
-      includeIds: include.map(x => x.sentenceId),
-      excludeIds: marks.map(x => x.sentenceId)
-    };
-  }
-
-  private async getReviewList(bookId: string, reviewIds: string[], limit: number, startIndex: number) {
-    const fetchLimit = Math.min(limit, 20)
-    const ids = reviewIds.slice(startIndex, startIndex + fetchLimit)
-    console.log('startIndex')
-    if (!ids.length) return { list: [], nextIndex: startIndex, hasMore: false }
-
-    const db = wx.cloud.database()
-    const _ = db.command
-    const data = (await db.collection('sentence').where({ _id: _.in(ids), bookId }).get()).data as Sentence[]
-    const map = new Map(data.map(x => [x._id, x]))
-    const list = ids.map(id => map.get(id)).filter((x): x is Sentence => !!x)
-    const nextIndex = startIndex + ids.length
-    console.log('nextIndex', nextIndex)
-
-    return { list, nextIndex, hasMore: nextIndex < reviewIds.length }
-  }
-
-  private async getNewSentenceList(bookId: string, excludeIds: string[], limit: number, createdAt: number) {
-    const db = wx.cloud.database()
-    const _ = db.command
-    const data = (await db.collection('sentence').where({ bookId, createdAt: _.gt(createdAt), _id: _.nin(excludeIds) }).orderBy('createdAt', 'asc').limit(limit).get()).data as Sentence[]
-    const hasMore = data.length === limit
-    const list = data.slice(0, limit)
-    const nextCreatedAt = list.length ? list[list.length - 1].createdAt : createdAt
-
-    return { list, nextCreatedAt, hasMore }
+    const validFavoriteIds = (appStore.favStore.value?.getAll() || [])
+      .filter(x => !x.deleted)
+      .map(x => x.sentenceId)
+    return new Set(validFavoriteIds)
   }
 
   private async prepareSentences(list: Sentence[]) {
@@ -201,7 +170,7 @@ export class SentencePlayList {
     return `${STORAGE_PREFIX}${cleanPath}`
   }
 
-
+  // 音频临时链接：cloud:// 转 temp URL（约 2 小时有效期，播放前批量转换）
   private async getAudioUrls<T extends { audio?: string; audio_zh?: string }>(
     list: T[]
   ): Promise<T[]> {

@@ -1,0 +1,51 @@
+<!-- 顶部下滑搜索面板：mask 淡入 + panel 从顶部滑入 -->
+<view wx:if="{{rendering}}" class="search-mask {{animShow ? 'show' : ''}}" catchtap="onMaskTap">
+  <view class="search-panel {{animShow ? 'show' : ''}}" catchtap="noop">
+    <!-- 搜索栏 + 关闭按钮 -->
+    <view class="search-header">
+      <view class="search-input-wrap">
+        <van-icon name="search" size="16px" color="#A0AEC0" />
+        <input
+          class="search-input"
+          value="{{keyword}}"
+          placeholder="搜索英文 / 中文句子"
+          placeholder-class="input-placeholder"
+          confirm-type="search"
+          focus="{{animShow}}"
+          bindinput="onInput"
+          bindconfirm="onConfirmSearch"
+        />
+        <view wx:if="{{keyword}}" class="clear-btn" catchtap="onClear">
+          <van-icon name="clear" size="16px" color="#CBD5E0" />
+        </view>
+      </view>
+      <view class="close-btn" catchtap="onClose">取消</view>
+    </view>
+
+    <!-- 结果列表 -->
+    <scroll-view scroll-y class="search-body">
+      <view wx:if="{{searching}}" class="tip">搜索中...</view>
+
+      <block wx:elif="{{results.length}}">
+        <view wx:for="{{results}}" wx:key="_id" class="result-card">
+          <view class="card-main">
+            <text class="en">{{item.en}}</text>
+            <text class="zh">{{item.zh}}</text>
+            <text wx:if="{{item.bookName}}" class="book">{{item.bookName}}</text>
+          </view>
+          <view
+            class="add-btn {{item.isFavorite ? 'added' : ''}}"
+            catchtap="onAdd"
+            data-sentence="{{item}}"
+          >
+            <van-icon name="star" size="20px" color="{{item.isFavorite ? '#F6AD55' : '#CBD5E0'}}" />
+            <text class="add-label">{{item.isFavorite ? '已收藏' : '收藏'}}</text>
+          </view>
+        </view>
+      </block>
+
+      <view wx:elif="{{searched}}" class="tip">没有找到相关句子</view>
+      <view wx:else class="tip">输入关键词，搜索句子加入「{{favoriteBookName}}」</view>
+    </scroll-view>
+  </view>
+</view>

@@ -1,6 +1,7 @@
 {
   "usingComponents": {
     "sentence-play-card": "/components/sentence-play-card/sentence-play-card",
+    "play-bar": "/components/sentence-play-bar/sentence-play-bar",
     "book-select-sheet":"/components/book-select-sheet/book-select-sheet"
     
   }

@@ -13,7 +13,11 @@ Page({
     displayList: [] as Sentence[],
     keyword: '',
     showDeleteDialog: false,
-    deleteSentenceId: '',
+    deleteSentence: null as Sentence | null,
+    deleteDialogText: '',
+    // 书类型：ref=引用书（删除=移除收藏）、user=用户实体书（删除=删句子+引用）、system=系统书（不可删）
+    bookKind: '' as 'ref' | 'user' | 'system',
+    canDelete: false,
     bookId: '',
     bookName: '',
     showGenerator: false,
@@ -21,6 +25,8 @@ Page({
     // 全部播放控制状态
     isPlayingAll: false,
     currentIndex: -1,
+    // 首次 onShow（onLoad 之后）不重建，列表由 initManagerAndNavigate 初始化
+    firstShow: true,
 
     //拖动按钮的参数
     fabX: 20,
@@ -39,20 +45,43 @@ Page({
     const bookId = options.bookId || '';
     const bookName = options.bookName || ''
 
+    // 判断书类型，决定删除行为（系统书理论上进不了此页，做兜底保护）
+    const book = appStore.books.value.find(b => b._id === bookId);
+    let bookKind: 'ref' | 'user' | 'system' = 'system';
+    if (book) {
+      bookKind = book.type === 'ref' ? 'ref' : (book._openid ? 'user' : 'system');
+    } else if (bookId.startsWith('origin_')) {
+      bookKind = 'user'; // 我的句子（默认实体书）
+    }
+
     this.setData(
       {
         sentenceList: sentencePlayManager.sentenceList,
         bookId,
         bookName,
+        bookKind,
+        canDelete: bookKind !== 'system',
         displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
       }
     );
-    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST, this.refreshData)
+    // strict 模式下方法引用脱离实例调用 this 为 undefined，必须用箭头函数包装
+    (this as any).refreshDataHandler = () => this.refreshData();
+    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST, (this as any).refreshDataHandler)
+  },
+
+  onShow() {
+    // 从播放页返回：重新拉取播放队列（学过的句子进复习队列，不再出现在列表里）
+    if (this.data.firstShow) {
+      this.setData({ firstShow: false })
+      return
+    }
+    if (!this.data.bookId) return
+    eventBus.emit(AppEvent.REBUILD_PLAYLIST, { bookId: this.data.bookId })
   },
 
   onUnload() {
     audioCtx.stop();
-    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST, this.refreshData)
+    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST, (this as any).refreshDataHandler)
   },
 
   refreshData() {
@@ -62,40 +91,61 @@ Page({
     })
   },
 
-  // 取消收藏：直接调用句子的 toggleFavorite 方法
+  // 删除入口：按书类型弹不同文案的确认框（统计数据由 controller 回传）
   onDelete(e: WechatMiniprogram.CustomEvent) {
-    console.log(e)
-    const data:Sentence = e.currentTarget.dataset.data
-    
+    if (!this.data.canDelete) return
+    const sentence = e.currentTarget.dataset.data as Sentence
+    if (!sentence) return
 
-    this.setData({
-      deleteSentenceId: e.currentTarget.dataset.id,
-      showDeleteDialog: true
-    })
+    if (this.data.bookKind === 'ref') {
+      // 引用书：取消该句子在本书的收藏
+      this.setData({
+        deleteSentence: sentence,
+        deleteDialogText: '确定要取消收藏该句子吗？',
+        showDeleteDialog: true
+      })
+    } else {
+      // 用户实体书：先查收藏情况（controller 回传），弹窗文案带提示
+      eventBus.emit(AppEvent.DELETE_SENTENCE, {
+        sentenceId: sentence._id,
+        bookId: sentence.bookId,
+        confirm: false,
+        callback: (check: any) => {
+          const extra = check?.needConfirm
+            ? `该句子被收藏 ${check.favoriteCount} 处，删除后相关收藏将一并移除。`
+            : ''
+          this.setData({
+            deleteSentence: sentence,
+            deleteDialogText: `确定要删除该句子吗？${extra}`,
+            showDeleteDialog: true
+          })
+        }
+      })
+    }
   },
 
   confirmDelete() {
-    // const sentenceId = this.data.deleteSentenceId
-    // const bookId = this.data.bookId
-    // console.log(bookId)
-    // if (appStore.currentBook.isCustom) {
-    //   eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
-    //     sentenceId,
-    //     bookId,
-    //     isFavorite: false
-    //   })
+    const sentence = this.data.deleteSentence
+    if (!sentence) return
 
-    //   this.setData({
-    //     showDeleteDialog: false,
-    //     deleteSentenceId: ''
-    //   })
-    // }
+    this.setData({ showDeleteDialog: false, deleteSentence: null })
+
+    if (this.data.bookKind === 'ref') {
+      // 引用书：仅标记本书维度的收藏记录 deleted（controller 处理并刷新列表）
+      eventBus.emit(AppEvent.REMOVE_FAVORITE, {
+        sentenceId: sentence._id,
+        refBookId: this.data.bookId
+      })
+    } else if (this.data.bookKind === 'user') {
+      // 用户实体书：controller 负责云端删除、本地缓存清理、队列移除、列表刷新与提示
+      eventBus.emit(AppEvent.DELETE_SENTENCE, { sentenceId: sentence._id, bookId: sentence.bookId, confirm: true })
+    }
   },
 
   cancelDelete() {
     this.setData({
       showDeleteDialog: false,
-      deleteSentenceId: ''
+      deleteSentence: null
     })
   },
 
@@ -122,8 +172,6 @@ Page({
     this.setData({ isPlayingAll: false, currentIndex: index });
     this.playCurrentIndexAudio(index);
   },
-
-
 
   // 触发全部播放/暂停
   togglePlayAll() {

@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "听句子",
+  "usingComponents": {
+    "sentence-book-card": "/components/sentence-book-card/sentence-book-card",
+    "book-create":"/components/book-create/book-create",
+    "sentence-search": "/components/sentence-search/sentence-search",
+    "van-icon": "@vant/weapp/icon/index"
+  }
+}

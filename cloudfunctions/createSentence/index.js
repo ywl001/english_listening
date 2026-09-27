@@ -45,9 +45,11 @@ exports.main = async (event) => {
       s.favorites = [bookId]
       await transaction.collection('sentenceFavorite').add({
         data: {
-          _id: `${OPENID}__${sentenceId}`,
+          // 与客户端 toggleFavorite 保持一致的三段式主键：openid__refBookId__sentenceId
+          _id: `${OPENID}__${bookId}__${sentenceId}`,
           bookId,
           sentenceId,
+          refBookId: bookId,
           _openid: OPENID,
           updatedAt: now,
           deleted: false

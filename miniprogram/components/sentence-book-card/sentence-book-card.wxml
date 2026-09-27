@@ -12,12 +12,13 @@
       </view>
 
       <view class="meta">
-        <text>{{book.learnedCount || 0}} / {{book.count || 0}} sentences</text>
+        <text wx:if="{{book.content === 'article'}}">{{book.count || 0}} 篇文章</text>
+        <text wx:else>{{book.learnedCount || 0}} / {{book.count || 0}} sentences</text>
         <text class="tag" wx:if="{{!isUserBook}}">官方</text>
       </view>
 
       <view class="progress-bar-bg">
-        <view class="progress-bar-fill" style="width: {{progressPercent}}"></view>
+        <view class="progress-bar-fill" style="width: {{progressPercent}}%"></view>
       </view>
     </view>
 

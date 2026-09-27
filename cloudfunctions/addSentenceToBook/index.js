@@ -4,16 +4,16 @@ const db = cloud.database()
 
 /**
  * 把一个已存在的句子（可能是系统例句，也可能是别的词书里的句子）
- * "加入"到当前用户自己的某本词书。
+ * "加入"到当前用户自己的某本引用书。
  *
- * 关键设计：不复制句子内容，只在 sentenceBookRef 表里建一条引用关系。
- * 这样：
+ * 关键设计：不复制句子内容，直接在 sentenceFavorite 里写一条收藏记录
+ * （refBookId 指向目标引用书）。这样：
  * - 原句子的文本/音频只有一份，不会因为被多个词书引用而冗余；
  * - 学习进度/收藏状态挂在 sentenceMark 上（openid + sentenceId），
  *   跟句子在哪本词书里出现无关，天然支持"同一句话出现在多本词书"。
  *
- * _id 用 `${bookId}__${sentenceId}` 做主键，重复加入会被 set() 自动去重覆盖，
- * 不会插出多条重复引用。
+ * _id 用 `${openid}__${refBookId}__${sentenceId}` 做主键，与端上 toggleFavorite
+ * 生成的一致，重复加入会被 set() 自动去重覆盖。
  */
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
@@ -46,13 +46,15 @@ exports.main = async (event) => {
       return { code: 0, msg: 'success', data: { refId: '', alreadyIn: true } }
     }
 
-    const refId = `${bookId}__${sentenceId}`
-    await db.collection('sentenceBookRef').doc(refId).set({
+    const refId = `${OPENID}__${bookId}__${sentenceId}`
+    await db.collection('sentenceFavorite').doc(refId).set({
       data: {
-        bookId,
-        sentenceId,
         _openid: OPENID,
-        addedAt: Date.now()
+        sentenceId,
+        bookId: sentenceDoc.data.bookId || '',
+        refBookId: bookId,
+        deleted: false,
+        updatedAt: Date.now()
       }
     })
 

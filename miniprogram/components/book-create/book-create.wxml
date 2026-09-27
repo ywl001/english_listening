@@ -1,4 +1,4 @@
-<van-action-sheet show="{{visible}}" title="新建句子书" bind:close="onClose">
+<van-action-sheet show="{{visible}}" title="新建句子书" z-index="{{300}}" bind:close="onClose">
   <view class="form">
     <van-field value="{{name}}" label="书名" placeholder="请输入书名" maxlength="30" bind:change="onNameChange" />
 

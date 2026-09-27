@@ -1,7 +1,9 @@
-import sentenceService from "../../services/sentence-service"
 import { TranslateService } from "../../services/translate-service"
 import { TtsService } from "../../services/tts-service"
 import sentenceStore from "../../utils/sentenceStore"
+import appStore from "../../services/app-store"
+import eventBus from "../../services/EventBus"
+import { AppEvent } from "../../services/event-type"
 
 const EMPTY_RESULT = {
   zh: '',
@@ -89,6 +91,19 @@ Component({
 
         this.setData({ zh, en })
 
+        // 查重：库里已有相同英文句子则不再生成（controller 查询并回传）
+        const existing = await new Promise<Sentence | null>(resolve => {
+          eventBus.emit(AppEvent.FIND_SENTENCE, { en, callback: (s: Sentence | null) => resolve(s) })
+        })
+        if (this.data.inputText.trim() !== trimmed) return
+
+        if (existing) {
+          // 展示库中已有的句子内容（替换为原文的中文翻译）
+          this.setData({ zh: existing.zh || zh, en: existing.en || en })
+          await this.handleExistingSentence(existing)
+          return
+        }
+
         wx.showLoading({ title: '生成发音中...', mask: true })
 
         const [zhAudio, enAudio] = await Promise.all([
@@ -132,6 +147,42 @@ Component({
         wx.hideLoading()
         this.setData({ generating: false })
       }
+    },
+
+    /**
+     * 库中已有相同句子时的处理：
+     * - 目标是引用书：把已有句子加入该引用书（controller 写收藏记录），随后走 saved 事件刷新列表
+     * - 目标是实体书（我的句子等）：提示已存在，什么都不做，关闭弹层
+     */
+    handleExistingSentence(existing: Sentence) {
+      const bookId = this.data.selectedBookId
+      const book = appStore.books.value.find(b => b._id === bookId)
+      const isRefBook = book?.type === 'ref'
+
+      if (isRefBook && bookId) {
+        // controller 负责加入词书并提示；成功后刷新列表并关闭弹层
+        eventBus.emit(AppEvent.ADD_SENTENCE_TO_BOOK, {
+          sentenceId: existing._id,
+          bookId,
+          callback: (_: any, err?: any) => {
+            if (!err) {
+              this.triggerEvent('saved', { sentence: existing })
+            }
+            this.triggerEvent('close')
+          }
+        })
+        return
+      }
+
+      // 实体书：提示已存在，关闭
+      wx.hideLoading()
+      wx.showModal({
+        title: '句子已存在',
+        content: `句库中已有该句子：\n${existing.en || ''}\n${existing.zh || ''}`,
+        showCancel: false,
+        confirmText: '知道了'
+      })
+      this.triggerEvent('close')
     },
 
     playZh() {
@@ -199,57 +250,27 @@ Component({
       this.setData({ saving: true })
       wx.showLoading({ title: '保存中...', mask: true })
 
-      try {
-        const timestamp = Date.now()
+      // controller 负责临时音频搬运到永久目录 + 落库，成功后回传新句子
+      eventBus.emit(AppEvent.CREATE_SENTENCE, {
+        bookId: selectedBookId,
+        zh: zh.trim(),
+        en: en.trim(),
+        audioFileID,
+        audioZhFileID,
+        callback: (sentence: Sentence | null, err?: any) => {
+          wx.hideLoading()
+          this.setData({ saving: false })
 
-        const [audio, audio_zh] = await Promise.all([
-          TtsService.moveToPermanent(
-            audioFileID,
-            `english/en/${timestamp}.mp3`
-          ),
-          TtsService.moveToPermanent(
-            audioZhFileID,
-            `english/zh/${timestamp}.mp3`
-          )
-        ])
+          if (err || !sentence) return // controller/callCloudFunction 已提示
 
-        const createdSentenceResult = await sentenceService.createSentence({
-          bookId: selectedBookId,
-          zh: zh.trim(),
-          en: en.trim(),
-          audio,
-          audio_zh
-        })
+          this.setData({
+            audioFileID: '',
+            audioZhFileID: ''
+          })
 
-        this.setData({
-          audioFileID: '',
-          audioZhFileID: ''
-        })
-
-        wx.hideLoading()
-
-        wx.showToast({
-          title: '保存成功',
-          icon: 'success'
-        })
-
-        console.log('createSentenceResult:',createdSentenceResult)
-
-        this.triggerEvent('saved', { sentence: createdSentenceResult })
-
-      } catch (e) {
-        console.error('保存句子失败', e)
-
-        wx.hideLoading()
-
-        wx.showToast({
-          title: '保存失败，请重试',
-          icon: 'none'
-        })
-
-      } finally {
-        this.setData({ saving: false })
-      }
+          this.triggerEvent('saved', { sentence })
+        }
+      })
     },
 
     async discardPendingAudio() {

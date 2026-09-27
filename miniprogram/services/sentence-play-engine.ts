@@ -249,8 +249,11 @@ export class PlayEngine {
     }
 
     // 4. 学习/全量模式：根据 repeatCount 和 order 进行中英文组合
+    // repeatCount = 0 表示"无限"：英文无限重复，直到用户手动切句
     const isZhFirst = this.config.playOrder === 'zh_first';
-    const zhStep = isZhFirst ? 0 : this.config.repeatCount;
+    const zhStep = isZhFirst
+      ? 0
+      : (this.config.repeatCount === 0 ? Number.POSITIVE_INFINITY : this.config.repeatCount);
 
     if (this.step === zhStep) {
       if (!current.audio_zh) {
@@ -267,7 +270,7 @@ export class PlayEngine {
         return;
       }
       const enIndex = isZhFirst ? this.step : this.step + 1;
-      this.callbacks.onStatusChange(`英文 (${enIndex}/${this.config.repeatCount})`);
+      this.callbacks.onStatusChange(`英文 (${enIndex}/${this.config.repeatCount || '∞'})`);
       this.audioCtx.src = current.audio;
     }
 
@@ -303,12 +306,12 @@ export class PlayEngine {
    * 推进至单句内的下一个步骤或直接进入下一句
    */
   private advanceStep(): void {
-    // if (this.config.playMode === 'test') {
-    //   this.next(true);
-    //   return;
-    // }
-
     this.step += 1;
+    // 无限模式（repeatCount = 0）：英文永远重复，不切下一句
+    if (this.config.repeatCount === 0) {
+      this.playStep();
+      return;
+    }
     // 当步骤数超过 repeatCount（即中英文均已播放完毕）时切到下一句
     if (this.step > this.config.repeatCount) {
       this.next(true);

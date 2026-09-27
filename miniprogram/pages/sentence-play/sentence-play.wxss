@@ -2,30 +2,29 @@ page {
   background-color: #F4F6F9;
   height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
 }
 
 .container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 0 32rpx 80rpx 32rpx;
+  padding: 0 32rpx 30rpx 32rpx; /* 适当调小底部 padding */
   box-sizing: border-box;
-  justify-content: space-between;
 }
 
-/* Header 与进度条 */
+/* 1. Header 与进度条包装器 */
+.header-section {
+  flex-shrink: 0;
+}
+
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding-top: 20rpx;
   padding-bottom: 16rpx;
-}
-
-.back-btn {
-  font-size: 38rpx;
-  color: #2D3748;
-  padding: 10rpx 20rpx 10rpx 0;
+  position: relative;
 }
 
 .header-center {
@@ -46,17 +45,13 @@ page {
   margin-top: 4rpx;
 }
 
-.header-placeholder {
-  width: 40rpx;
-}
-
 .progress-bar-bg {
   width: 100%;
   height: 6rpx;
   background-color: #E2E8F0;
   border-radius: 3rpx;
   overflow: hidden;
-  margin-bottom: 30rpx;
+  margin-bottom: 20rpx;
 }
 
 .progress-bar-fill {
@@ -66,104 +61,12 @@ page {
   transition: width 0.3s ease;
 }
 
-/* 2. 卡片外部包装器 */
+/* 2. 卡片区域：核心点 min-height: 0 避免被子元素无限撑大 */
 .card-wrapper {
   flex: 1;
-  display: flex;
-  /* background-color: beige; */
-  align-items: center;
-  justify-content: center;
-  margin: 30rpx 0 60rpx 0;
+  min-height: 0; /* 关键：防止 flex 子项撑满导致底部被挤出 */
   width: 100%;
-}
-
-/* 3. 胶囊按钮组 */
-.capsule-bar {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  margin-bottom: 40rpx;
-}
-
-.capsule-btn {
-  flex: 1;
-  margin: 0 10rpx;
-  background: #FFFFFF;
-  border-radius: 20rpx;
-  padding: 20rpx 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.02);
-  border: 2rpx solid transparent;
-}
-
-.capsule-btn.active {
-  border-color: #3182CE;
-  background-color: #EBF8FF;
-}
-
-.capsule-title {
-  font-size: 22rpx;
-  color: #2D3748;
-  font-weight: 600;
-}
-
-.capsule-sub {
-  font-size: 20rpx;
-  color: #4A5568;
-  margin-top: 4rpx;
-}
-
-/* 4. 底部控制盘 */
-.control-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  width: 100%;
-  padding: 10rpx 0;
-}
-
-.ctrl-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #FFFFFF;
-  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.04);
-}
-
-.ctrl-btn.sm {
-  width: 84rpx;
-  height: 84rpx;
-  color: #4A5568;
-  font-size: 26rpx;
-}
-
-.ctrl-btn.main {
-  width: 120rpx;
-  height: 120rpx;
-  background: #2B6CB0;
-  color: #FFFFFF;
-  font-size: 38rpx;
-  box-shadow: 0 10rpx 24rpx rgba(43, 108, 176, 0.3);
-}
-
-.icon-text {
-  font-size: 22rpx;
-  font-weight: bold;
-  color: #4A5568;
-}
-
-/* 2. 卡片外部包装器 */
-.card-wrapper {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 20rpx 0 40rpx 0;
-  width: 100%;
+  margin: 10rpx 0 20rpx 0;
 }
 
 .card-swiper {
@@ -172,17 +75,19 @@ page {
 }
 
 .swiper-item-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* 点击空白区域触发播放/暂停的承载层（铺满卡片） */
+.card-tap-area {
   width: 100%;
   height: 100%;
 }
 
-.card-touch-area {
+/* 3. 底部控制栏区域：固定不被挤压 */
+.player-bar-wrapper {
+  flex-shrink: 0;
   width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }

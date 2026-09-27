@@ -1,0 +1,87 @@
+:host {
+  width: 100%;
+  display: block;
+}
+
+.controls-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 20rpx 40rpx 40rpx;
+  box-sizing: border-box;
+}
+
+/* 1. 顶部模式切换胶囊按钮 */
+.mode-capsules {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24rpx;
+  margin-bottom: 36rpx;
+}
+
+.capsule-btn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background-color: #ffffff;
+  padding: 14rpx 28rpx;
+  border-radius: 40rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  border: 1rpx solid #f0f0f0;
+  transition: all 0.2s ease;
+}
+
+.capsule-btn:active {
+  background-color: #f5f5f5;
+  transform: scale(0.98);
+}
+
+.capsule-icon {
+  color: #555555;
+}
+
+.capsule-text {
+  font-size: 26rpx;
+  color: #333333;
+  font-weight: 500;
+}
+
+/* 2. 主播放控制区 */
+.main-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 48rpx;
+  width: 100%;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.ctrl-btn:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+/* 上一句 / 下一句 按钮 */
+.side-btn {
+  width: 96rpx;
+  height: 96rpx;
+  background-color: #ffffff;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+}
+
+/* 播放 / 暂停 核心大按钮 */
+.play-btn {
+  width: 128rpx;
+  height: 128rpx;
+  background-color: #1967d2; /* 蓝调核心高亮 */
+  box-shadow: 0 8rpx 24rpx rgba(25, 103, 210, 0.35);
+}

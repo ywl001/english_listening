@@ -1,0 +1,82 @@
+<view class="container">
+  <!-- 1. 顶部：句子进度 + 可拖动进度条 -->
+  <view class="header-section">
+    <view class="header-center">
+      <text class="count-text">{{currentIndex + 1}} / {{totalCount}}</text>
+    </view>
+    <view class="progress-row">
+      <text class="time-text">{{currentTimeText}}</text>
+      <slider
+        class="progress-slider"
+        min="0"
+        max="{{sliderMax}}"
+        value="{{sliderValue}}"
+        activeColor="#2B6CB0"
+        backgroundColor="#E2E8F0"
+        block-size="16"
+        block-color="#2B6CB0"
+        bindchange="onSeek"
+      />
+      <text class="time-text">{{durationText}}</text>
+    </view>
+  </view>
+
+  <!-- 2. 中央单句卡片滑动区域 -->
+  <view class="card-wrapper">
+    <!-- 音频加载/缓冲遮罩（数据加载 + mp3 起播前） -->
+    <view wx:if="{{loading || audioLoading}}" class="audio-loading-mask">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">{{loading ? '内容加载中...' : '音频加载中...'}}</text>
+    </view>
+    <swiper
+      class="card-swiper"
+      current="{{swiperCurrent}}"
+      duration="300"
+      circular="{{ true }}"
+      bindchange="onSwiperChange"
+    >
+      <block wx:for="{{displayList}}" wx:key="index">
+        <swiper-item class="swiper-item-inner">
+          <view wx:if="{{item}}" class="sentence-card" bindtap="onTogglePlay">
+            <!-- 点击文字显示/隐藏（页面级状态，切句后保持） -->
+            <view class="text-section english-section" catchtap="onToggleEnglish">
+              <text wx:if="{{ showEnglish }}" class="english-text">{{item.en}}</text>
+              <text wx:else class="placeholder-text">点击显示英文</text>
+            </view>
+
+            <view class="divider-container">
+              <view class="line"></view>
+              <text class="hint-text">点击文字可隐藏 / 显示</text>
+              <view class="line"></view>
+            </view>
+
+            <view class="text-section chinese-section" catchtap="onToggleChinese">
+              <text wx:if="{{ showChinese }}" class="chinese-text">{{item.zh}}</text>
+              <text wx:else class="placeholder-text">点击显示中文</text>
+            </view>
+          </view>
+        </swiper-item>
+      </block>
+    </swiper>
+  </view>
+
+  <!-- 3. 底部控制条：收藏 / 播放暂停 / 语速 -->
+  <view class="player-bar-wrapper">
+    <view class="player-bar" wx:if="{{!loading}}">
+      <view class="ctrl-icon" bindtap="onToggleFavorite">
+        <van-icon
+          name="{{isFavorite ? 'star' : 'star-o'}}"
+          color="{{isFavorite ? '#F6AD55' : '#A0AEC0'}}"
+          size="24px"
+        />
+      </view>
+      <view class="ctrl-play {{audioLoading ? 'ctrl-play-disabled' : ''}}" bindtap="onTogglePlay">
+        <van-icon wx:if="{{audioLoading}}" name="clock-o" color="#FFFFFF" size="30px" />
+        <van-icon wx:else name="{{isPlaying ? 'pause' : 'play'}}" color="#FFFFFF" size="30px" />
+      </view>
+      <view class="ctrl-icon" bindtap="onCycleRate">
+        <text class="rate-text">{{rateLabel}}</text>
+      </view>
+    </view>
+  </view>
+</view>

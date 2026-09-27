@@ -39,8 +39,11 @@ interface Sentence {
   zh: string
   en: string
   bookId: string
-  audio: string      // 英文音频的临时播放链接
-  audio_zh: string    // 中文音频的临时播放链接
+  audio: string      // 英文音频播放链接（公有读，长期有效）
+  audio_zh: string    // 中文音频播放链接（公有读，长期有效）
+  // 原始 cloud:// fileID（删文件等云存储管理场景使用）
+  audioFileId?: string
+  audioZhFileId?: string
   createdAt: number
 
   // 下面附加属性表示句子的学习记录
@@ -68,6 +71,7 @@ interface SentenceFavorite {
   _openid: string
   sentenceId: string
   bookId: string
+  refBookId:string
   // createdAt: number
   updatedAt: number
   deleted: boolean
@@ -158,6 +162,17 @@ interface ArticleSentence {
   zh: string;
 }
 
+// 文章收藏：_id 固定为 openid__articleId，保证一人一文章仅一条记录
+interface ArticleFavorite {
+  _id: string
+  _openid: string
+  articleId: string
+  bookId: string
+  deleted: boolean
+  createdAt: number
+  updatedAt: number
+}
+
 interface PlayCallbacks {
   onCurrentChange: (sentence: Sentence | null, index: number) => void
   onStatusChange: (status: string) => void
@@ -185,6 +200,10 @@ interface Book {
   itemCount?: number
   isCustom?: boolean
   type?: string
+  count?: number      // 总句子数（getBooks 统计）
+  learnedCount?: number // 已学句子数（mark.stage > 0）
+
+  isVirtualFav?:boolean
 }
 
 interface ApiResponse<T = any> {

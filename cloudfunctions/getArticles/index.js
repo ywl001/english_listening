@@ -8,7 +8,8 @@ const MAX_LIMIT = 100;
 
 exports.main = async (event, context) => {
   try {
-    const { bookId } = event;
+    // withUrl=false：列表场景只展示标题/条数，跳过音频 URL 换取（fileID 原样返回）
+    const { bookId, withUrl = true } = event;
 
     // 1. 构建查询条件
     const whereCondition = bookId ? { bookId } : {};
@@ -23,7 +24,7 @@ exports.main = async (event, context) => {
 
     // 4. 分批并发获取音频临时 URL（每次最多 50 个）
     const urlMap = new Map();
-    if (fileList.length > 0) {
+    if (withUrl && fileList.length > 0) {
       const batchPromises = [];
       for (let i = 0; i < fileList.length; i += 50) {
         const batch = fileList.slice(i, i + 50);
@@ -42,11 +43,13 @@ exports.main = async (event, context) => {
     }
 
     // 5. 替换字段中的临时 URL
-    list.forEach(item => {
-      if (item.audioUrl) {
-        item.audioUrl = urlMap.get(item.audioUrl) || '';
-      }
-    });
+    if (withUrl) {
+      list.forEach(item => {
+        if (item.audioUrl) {
+          item.audioUrl = urlMap.get(item.audioUrl) || '';
+        }
+      });
+    }
 
     return {
       code: 0,

@@ -20,12 +20,14 @@ export enum BookType {
 }
 
 export enum Pages {
-  sentenceBookList = '/pages/sentence-book-list/sentence-book-list',
+  bookList = '/pages/book-list/book-list',
   index = "/pages/index/index",
   sentencePlay = '/pages/sentence-play/sentence-play',
   testPage = '/pages/test-page/test-page',
   sentenceList = '/pages/sentence-list/sentence-list',
-  sentenceInput = '/pages/sentence-input/sentence-input'
+  sentenceInput = '/pages/sentence-input/sentence-input',
+  articleList = '/pages/article-list/article-list',
+  articlePlay = '/pages/article-play/article-play'
 }
 
 export enum cloudFunctionName {
@@ -36,6 +38,7 @@ export enum cloudFunctionName {
   getBookSentence = 'getBookSentence',
   getArticles = 'getArticles',
   getArticleSentences = 'getArticleSentences',
+  syncArticle = 'syncArticle',
   createBook = 'createBook',
   searchSentences = 'searchSentences',
   addSentenceToBook = 'addSentenceToBook',
@@ -44,7 +47,11 @@ export enum cloudFunctionName {
   getSentencePlayList = 'getSentencePlayList',
   getFavoriteSentences = 'getFavoriteSentences',
   syncUserData= 'syncUserData',
-  syncSentence= 'syncSentence'
+  syncSentence= 'syncSentence',
+  deleteSentence = 'deleteSentence',
+  delUserBook = 'delUserBook',
+  findSentence = 'findSentence',
+  toggleArticleFavorite = 'toggleArticleFavorite'
 }
 
 export enum CollectionName{
@@ -53,5 +60,6 @@ export enum CollectionName{
   sentenceMark = 'sentenceMark',
   sentenceFavorite = 'sentenceFavorite',
   article = 'article',
-  articleSentence = 'articleSentence'
+  articleSentence = 'articleSentence',
+  articleFavorite = 'articleFavorite'
 }

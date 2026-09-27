@@ -1,0 +1,40 @@
+<view class="controls-container">
+  <!-- 上方：模式与次数快捷切换胶囊按钮 -->
+  <view class="mode-capsules">
+  <!-- 1. 播放顺序切换 -->
+  <view class="capsule-btn" catchtap="onToggleOrder">
+    <van-icon name="exchange" class="capsule-icon" size="14px" color="#555555" />
+    <text class="capsule-text">{{ orderText }}</text>
+  </view>
+
+  <!-- 2. 播放次数切换 -->
+  <view class="capsule-btn" catchtap="onToggleRepeat">
+    <van-icon name="replay" class="capsule-icon" size="14px" color="#555555" />
+    <text class="capsule-text">{{ repeatText }}</text>
+  </view>
+
+  <!-- 3. 播放条数切换 -->
+  <view class="capsule-btn" catchtap="onToggleLimit">
+    <van-icon name="bars" class="capsule-icon" size="14px" color="#555555" />
+    <text class="capsule-text">{{ limitText }}</text>
+  </view>
+</view>
+
+  <!-- 下方：主播放控制按钮组 (上一句 - 播放/暂停 - 下一句) -->
+  <view class="main-controls">
+    <!-- 上一句 -->
+    <view class="ctrl-btn side-btn" catchtap="onPrev">
+      <van-icon name="arrow-left" size="20px" color="#333333" />
+    </view>
+
+    <!-- 播放 / 暂停 (主按钮) -->
+    <view class="ctrl-btn play-btn" catchtap="onTogglePlay">
+      <van-icon name="{{ isPlaying ? 'pause' : 'play' }}" size="28px" color="#ffffff" />
+    </view>
+
+    <!-- 下一句 -->
+    <view class="ctrl-btn side-btn" catchtap="onNext">
+      <van-icon name="arrow" size="20px" color="#333333" />
+    </view>
+  </view>
+</view>

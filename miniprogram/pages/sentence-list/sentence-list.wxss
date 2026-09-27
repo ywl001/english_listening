@@ -1,29 +1,89 @@
+page {
+  background-color: #F7FAFC;
+  min-height: 100vh;
+}
+
 .page {
   min-height: 100vh;
   padding-bottom: 140rpx;
   box-sizing: border-box;
-  background: #f7f8fa;
+  background: #F7FAFC;
 }
-
 
 .list {
+  padding: 0 30rpx;
   margin-top: 16rpx;
 }
+
 .swipe-item {
-  margin-bottom: 8rpx;
-  border-bottom: #333 5rpx solid;
+  margin-bottom: 24rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
 }
 
-.delete-button {
-  width: 160rpx;
-  height: 100%;
+/* 句子卡片（参考 article-list 卡片风格） */
+.sentence-card {
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 32rpx 30rpx;
+  box-shadow: 0 2rpx 10rpx rgba(160, 174, 192, .12);
+}
+
+.sentence-card:active {
+  background-color: #F7FAFC;
+}
+
+.card-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sentence-en {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #2D3748;
+  line-height: 1.4;
+}
+
+.sentence-zh {
+  font-size: 26rpx;
+  color: #718096;
+  line-height: 1.5;
+  margin-top: 10rpx;
+}
+
+.index-badge {
+  flex-shrink: 0;
+  min-width: 44rpx;
+  height: 44rpx;
+  margin-left: 16rpx;
+  padding: 0 8rpx;
+  border-radius: 22rpx;
+  background-color: #EDF2F7;
+  color: #718096;
+  font-size: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
+  box-sizing: border-box;
+}
+
+.delete-button {
+  width: 140rpx;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
   background: #ee0a24;
   color: #fff;
-  font-size: 26rpx;
+  font-size: 24rpx;
+  border-radius: 20rpx;
 }
 
 .bottom-bar {

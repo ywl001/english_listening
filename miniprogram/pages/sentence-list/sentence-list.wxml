@@ -14,10 +14,16 @@
   <view wx:if="{{displayList.length > 0}}" class="list">
 
     <view wx:for="{{displayList}}" wx:key="_id" class="swipe-item">
-      <van-swipe-cell right-width="{{80}}">
-        <van-cell custom-style="background: #e8f3ff;" title="{{index + 1}}. {{item.en || item.english}}" label="{{item.zh || item.chinese}}" border="{{false}}" is-link="{{false}}" bind:click="playSingleAudio" data-index="{{index}}" />
+      <van-swipe-cell right-width="{{canDelete ? 70 : 0}}" disabled="{{!canDelete}}">
+        <view class="sentence-card" bindtap="playSingleAudio" data-index="{{index}}">
+          <view class="card-main">
+            <text class="sentence-en">{{item.en || item.english}}</text>
+            <text class="sentence-zh">{{item.zh || item.chinese}}</text>
+          </view>
+          <text class="index-badge">{{index + 1}}</text>
+        </view>
 
-        <view slot="right" class="delete-button" catchtap="onDelete" data-data="{{item}}">
+        <view slot="right" wx:if="{{canDelete}}" class="delete-button" catchtap="onDelete" data-data="{{item}}">
           <van-icon name="delete-o" size="22" color="#fff" />
           <text>删除</text>
         </view>
@@ -36,14 +42,14 @@
   </view>
 
   <!-- 删除确认弹窗 -->
-  <van-dialog use-slot title="取消收藏" show="{{showDeleteDialog}}" show-cancel-button bind:confirm="confirmDelete" bind:cancel="cancelDelete" bind:close="cancelDelete">
+  <van-dialog use-slot title="{{bookKind === 'ref' ? '取消收藏' : '删除句子'}}" show="{{showDeleteDialog}}" show-cancel-button bind:confirm="confirmDelete" bind:cancel="cancelDelete" bind:close="cancelDelete">
     <view class="dialog-content">
-      确定要取消收藏该句子吗？
+      {{deleteDialogText}}
     </view>
   </van-dialog>
 
   <van-popup closeable show="{{showGenerator}}" custom-style="height: 95%;" position="bottom" round bind:close="closeGenerator">
-    <sentence-generator book-id="{{bookId}}" bind:saved="onSentenceSaved" />
+    <sentence-generator book-id="{{bookId}}" bind:saved="onSentenceSaved" bind:close="closeGenerator" />
   </van-popup>
 
 </view>

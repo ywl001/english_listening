@@ -4,6 +4,7 @@
   box-sizing: border-box;
   background: #f5f6fa;
 }
+
 .card {
   background: #FFFFFF;
   border-radius: 24rpx;
@@ -60,4 +61,3 @@
 .bottom-bar van-button {
   flex: 1;
 }
-

@@ -66,7 +66,8 @@ export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
     const groups = new Map<string, T[]>();
     for (const it of items) {
       // 容错处理：确保 bookId 存在，若无则归类到 'default'
-      const b = it.bookId || 'default';
+      // const b = it.refBookId ? it.refBookId :it.bookId || 'default';
+      const b = (it as SentenceFavorite).refBookId || it.bookId || 'default';
       if (!groups.has(b)) groups.set(b, []);
       groups.get(b)!.push(it);
     }

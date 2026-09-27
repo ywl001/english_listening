@@ -12,7 +12,9 @@ export class Sync {
   }
   async syncFromCloud(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<number> {
     const meta = store.getMeta();
-    let cursor = meta.cursor;
+    // 游标回退 10 分钟做重叠窗口：容忍多端设备时钟偏差导致的漏拉
+    // （merge 按 _id + updatedAt 去重，重复拉取无副作用）
+    let cursor = Math.max(0, meta.cursor - 10 * 60 * 1000);
     let fetched = 0;
     let hasMore = true;
 

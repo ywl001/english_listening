@@ -1,0 +1,229 @@
+page {
+  background-color: #F4F6F9;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* 注意：这里的 .container 会覆盖 app.wxss 全局规则，取 sentence-play 同款布局 */
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0 32rpx 30rpx 32rpx;
+  box-sizing: border-box;
+}
+
+/* ---------------- 1. 顶部进度 ---------------- */
+
+.header-section {
+  flex-shrink: 0;
+}
+
+.header-center {
+  display: flex;
+  justify-content: center;
+  padding-top: 20rpx;
+  padding-bottom: 8rpx;
+}
+
+.count-text {
+  font-size: 24rpx;
+  color: #718096;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.time-text {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #A0AEC0;
+  width: 72rpx;
+  text-align: center;
+}
+
+.progress-slider {
+  flex: 1;
+  margin: 0 8rpx;
+}
+
+/* ---------------- 2. 卡片滑动区域 ---------------- */
+
+.card-wrapper {
+  flex: 1;
+  min-height: 0; /* 关键：防止 flex 子项撑满导致底部被挤出 */
+  width: 100%;
+  margin: 10rpx 0 20rpx 0;
+  position: relative;
+}
+
+/* 音频加载/缓冲遮罩 */
+.audio-loading-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24rpx;
+  border-radius: 32rpx;
+  background-color: rgba(255, 255, 255, .8);
+  backdrop-filter: blur(4rpx);
+}
+
+.loading-spinner {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  border: 6rpx solid #E2E8F0;
+  border-top-color: #2B6CB0;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: #718096;
+}
+
+.card-swiper {
+  width: 100%;
+  height: 100%;
+}
+
+.swiper-item-inner {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.sentence-card {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx;
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.04);
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.text-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  padding: 20rpx 0;
+  background-color: #f8f9f4;
+  border-radius: 50rpx;
+}
+
+.english-text {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.4;
+}
+
+.chinese-text {
+  font-size: 32rpx;
+  color: #7f8c8d;
+  line-height: 1.5;
+}
+
+.placeholder-text {
+  font-size: 26rpx;
+  color: #c0c4cc;
+  letter-spacing: 2rpx;
+}
+
+.divider-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20rpx 0;
+  width: 100%;
+}
+
+.divider-container .line {
+  flex: 1;
+  height: 1rpx;
+  background-color: #dadada;
+}
+
+.hint-text {
+  font-size: 22rpx;
+  color: #cccccc;
+  padding: 0 24rpx;
+}
+
+/* ---------------- 3. 底部控制条 ---------------- */
+
+.player-bar-wrapper {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.player-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 16rpx 30rpx calc(16rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 2rpx 10rpx rgba(160, 174, 192, .12);
+}
+
+.ctrl-icon {
+  width: 100rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 24rpx;
+}
+
+.ctrl-icon:active {
+  opacity: .6;
+}
+
+.ctrl-play {
+  width: 108rpx;
+  height: 108rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4A90D9, #357ABD);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 24rpx;
+  box-shadow: 0 6rpx 16rpx rgba(74, 144, 217, .35);
+}
+
+.ctrl-play:active {
+  transform: scale(.95);
+}
+
+.ctrl-play-disabled {
+  opacity: .6;
+}
+
+.rate-text {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #4A5568;
+}

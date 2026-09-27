@@ -26,12 +26,12 @@
 
   <view class="bottom-bar">
     <block wx:if="{{tempAudioUrl && tempAudioZhUrl}}">
-      <van-button block type="primary" loading="{{saving}}" disabled="{{saving || !selectedBookId}}" bind:click="onSave">
+      <van-button class="btn" block type="primary" loading="{{saving}}" disabled="{{saving || !selectedBookId}}" bind:click="onSave">
         保存到句子库
       </van-button>
     </block>
 
-    <van-button wx:else block type="info" loading="{{generating}}" disabled="{{generating || !inputText}}" bind:click="onTranslateAndGenerate">
+    <van-button class="btn" wx:else block type="info" loading="{{generating}}" disabled="{{generating || !inputText}}" bind:click="onTranslateAndGenerate">
       翻译并生成发音
     </van-button>
   </view>

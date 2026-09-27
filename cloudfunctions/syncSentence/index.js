@@ -53,15 +53,22 @@ async function getAudioUrls(list) {
 
   return list.map(x => ({
     ...x,
+    // 公有读权限下为长期有效 URL，可直接落盘播放
     audio: map.get(x.audio) || x.audio || '',
-    audio_zh: map.get(x.audio_zh) || x.audio_zh || ''
+    audio_zh: map.get(x.audio_zh) || x.audio_zh || '',
+    // 保留原始 cloud:// fileID：删除/管理云存储文件时需要
+    audioFileId: x.audio || '',
+    audioZhFileId: x.audio_zh || ''
   }))
 }
 exports.main = async event => {
   const {
     bookId,
     cursor = 0,
-    limit = 100
+    limit = 100,
+    // withUrl=false：不换 URL，直接返回 cloud:// fileID（需要 fileID 的调用方）
+    // 默认 true：返回长期有效 URL（云存储需设为"所有用户可读"）+ 附带原始 fileID 字段
+    withUrl = true
   } = event
 
   if (!bookId) return {
@@ -90,7 +97,9 @@ exports.main = async event => {
       audio_zh: toFullFileId(item.audio_zh)
     }))
 
-    list = await getAudioUrls(list)
+    if (withUrl) {
+      list = await getAudioUrls(list)
+    }
 
     return {
       code: 0,

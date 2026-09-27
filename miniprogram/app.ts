@@ -3,6 +3,8 @@ import { callCloudFunction } from "./utils/cloud-client"
 import sync from "./utils/sync"
 import appController from "./services/app-controller"
 import appStore from "./services/app-store"
+import eventBus from "./services/EventBus"
+import { AppEvent } from "./services/event-type"
 
 // app.ts
 App<IAppOption>({
@@ -21,12 +23,14 @@ App<IAppOption>({
 
     console.log('cloud init success')
 
-    await appStore.init()
-    await appController.init()
+    // 【关键】同步注册事件监听，不能放在 await 之后：
+    // async onLaunch 一旦 await 就会让出事件循环，页面 onLoad/onShow 会趁这个空档执行，
+    // 此时 GET_BOOKS 事件没有监听器，book 列表就永远不会加载（真机冷启动偶发空列表的根因）
+    appStore.init()
+    appController.init()
 
     console.log('appStore instance:', appStore)
     console.log('appController instance:', appController)
-
 
     this.openidReady = this.initOpenid() as any
     // 运行期间屏幕亮
@@ -35,8 +39,11 @@ App<IAppOption>({
     })
 
     await this.openidReady
-    this.ensureUserBook()
-
+    // 默认书（我的句子/我的收藏）就绪后，主动拉一次书列表兜底：
+    // 即使页面 onShow 的事件因时序丢失，这里也会把数据灌进 appStore.books
+    this.ensureUserBook().then(() => {
+      eventBus.emit(AppEvent.GET_BOOKS)
+    })
     sync.startSync()
 
     // 启动eventBus监听程序

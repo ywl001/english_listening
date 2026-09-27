@@ -1,33 +1,30 @@
 
-// 定义分页加载器函数类型，解耦具体 API 服务
-export type ListFetcher = (cursor: SentencePlayCursor | null, limit: number) => Promise<SentencePlaylistResult>;
+import eventBus from "./EventBus";
+import { AppEvent } from "./event-type";
 
 export class SentencePlayListManager {
   private playQueue: Sentence[] = [];
   private currentIndex: number = 0;
   private _bookId: string = ''
 
-  // 分页/预加载状态控制
-  private fetcher: ListFetcher | null = null;
-  private nextCursor: SentencePlayCursor | null = null;
+  // 是否还有更多数据（由外部加载后通过 append/setNoMore 更新）
   private hasMore: boolean = true;
-  private isLoading: boolean = false;
+  // 已发出加载请求但数据尚未返回，防止重复发事件
+  private waitingMore: boolean = false;
 
-  // 预加载阈值：当剩余未播句子少于等于 3 条时，自动触发 loadMore
+  // 预加载阈值：当剩余未播句子少于等于 3 条时，通知外部加载数据
   private readonly PRELOAD_THRESHOLD = 3;
 
   /**
    * 初始化播放队列
+   * @param book 所属书本
    * @param initialData 初始数据列表
-   * @param fetcher 可选：获取后续分页数据的回调函数（解耦不同来源的数据请求）
    */
-  public init(book: Book, initialData: SentencePlaylistResult, fetcher?: ListFetcher): void {
+  public init(book: Book, initialData: SentencePlaylistResult): void {
     this.reset(); // 初始化前先重置
     this._bookId = book._id;
     this.playQueue = initialData.list || [];
-    this.nextCursor = initialData.cursor || null;
     this.hasMore = initialData.hasMore ?? false;
-    this.fetcher = fetcher || null;
   }
 
   public get currentIndexNum(): number {
@@ -58,20 +55,49 @@ export class SentencePlayListManager {
   }
 
   /**
-   * 播放下一句（附带自动预加载判定）
+   * 播放下一句（剩余句子不足时通知外部加载数据）
    */
   public next(): Sentence | null {
     if (this.currentIndex < this.playQueue.length - 1) {
       this.currentIndex++;
-
-      const remainCount = this.playQueue.length - 1 - this.currentIndex;
-      if (remainCount <= this.PRELOAD_THRESHOLD && this.hasMore && !this.isLoading) {
-        this.loadMore();
-      }
-
+      this.checkNeedMore();
       return this.getCurrent();
     }
     return null;
+  }
+
+  /**
+   * 剩余未播句子不足时，发事件通知外部加载数据
+   */
+  private checkNeedMore(): void {
+    const remainCount = this.playQueue.length - 1 - this.currentIndex;
+    if (remainCount <= this.PRELOAD_THRESHOLD && this.hasMore && !this.waitingMore) {
+      this.waitingMore = true;
+      eventBus.emit(AppEvent.NEED_MORE_SENTENCES, { bookId: this._bookId });
+    }
+  }
+
+  /**
+   * 外部加载完成后，把新数据追加进队列
+   */
+  public append(list: Sentence[], hasMore?: boolean): void {
+    if (!Array.isArray(list) || list.length === 0) {
+      this.waitingMore = false;
+      return;
+    }
+    this.playQueue = this.playQueue.concat(list);
+    if (hasMore !== undefined) {
+      this.hasMore = hasMore;
+    }
+    this.waitingMore = false;
+  }
+
+  /**
+   * 外部确认已没有更多数据
+   */
+  public setNoMore(): void {
+    this.hasMore = false;
+    this.waitingMore = false;
   }
 
   /**
@@ -125,44 +151,13 @@ export class SentencePlayListManager {
   }
 
   /**
-   * 静默预加载更多句子追加到队列末尾
-   */
-  public async loadMore(targetCount = 20): Promise<boolean> {
-    if (this.isLoading || !this.hasMore || !this.fetcher) {
-      return false;
-    }
-
-    this.isLoading = true;
-    try {
-      const res = await this.fetcher(this.nextCursor, targetCount);
-
-      if (res && res.list && res.list.length > 0) {
-        // this.playQueue = [...this.playQueue, ...res.list];
-        this.playQueue = this.playQueue.concat(res.list)
-        this.nextCursor = res.cursor || null;
-        this.hasMore = res.hasMore ?? false;
-        return true;
-      } else {
-        this.hasMore = false;
-      }
-    } catch (error) {
-      console.error('[SentencePlayListManager] 预加载句子失败:', error);
-    } finally {
-      this.isLoading = false;
-    }
-    return false;
-  }
-
-  /**
    * 清空重置队列
    */
   public reset(): void {
     this.playQueue = [];
     this.currentIndex = 0;
-    this.nextCursor = null;
     this.hasMore = true;
-    this.isLoading = false;
-    this.fetcher = null;
+    this.waitingMore = false;
     this._bookId = ''
   }
 }

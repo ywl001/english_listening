@@ -1,34 +1,59 @@
-<view class="main-card">
-  <!-- 内容主区域（占满大部分高度） -->
-  <view class="card-content">
-    <!-- 英文区域 -->
-    <view class="card-section">
-      <text class="sentence-en {{enShow ? 'show' : ''}}" catchtap="onTapEn">{{sentence.en || 'Life is like a box of chocolates.'}}</text>
-    </view>
+<view class="sentence-card">
+  <!-- 英文句子区域 -->
+  <view class="text-section english-section">
+    <!-- 1. 显示英文内容 -->
+    <text wx:if="{{ showEnglish }}" class="english-text" catchtap="toggleEnglish">{{ sentence.en }}</text>
 
-    <!-- 中间分隔线 -->
-    <view class="divider">
-      <view class="line"></view>
-      <text class="divider-icon">//</text>
-      <view class="line"></view>
-    </view>
-
-    <!-- 中文区域 -->
-    <view class="card-section">
-      <text class="sentence-zh {{hideZh ? 'hidden' : ''}}">{{sentence.zh || '生活就像一盒巧克力。'}}</text>
-    </view>
+    <!-- 2. 显示占位文字 -->
+    <text wx:else class="placeholder-text" catchtap="toggleEnglish">点击显示英文</text>
   </view>
 
-  <!-- 底部新增按钮区域 -->
-  <view class="card-actions">
-    <view class="action-btn {{isFavorite ? 'active' : ''}}" catchtap="onTapFavorite">
-      <van-icon name="like-o" size="24px" />
-      <text class="action-text">{{currentFavoriteBook.name || '收藏夹'}}</text>
-    </view>
-    <view class="action-btn {{ stage > 0 ? 'active' : ''}}" catchtap="onTapMastered">
-      <text class="action-text">已会{{stage > 0 ? '+' + stage : ''}}</text>
-    </view>
+  <!-- 中间分割线与提示文字 -->
+  <view class="divider-container">
+    <view class="line"></view>
+    <text class="hint-text">点击文字可隐藏 / 显示</text>
+    <view class="line"></view>
   </view>
 
- 
+  <!-- 中文句子区域 -->
+  <view class="text-section chinese-section" catchtap="toggleChinese">
+    <block wx:if="{{ showChinese }}">
+      <text class="chinese-text">{{ sentence.zh }}</text>
+    </block>
+    <block wx:else>
+      <text class="placeholder-text">点击显示中文</text>
+    </block>
+  </view>
+
+  <!-- 中间分割线与提示文字 -->
+  <view class="divider-container">
+    <view class="line"></view>
+  </view>
+
+  <!-- 底部状态操作栏 (收藏 / 已会 / 忘记 / 熟悉) -->
+  <view class="action-bar">
+    <!-- 1. 收藏 -->
+    <view class="action-item {{ sentence.isFavorite ? 'active-favorite' : '' }}" catchtap="onTapFavorite" catch:longtap="onLongtapFavorite" data-type="favorite">
+      <van-icon name="{{ sentence.isFavorite ? 'like' : 'like-o' }}" size="22px" />
+      <text class="action-label">{{favLabel}}</text>
+    </view>
+
+    <!-- 2. 已会 -->
+    <view class="action-item {{ sentence.mark.stage > 0 ? 'active-mastered' : '' }}" catchtap="onTapMastered" data-type="mastered">
+      <van-icon name="passed" size="22px" />
+      <text class="action-label">已会{{sentence.mark.stage>0 ? '+'+sentence.mark.stage:''}}</text>
+    </view>
+
+    <!-- 3. 忘记：stage 归零，马上重新进入复习队列 -->
+    <view class="action-item {{ sentence.mark && sentence.mark.stage === 0 ? 'active-forgot' : '' }}" catchtap="onActionTap" data-type="forgot">
+      <van-icon name="warning-o" size="22px" />
+      <text class="action-label">忘记</text>
+    </view>
+
+    <!-- 4. 熟悉：stage 直接拉满，长期不再复习 -->
+    <view class="action-item {{ sentence.mark && sentence.mark.stage === 8 ? 'active-familiar' : '' }}" catchtap="onActionTap" data-type="familiar">
+      <van-icon name="star-o" size="22px" />
+      <text class="action-label">熟悉</text>
+    </view>
+  </view>
 </view>

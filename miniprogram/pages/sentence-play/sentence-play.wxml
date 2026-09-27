@@ -1,67 +1,77 @@
 <view class="container">
   <!-- 1. 顶部 Header 与进度条 -->
-  <view class="header">
-    <view class="header-center">
-      <text class="header-title">Playback Player</text>
-      <text class="book-subtitle">{{bookTitle || 'Sentence Play'}} | {{currentIndex + 1}}/{{totalCount}}</text>
+  <view class="header-section">
+    <view class="header">
+      <view class="header-center">
+        <text class="header-title">Playback Player</text>
+        <text class="book-subtitle">{{bookTitle || 'Sentence Play'}} | {{currentIndex + 1}}/{{totalCount}}</text>
+      </view>
+      <view class="header-placeholder"></view>
     </view>
-    <view class="header-placeholder"></view>
-  </view>
 
-  <view class="progress-bar-bg">
-    <view class="progress-bar-fill" style="width: {{ totalCount ? (((currentIndex + 1) / totalCount) * 100) + '%' : '0%' }};"></view>
+    <view class="progress-bar-bg">
+      <view class="progress-bar-fill" style="width: {{ totalCount ? (((currentIndex + 1) / totalCount) * 100) + '%' : '0%' }};"></view>
+    </view>
   </view>
 
   <!-- 2. 中央卡片滑动区域 -->
   <view class="card-wrapper">
-    <swiper class="card-swiper" current="{{currentIndex}}" duration="300" bindchange="onSwiperChange">
-      <block wx:for="{{sentenceList}}" wx:key="_id">
+    <!-- current 改为绑定 swiperCurrent，不要绑定在 Swiper 节点上截断点击事件 -->
+    <swiper 
+      class="card-swiper" 
+      current="{{swiperCurrent}}" 
+      duration="300" 
+      circular="{{ true }}" 
+      bindchange="onSwiperChange"
+    >
+      <block wx:for="{{displayList}}" wx:key="index">
         <swiper-item class="swiper-item-inner">
-          <!-- 点击卡片区域触发播放/暂停 -->
-          <view class="card-touch-area" bindtap="onTogglePlay">
-            <sentence-play-card sentence="{{item}}" hideZh="{{hideZh}}" isFavorite="{{item.isFavorite}}" stage="{{item.mark.stage || 0}}" data-data="{{item}}" bind:toggleFavorite="onToggleFavorite" bind:toggleMastered="onMarkLearned" />
+          <!-- 点击空白区域：播放/暂停（文字区域在卡片内 catchtap，不冒泡） -->
+          <view class="card-tap-area" bindtap="onTogglePlay">
+          <sentence-play-card
+            wx:if="{{item}}"
+            sentence="{{item}}" 
+            favoriteBookName = "{{favoriteBookName}}"
+            book-names="{{bookNames}}"
+            show-english="{{ showEnglish }}"
+            show-chinese="{{ showChinese }}"
+            data-data="{{item}}" 
+            bind:toggleFavorite="onToggleFavorite"
+            bind:toggleMastered="onMarkLearned"
+            bind:setStage="onSetStage"
+            bind:longtapFavorite="onLongTapFavorite"
+            bind:toggleEnglish="onToggleEnglish"
+            bind:toggleChinese="onToggleChinese"
+          />
           </view>
         </swiper-item>
       </block>
     </swiper>
   </view>
 
-  <!-- 3. 功能胶囊按钮组 -->
-  <view class="capsule-bar">
-    <view class="capsule-btn {{isLooping ? 'active' : ''}}" bindtap="onToggleLoop">
-      <text class="capsule-title">Repeat</text>
-      <text class="capsule-sub">Loop</text>
-    </view>
-
-    <view class="capsule-btn {{hideZh ? 'active' : ''}}" bindtap="onToggleZh">
-      <text class="capsule-title">Hide/</text>
-      <text class="capsule-sub">Show ZH</text>
-    </view>
-
-    <view class="capsule-btn" bindtap="onChangeSpeed">
-      <text class="capsule-title">Speed</text>
-      <text class="capsule-sub">{{playbackRate}}x</text>
-    </view>
+  <!-- 3. 底部控制组件 -->
+  <view class="player-bar-wrapper">
+    <play-bar
+      is-playing="{{ isPlaying }}"
+      initial-order="{{ playOrder }}"
+      initial-repeat="{{ repeatCount }}"
+      initial-limit="{{ limitCount }}"
+      bind:togglePlay="onTogglePlay"
+      bind:orderChange="onOrderChange"
+      bind:repeatChange="onRepeatChange"
+      bind:limitChange="onLimitChange"
+      bind:prev="onPrevSentence"
+      bind:next="onNextSentence"
+    />
   </view>
 
-  <!-- 4. 底部播放控制盘 -->
-  <view class="control-panel">
-    <view class="ctrl-btn sm" bindtap="onFirst">
-      <text class="icon">⏮</text>
-    </view>
-    <view class="ctrl-btn sm" bindtap="onPrev">
-      <text class="icon">◄◄</text>
-    </view>
-    <view class="ctrl-btn main {{isPlaying ? 'playing' : ''}}" bindtap="onTogglePlay">
-      <text class="icon">{{isPlaying ? '❚❚' : '▶'}}</text>
-    </view>
-    <view class="ctrl-btn sm" bindtap="onReplay">
-      <text class="icon-text">5s</text>
-    </view>
-    <view class="ctrl-btn sm" bindtap="onNext">
-      <text class="icon">►►</text>
-    </view>
-  </view>
-
-  <book-select-sheet show="{{ showModal }}" book-list="{{ myBooks }}" auto-save="{{ autoSavePreference }}" bind:close="handleCloseModal" bind:select="handleSelectBook" bind:create="handleCreateBook" bind:autoSaveChange="handleAutoSaveChange" />
+  <book-select-sheet 
+    show="{{ showModal }}" 
+    book-list="{{ myBooks }}" 
+    auto-save="{{ autoSavePreference }}" 
+    bind:close="handleCloseModal" 
+    bind:select="handleSelectBook" 
+    bind:create="handleCreateBook" 
+    bind:autoSaveChange="handleAutoSaveChange" 
+  />
 </view>

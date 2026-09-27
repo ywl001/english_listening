@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "文章播放",
+  "usingComponents": {
+    "van-icon": "@vant/weapp/icon/index",
+    "van-loading": "@vant/weapp/loading/index"
+  }
+}

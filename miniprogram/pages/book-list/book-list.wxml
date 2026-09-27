@@ -1,0 +1,53 @@
+<view class="container">
+  <!-- 顶部 Tab 栏（仅句子模式；文章暂只有系统书） -->
+  <view class="tab-header" wx:if="{{activeContent === 'sentence'}}">
+    <view class="tab-group">
+      <view class="tab-item {{activeTab === 'system' ? 'active' : ''}}" bindtap="switchTab" data-tab="system">系统推荐</view>
+      <view class="tab-item {{activeTab === 'user' ? 'active' : ''}}" bindtap="switchTab" data-tab="user">用户自定义</view>
+    </view>
+    <!-- 全局搜索入口：搜句子加入收藏夹 -->
+    <view class="search-btn" bindtap="onOpenSearch">
+      <van-icon name="search" size="20px" color="#718096" />
+    </view>
+  </view>
+
+  <!-- 句子书列表滚动区 -->
+  <scroll-view scroll-y class="book-list" wx:if="{{activeContent === 'sentence'}}">
+    <!-- 新建按钮 -->
+    <view wx:if="{{activeTab === 'user'}}" class="create-card" bindtap="openCreateBook">
+      <text class="plus">+</text>
+      <text>新建句子书</text>
+    </view>
+
+    <!-- 句子书卡片组件 -->
+    <block wx:for="{{activeTab === 'system' ? systemBooks : userBooks}}" wx:key="_id">
+      <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{activeTab === 'user'}}" bind:tapcard="onTapBook" bind:edit="onEditBook" bind:delete="onDeleteBook" />
+    </block>
+  </scroll-view>
+
+  <!-- 文章书列表 -->
+  <scroll-view scroll-y class="book-list" wx:if="{{activeContent === 'article'}}">
+    <block wx:for="{{articleBooks}}" wx:key="_id">
+      <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{false}}" bind:tapcard="onTapBook" />
+    </block>
+    <view wx:if="{{!articleBooks.length}}" class="empty-tip">暂无文章书</view>
+  </scroll-view>
+
+  <!-- 新建句子书弹窗 -->
+  <book-create bind:confirm="onCreateBook" bind:close="closeBookCreate" visible="{{showBookCreate}}" />
+
+  <!-- 全局句子搜索面板（顶部滑入） -->
+  <sentence-search show="{{showSearch}}" bind:close="onCloseSearch" />
+
+  <!-- 底部悬浮内容切换：两个独立按钮 -->
+  <view class="fab-btn {{activeContent === 'sentence' ? 'active' : ''}}" bindtap="switchContent" data-content="sentence">
+    <van-icon name="chat-o" size="22px" />
+    <text class="fab-label">句子</text>
+  </view>
+
+  <view class="fab-btn fab-article {{activeContent === 'article' ? 'active' : ''}}" bindtap="switchContent" data-content="article">
+    <van-icon name="notes-o" size="22px" />
+    <text class="fab-label">文章</text>
+  </view>
+
+</view>

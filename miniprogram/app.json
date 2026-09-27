@@ -1,10 +1,12 @@
 {
   "pages": [
-    "pages/sentence-book-list/sentence-book-list",
+    "pages/book-list/book-list",
     "pages/index/index",
     "pages/sentence-play/sentence-play",
     "pages/sentence-list/sentence-list",
-    "pages/sentence-input/sentence-input"
+    "pages/sentence-input/sentence-input",
+    "pages/article-list/article-list",
+    "pages/article-play/article-play"
   ],
   "window": {
     "navigationBarTextStyle": "black",

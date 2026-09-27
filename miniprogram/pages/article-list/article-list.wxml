@@ -1,0 +1,33 @@
+<view class="page-root">
+  <scroll-view scroll-y class="article-list">
+    <!-- 收藏模式：滑动删除；普通模式：直接点击 -->
+    <van-swipe-cell
+      wx:for="{{articles}}"
+      wx:key="_id"
+      right-width="{{70}}"
+      disabled="{{!favorite}}"
+    >
+      <view
+        class="article-card"
+        bindtap="onTapArticle"
+        data-index="{{index}}"
+      >
+        <view class="card-main">
+          <text class="article-title">{{item.title}}</text>
+          <view class="article-meta">
+            <text class="meta-item">{{item.sentenceCount || 0}} 句</text>
+            <text class="meta-order">No.{{item.order}}</text>
+          </view>
+        </view>
+        <text class="arrow">›</text>
+      </view>
+
+      <view wx:if="{{favorite}}" slot="right" class="delete-btn" catchtap="onRemoveFavorite" data-index="{{index}}">
+        删除
+      </view>
+    </van-swipe-cell>
+
+    <view wx:if="{{loading}}" class="empty-tip">加载中...</view>
+    <view wx:elif="{{!articles.length}}" class="empty-tip">{{favorite ? '暂无收藏的文章' : '本书暂无文章'}}</view>
+  </scroll-view>
+</view>
