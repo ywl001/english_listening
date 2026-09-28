@@ -55,6 +55,21 @@ Component({
   lifetimes: {
     attached() {
       // 组件加载时，根据初始值匹配索引
+      this.syncFromProps();
+    },
+  },
+
+  observers: {
+    // 页面恢复 storage 设置时属性可能晚于 attach 到达（时序竞争），
+    // 持续监听保证显示始终与属性同步（用户点击后页面 setData 回推同值，不冲突）
+    'initialOrder, initialRepeat, initialLimit': function () {
+      this.syncFromProps();
+    },
+  },
+
+  methods: {
+    /** 按传入的 key 匹配选项索引并刷新胶囊文案（attach 与属性变化时都会调用） */
+    syncFromProps() {
       const orderIdx = PLAY_ORDERS.findIndex(
         (item) => item.key === this.data.initialOrder
       );
@@ -78,9 +93,7 @@ Component({
         limitText: LIMIT_COUNTS[validLimitIdx].label,
       });
     },
-  },
 
-  methods: {
     // 点击切换顺序：子组件自己直接 setData，立刻变文字
     onToggleOrder() {
       const nextIndex = (this.data.orderIndex + 1) % PLAY_ORDERS.length;

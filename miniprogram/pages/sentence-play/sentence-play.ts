@@ -12,6 +12,15 @@ function mod3(n: number): number {
   return ((n % 3) + 3) % 3;
 }
 
+// 胶囊 key（zh_en/en_zh/en_only）-> 引擎 playOrder 映射
+// 页面 data.playOrder 统一存胶囊 key（与 storage、play-bar 属性同一语义），
+// 映射只在传给引擎时发生
+const ENGINE_ORDER_MAP: Record<string, string> = {
+  zh_en: 'zh_first',
+  en_zh: 'en_first',
+  en_only: 'en_only'
+};
+
 Page({
   data: {
     showModal: false,
@@ -97,12 +106,11 @@ Page({
     const audioCtx = wx.createInnerAudioContext();
 
     // 读取保存的播放设置，与底部胶囊按钮保持同一数据源，避免"显示1次实际播2次"
-    // playOrder 存胶囊的 key（zh_en/en_zh），传引擎时映射为 zh_first/en_first
+    // playOrder 存胶囊的 key（大写 ZH_EN/EN_ZH/EN_ONLY），恢复时统一转小写校验
     // 间隔固定 1 秒（原设置弹窗已移除）
     const saved = wx.getStorageSync('playback_settings') as any;
-    const playOrder = saved?.order === 'EN_ZH' || saved?.order === 'EN_ONLY'
-      ? saved.order.toLowerCase()
-      : 'zh_en';
+    const rawOrder = typeof saved?.order === 'string' ? saved.order.toLowerCase() : '';
+    const playOrder = ['zh_en', 'en_zh', 'en_only'].includes(rawOrder) ? rawOrder : 'zh_en';
     const repeatCount = typeof saved?.repeatCount === 'number' ? saved.repeatCount : 1;
     const limitCount = typeof saved?.limitCount === 'number' ? saved.limitCount : 0;
     const gapMs = (typeof saved?.interval === 'number' ? saved.interval : 1) * 1000;
@@ -113,7 +121,7 @@ Page({
       sentencePlayManager,
       {
         playMode: 'sequence',
-        playOrder: playOrder === 'en_zh' ? 'en_first' : 'zh_first',
+        playOrder: ENGINE_ORDER_MAP[playOrder],
         repeatCount,
         gapMs,
         limitCount
@@ -425,15 +433,9 @@ Page({
 
   onOrderChange(e: any) {
     const { order } = e.detail;
-    // 胶囊按钮的 key（zh_en/en_zh/en_only）映射为引擎的 playOrder（zh_first/en_first/en_only）
-    const orderMap: Record<string, string> = {
-      zh_en: 'zh_first',
-      en_zh: 'en_first',
-      en_only: 'en_only'
-    };
-    const playOrder = orderMap[order] || order;
-    this.setData({ playOrder });
-    this.playEngine?.updateConfig({ playOrder });
+    // data.playOrder 存胶囊 key（与 storage / play-bar 属性同语义），引擎值只在传引擎时映射
+    this.setData({ playOrder: order });
+    this.playEngine?.updateConfig({ playOrder: ENGINE_ORDER_MAP[order] || order });
     this.savePlaybackSettings({ order: order.toUpperCase() });
   },
 
