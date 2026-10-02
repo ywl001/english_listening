@@ -121,7 +121,7 @@ Page({
       sentencePlayManager,
       {
         playMode: 'sequence',
-        playOrder: ENGINE_ORDER_MAP[playOrder],
+        playOrder: ENGINE_ORDER_MAP[playOrder] as PlayOrder,
         repeatCount,
         gapMs,
         limitCount

@@ -2,29 +2,29 @@
 
 interface IAppOption {
   globalData: {
-    userInfo?: WechatMiniprogram.UserInfo,
-    _openid?: string,
-    playConfig?: PlayConfig
+    userInfo?: WechatMiniprogram.UserInfo;
+    _openid?: string;
+    playConfig?: PlayConfig;
     favoriteBookId?: string;
-    originBookId?: string
-  }
+    originBookId?: string;
+  };
 
-  userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback
-  openidReady: Promise<void>
+  userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback;
+  openidReady: Promise<void>;
 
-  getPlayConfig(): PlayConfig
-  ensureUserBook(): void
-  updatePlayConfig(config: Partial<PlayConfig>): void
+  getPlayConfig(): PlayConfig;
+  ensureUserBook(): void;
+  updatePlayConfig(config: Partial<PlayConfig>): void;
 
-  initOpenid(): void
+  initOpenid(): void;
 }
 
-type PlayMode = 'sequence' | 'test'
+type PlayMode = "sequence" | "test";
 
-type SentenceListMode = 'smart' | 'fav' | 'reviewOnly';
-type PlayOrder = 'zh_first' | 'en_first' | 'zh_only' | 'en_only'
+type SentenceListMode = "smart" | "fav" | "reviewOnly";
+type PlayOrder = "zh_first" | "en_first" | "zh_only" | "en_only";
 
-type WordBoundary = { text: string; start: number; duration: number }
+type WordBoundary = { text: string; start: number; duration: number };
 
 interface UserDefaultBooks {
   originBook: Book;
@@ -33,53 +33,52 @@ interface UserDefaultBooks {
   favoriteBookId: string;
 }
 
-
 interface Sentence {
-  _id: string
-  zh: string
-  en: string
-  bookId: string
-  audio: string      // 英文音频播放链接（公有读，长期有效）
-  audio_zh: string    // 中文音频播放链接（公有读，长期有效）
+  _id: string;
+  zh: string;
+  en: string;
+  bookId: string;
+  audio: string; // 英文音频播放链接（公有读，长期有效）
+  audio_zh: string; // 中文音频播放链接（公有读，长期有效）
   // 原始 cloud:// fileID（删文件等云存储管理场景使用）
-  audioFileId?: string
-  audioZhFileId?: string
-  createdAt: number
+  audioFileId?: string;
+  audioZhFileId?: string;
+  createdAt: number;
 
   // 下面附加属性表示句子的学习记录
-  mark?: SentenceMark | null
-  isNew?: boolean
+  mark?: SentenceMark | null;
+  isNew?: boolean;
 
-  favorites?: string[]
-  isFavorite?: boolean
+  favorites?: string[];
+  isFavorite?: boolean;
 }
 
 interface SentenceMark {
-  _id: string
-  _openid?: string
-  bookId: string
-  sentenceId: string
-  stage: number
-  lastReviewedAt: number
-  nextReviewAt: number
+  _id: string;
+  _openid?: string;
+  bookId: string;
+  sentenceId: string;
+  stage: number;
+  lastReviewedAt: number;
+  nextReviewAt: number;
   // createdAt:number
-  updatedAt: number
+  updatedAt: number;
 }
 
 interface SentenceFavorite {
-  _id: string
-  _openid: string
-  sentenceId: string
-  bookId: string
-  refBookId:string
+  _id: string;
+  _openid: string;
+  sentenceId: string;
+  bookId: string;
+  refBookId: string;
   // createdAt: number
-  updatedAt: number
-  deleted: boolean
+  updatedAt: number;
+  deleted: boolean;
 }
 
 // 本地离线待推送队列接口定义
 interface PendingAction {
-  type: 'mark' | 'favorite_add' | 'favorite_remove';
+  type: "mark" | "favorite_add" | "favorite_remove";
   payload: any;
 }
 
@@ -90,20 +89,20 @@ interface ToggleFavoriteResult {
 }
 
 interface SentencePlaylistRequest {
-  bookId: string
-  cursor?: SentencePlayCursor
-  limit?: number
+  bookId: string;
+  cursor?: SentencePlayCursor;
+  limit?: number;
 }
 
 interface SentencePlaylistResult {
-  list: Sentence[]
-  cursor?: SentencePlayCursor
-  hasMore?: boolean
+  list: Sentence[];
+  cursor?: SentencePlayCursor;
+  hasMore?: boolean;
 }
 
 interface SentencePlayCursor {
-  reviewIndex: number
-  createdAt: number
+  reviewIndex: number;
+  createdAt: number;
 }
 
 interface FavoriteSentenceResult {
@@ -116,12 +115,12 @@ interface FavoriteSentenceResult {
 }
 
 interface SentenceStats {
-  total: number;     // 总句数
+  total: number; // 总句数
   unlearned: number; // 未学句数 (stage === 0)
-  learning: number;  // 学习中/复习中 (stage 1 ~ 4)
-  mastered: number;  // 已会/已精通 (stage === 5)
-  dueCount: number;  // 当前到期需复习句数
-  favorite: number;  // 收藏句数
+  learning: number; // 学习中/复习中 (stage 1 ~ 4)
+  mastered: number; // 已会/已精通 (stage === 5)
+  dueCount: number; // 当前到期需复习句数
+  favorite: number; // 收藏句数
 }
 
 interface SyncCloudResponse {
@@ -131,26 +130,25 @@ interface SyncCloudResponse {
   error?: any;
 }
 
-
 interface PlayConfig {
-  playMode: PlayMode  //播放模式，顺序或继续上次
-  repeatCount: number   // 每句英文重复几遍
-  gapMs: number          // 每段音频之间的间隔(毫秒)
-  playOrder: PlayOrder  //播放顺序-->先英后中或先中后英
-  limitCount: number    // 0 表示不限
-  startId?: string
-  bookId?: string
-  bookName?: string
+  playMode: PlayMode; //播放模式，顺序或继续上次
+  repeatCount: number; // 每句英文重复几遍
+  gapMs: number; // 每段音频之间的间隔(毫秒)
+  playOrder: PlayOrder; //播放顺序-->先英后中或先中后英
+  limitCount: number; // 0 表示不限
+  startId?: string;
+  bookId?: string;
+  bookName?: string;
 }
 
 interface Article {
-  _id: string
-  audioUrl: string
-  bookId: string
-  createAt: number
-  order: number
-  sentenceCount: number
-  title: string
+  _id: string;
+  audioUrl: string;
+  bookId: string;
+  createAt: number;
+  order: number;
+  sentenceCount: number;
+  title: string;
 }
 interface ArticleSentence {
   _id: string;
@@ -164,52 +162,50 @@ interface ArticleSentence {
 
 // 文章收藏：_id 固定为 openid__articleId，保证一人一文章仅一条记录
 interface ArticleFavorite {
-  _id: string
-  _openid: string
-  articleId: string
-  bookId: string
-  deleted: boolean
-  createdAt: number
-  updatedAt: number
+  _id: string;
+  _openid: string;
+  articleId: string;
+  bookId: string;
+  deleted: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface PlayCallbacks {
-  onCurrentChange: (sentence: Sentence | null, index: number) => void
-  onStatusChange: (status: string) => void
-  onPlayingChange: (playing: boolean) => void
-  onFinished: (message: string) => void      // 整个会话结束时的提示("全部播完"/"达到设定条数")
-  onNotice: (message: string) => void        // 一次性的轻提示,比如"已经是第一句了"
+  onCurrentChange: (sentence: Sentence | null, index: number) => void;
+  onStatusChange: (status: string) => void;
+  onPlayingChange: (playing: boolean) => void;
+  onFinished: (message: string) => void; // 整个会话结束时的提示("全部播完"/"达到设定条数")
+  onNotice: (message: string) => void; // 一次性的轻提示,比如"已经是第一句了"
   // 播放列表快见底/取完时,引擎会调用这个方法要更多句子
   // 宿主页面负责调 service 拿数据,返回空数组表示确实没有更多了
 }
 
-
 interface MarksSummary {
-  favoriteIds: Set<string>          // 收藏的句子 id
-  stageMap: Map<string, number>     // 句子 id -> 当前 stage(只包含 stage>=1 的,即"学习过"的句子)
-  nextReviewAtMap: Map<string, number>  // 句子 id -> 下次复习时间戳(只包含 stage>=1 的)
+  favoriteIds: Set<string>; // 收藏的句子 id
+  stageMap: Map<string, number>; // 句子 id -> 当前 stage(只包含 stage>=1 的,即"学习过"的句子)
+  nextReviewAtMap: Map<string, number>; // 句子 id -> 下次复习时间戳(只包含 stage>=1 的)
 }
-
-
 
 interface Book {
   _id: string;
   name: string;
   content?: string;
+  alias?: string;
   _openid?: string;
-  itemCount?: number
-  isCustom?: boolean
-  type?: string
-  count?: number      // 总句子数（getBooks 统计）
-  learnedCount?: number // 已学句子数（mark.stage > 0）
+  itemCount?: number;
+  isCustom?: boolean;
+  type?: string;
+  count?: number; // 总句子数（getBooks 统计）
+  learnedCount?: number; // 已学句子数（mark.stage > 0）
 
-  isVirtualFav?:boolean
+  isVirtualFav?: boolean;
 }
 
 interface ApiResponse<T = any> {
-  code: number;     // 0 代表成功，非 0 代表失败
-  data: T;   // 成功时的数据 Payload
-  msg: string;  // 错误提示或成功描述
+  code: number; // 0 代表成功，非 0 代表失败
+  data: T; // 成功时的数据 Payload
+  msg: string; // 错误提示或成功描述
 }
 
 interface GetMarksParams {
@@ -223,35 +219,35 @@ interface GetSentencesParams {
 }
 
 interface TtsResult {
-  fileID: string
-  url: string
-  wordBoundaries: WordBoundary[]
+  fileID: string;
+  url: string;
+  wordBoundaries: WordBoundary[];
 }
 
 interface QueryResult<T> {
-  data: T[]
+  data: T[];
 }
 
 interface ApiSuccess<T> {
-  code: 0
-  data: T
-  message: string
+  code: 0;
+  data: T;
+  message: string;
 }
 
 interface ApiFail {
-  code: number
-  data: null
-  message: string
+  code: number;
+  data: null;
+  message: string;
 }
 
-type ApiResult<T> = ApiSuccess<T> | ApiFail
+type ApiResult<T> = ApiSuccess<T> | ApiFail;
 
 interface MarkIndex {
   bookIds: string[];
   total: number;
 }
 interface PendingTask<T> {
-  op: string
+  op: string;
   data: T;
   retry: number;
   ts: number;
@@ -263,17 +259,17 @@ interface SyncMeta<T> {
 }
 
 interface SentenceCache {
-  list: Sentence[]
-  cursor: number
-  completed: boolean
-  updatedAt: number
+  list: Sentence[];
+  cursor: number;
+  completed: boolean;
+  updatedAt: number;
 }
 
 interface SentenceCache {
-  list: Sentence[]
-  cursor: number
-  completed: boolean
-  updatedAt: number
+  list: Sentence[];
+  cursor: number;
+  completed: boolean;
+  updatedAt: number;
 }
 
 // interface LocalStoreOptions<T> {

@@ -1,7 +1,7 @@
 <van-swipe-cell right-width="{{70}}" disabled="{{!book.isCustom}}">
   <view class="book-card" bindtap="onTap">
     <view class="cover {{coverTheme}}">
-      <text class="cover-title">{{book.name}}</text>
+      <text class="cover-title">{{book.alias || book.name}}</text>
     </view>
 
     <view class="info">
@@ -18,7 +18,7 @@
       </view>
 
       <view class="progress-bar-bg">
-        <view class="progress-bar-fill" style="width: {{progressPercent}}%"></view>
+        <view class="progress-bar-fill" style="width: {{progressPercent}}"></view>
       </view>
     </view>
 

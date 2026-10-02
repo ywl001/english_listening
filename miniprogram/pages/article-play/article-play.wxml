@@ -39,8 +39,8 @@
         <swiper-item class="swiper-item-inner">
           <view wx:if="{{item}}" class="sentence-card" bindtap="onTogglePlay">
             <!-- 点击文字显示/隐藏（页面级状态，切句后保持） -->
-            <view class="text-section english-section" catchtap="onToggleEnglish">
-              <text wx:if="{{ showEnglish }}" class="english-text">{{item.en}}</text>
+            <view class="text-section english-section">
+              <text wx:if="{{ showEnglish }}" class="english-text"  catchtap="onToggleEnglish">{{item.en}}</text>
               <text wx:else class="placeholder-text">点击显示英文</text>
             </view>
 
@@ -50,8 +50,8 @@
               <view class="line"></view>
             </view>
 
-            <view class="text-section chinese-section" catchtap="onToggleChinese">
-              <text wx:if="{{ showChinese }}" class="chinese-text">{{item.zh}}</text>
+            <view class="text-section chinese-section" >
+              <text wx:if="{{ showChinese }}" class="chinese-text" catchtap="onToggleChinese">{{item.zh}}</text>
               <text wx:else class="placeholder-text">点击显示中文</text>
             </view>
           </view>

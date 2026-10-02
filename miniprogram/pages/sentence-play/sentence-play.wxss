@@ -65,6 +65,7 @@ page {
 .card-wrapper {
   flex: 1;
   min-height: 0; /* 关键：防止 flex 子项撑满导致底部被挤出 */
+  max-height: 58vh; /* 卡片不占满剩余空间，给底部控制区留出呼吸感 */
   width: 100%;
   margin: 10rpx 0 20rpx 0;
 }
