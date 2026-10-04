@@ -9,6 +9,10 @@ page {
 .container {
   display: flex;
   flex-direction: column;
+  /* 关键：覆盖 app.wxss 全局 .container 的 align-items: center。
+     若不覆盖，flex 子元素水平方向会收缩为内容宽度，
+     进度条（flex-basis:0）被压成 0 宽，只剩圆点可见 */
+  align-items: stretch;
   height: 100vh;
   padding: 0 32rpx 30rpx 32rpx;
   box-sizing: border-box;
@@ -46,9 +50,44 @@ page {
   text-align: center;
 }
 
-.progress-slider {
+/* 进度条触摸区：加高热区方便手指拖动 */
+.progress-touch {
   flex: 1;
-  margin: 0 8rpx;
+  display: flex;
+  align-items: center;
+  padding: 20rpx 12rpx;
+}
+
+/* 轨道 */
+.progress-track {
+  position: relative;
+  width: 100%;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background-color: #E2E8F0;
+}
+
+/* 已播进度 */
+.progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4rpx;
+  background-color: #2B6CB0;
+}
+
+/* 滑块圆点 */
+.progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 20rpx;
+  height: 20rpx;
+  margin-left: -10rpx;
+  margin-top: -10rpx;
+  border-radius: 50%;
+  background-color: #2B6CB0;
+  box-shadow: 0 2rpx 6rpx rgba(43, 108, 176, 0.4);
 }
 
 /* ---------------- 2. 卡片滑动区域 ---------------- */

@@ -6,17 +6,18 @@
     </view>
     <view class="progress-row">
       <text class="time-text">{{currentTimeText}}</text>
-      <slider
-        class="progress-slider"
-        min="0"
-        max="{{sliderMax}}"
-        value="{{sliderValue}}"
-        activeColor="#2B6CB0"
-        backgroundColor="#E2E8F0"
-        block-size="16"
-        block-color="#2B6CB0"
-        bindchange="onSeek"
-      />
+      <!-- 自绘进度条：原生 slider 在模拟器中轨道渲染异常，改用 view 实现 -->
+      <view
+        class="progress-touch"
+        catchtouchstart="onTrackTouchStart"
+        catchtouchmove="onTrackTouchMove"
+        catchtouchend="onTrackTouchEnd"
+      >
+        <view class="progress-track">
+          <view class="progress-fill" style="width: {{progressPercent}}%;"></view>
+          <view class="progress-thumb" style="left: {{progressPercent}}%;"></view>
+        </view>
+      </view>
       <text class="time-text">{{durationText}}</text>
     </view>
   </view>
@@ -41,7 +42,7 @@
             <!-- 点击文字显示/隐藏（页面级状态，切句后保持） -->
             <view class="text-section english-section">
               <text wx:if="{{ showEnglish }}" class="english-text"  catchtap="onToggleEnglish">{{item.en}}</text>
-              <text wx:else class="placeholder-text">点击显示英文</text>
+              <text wx:else class="placeholder-text" catchtap="onToggleEnglish">点击显示英文</text>
             </view>
 
             <view class="divider-container">
@@ -52,7 +53,7 @@
 
             <view class="text-section chinese-section" >
               <text wx:if="{{ showChinese }}" class="chinese-text" catchtap="onToggleChinese">{{item.zh}}</text>
-              <text wx:else class="placeholder-text">点击显示中文</text>
+              <text wx:else class="placeholder-text"  catchtap="onToggleChinese">点击显示中文</text>
             </view>
           </view>
         </swiper-item>

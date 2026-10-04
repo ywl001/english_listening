@@ -19,7 +19,7 @@
       <view class="book-item" data-id="{{ item.id }}" bindtap="onSelectBook">
         <view class="book-info">
           <!-- 书籍封面图，可替换为默认图或实图 -->
-          <image class="book-cover" src="{{ item.cover || '/assets/default-book.png' }}" mode="aspectFill" />
+          <!-- <image class="book-cover" src="{{ item.cover || '/assets/default-book.png' }}" mode="aspectFill" /> -->
           <text class="book-name">{{ item.name }}</text>
         </view>
         <!-- 收藏状态图标 -->

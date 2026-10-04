@@ -12,6 +12,7 @@
 // }
 
 import { SentencePlayListManager } from "./sentence-play-manager";
+import { AudioTask, SegmentAudioPlayer } from "./segment-audio-player";
 
 /**
  * 播放事件回调
@@ -30,23 +31,42 @@ export interface PlayCallbacks {
 }
 
 export class PlayEngine {
-  private step = 0;
   private awaitingNextStep = false;
   private playToken = 0;
   private playing = false;
+  /** 连续播放错误计数（正常播完一句即清零，防止错误→跳句→再错误的死循环） */
+  private errorStreak = 0;
+  /** 中文轮次是否已处理（学习模式排序用） */
+  private zhPlayed = false;
+  /** 已完成的朗读次数（片段级：1 个片段 = 1 次朗读） */
+  private readsDone = 0;
+  /** 刚下发的任务包含的朗读段数 */
+  private lastTaskSegments = 1;
+  /** 当前任务播完后是否计入 readsDone（英文/计数语言才计） */
+  private countThisTask = false;
 
   constructor(
-    private audioCtx: WechatMiniprogram.InnerAudioContext,
+    private player: SegmentAudioPlayer,
     private listManager: SentencePlayListManager,
     private config: PlayConfig,
     private callbacks: PlayCallbacks
   ) {
-    // 监听音频自然播放结束
-    this.audioCtx.onEnded(() => this.handleAudioEnded());
+    // 监听音频任务播放完毕（旧结构=整文件结束；新结构=最后一段到达终点）
+    this.player.onEnded(() => {
+      this.errorStreak = 0;
+      this.handleAudioEnded();
+    });
 
     // 监听音频播放异常
-    this.audioCtx.onError(err => {
+    this.player.onError(err => {
       console.error('[PlayEngine] 播放出错:', err);
+      // 连续 3 句失败：不再继续跳句，避免死循环刷屏
+      this.errorStreak += 1;
+      if (this.errorStreak >= 3) {
+        this.setPlaying(false);
+        this.callbacks.onFinished('连续播放失败，已停止');
+        return;
+      }
       // 遇到坏音频跳过，自动尝试下一句
       this.next(true);
     });
@@ -154,7 +174,7 @@ export class PlayEngine {
    */
   public pauseToggle(): void {
     if (this.playing) {
-      this.audioCtx.pause();
+      this.player.pause();
       this.setPlaying(false);
       return;
     }
@@ -165,7 +185,7 @@ export class PlayEngine {
       this.awaitingNextStep = false;
       this.advanceStep();
     } else {
-      this.audioCtx.play();
+      this.player.resume();
     }
   }
 
@@ -173,7 +193,7 @@ export class PlayEngine {
    * 停止播放
    */
   public stop(): void {
-    this.audioCtx.stop();
+    this.player.stop();
     this.setPlaying(false);
     this.awaitingNextStep = false;
   }
@@ -183,14 +203,17 @@ export class PlayEngine {
    */
   public destroy(): void {
     this.stop();
-    this.audioCtx.destroy();
+    this.player.destroy();
   }
 
   // ==================== 内部步骤与状态控制 ====================
 
   private resetStepState(): void {
-    this.step = 0;
     this.awaitingNextStep = false;
+    this.zhPlayed = false;
+    this.readsDone = 0;
+    this.lastTaskSegments = 1;
+    this.countThisTask = false;
     this.playToken += 1;
   }
 
@@ -200,7 +223,27 @@ export class PlayEngine {
   }
 
   /**
+   * 构造某句话某种语言的播放任务
+   * - 新结构（audioUrl + audioSegments）：返回整本书 URL + 对应语言的时间片段
+   * - 旧结构（audio / audio_zh）：返回单句文件 URL，无片段
+   * - 无可用音频：返回 null
+   */
+  private buildAudioTask(sentence: Sentence, lang: 'en' | 'zh'): AudioTask | null {
+    if (sentence.audioUrl && sentence.audioSegments) {
+      const segs = sentence.audioSegments[lang];
+      if (!segs || segs.length === 0) return null;
+      return { url: sentence.audioUrl, segments: segs };
+    }
+    const url = lang === 'en' ? sentence.audio : sentence.audio_zh;
+    return url ? { url } : null;
+  }
+
+  /**
    * 执行当前句子的具体步骤（中英文交替/重复控制）
+   *
+   * repeatCount 的语义是"朗读总次数"（片段级）：
+   * 一个任务可能含多个片段（如英文快/慢速 2 段 = 朗读 2 次），
+   * repeatCount=2 时只播一轮任务即达到 2 次，不再乘出 4 次。
    */
   private playStep(): void {
     const current = this.currentSentence;
@@ -208,73 +251,101 @@ export class PlayEngine {
 
     // 1. 只听英文模式
     if (this.config.playOrder === 'en_only') {
-      if (!current.audio) {
+      const task = this.buildAudioTask(current, 'en');
+      if (!task) {
         console.warn('当前句子无英文音频，跳过');
-        this.handleAudioEnded(); // 兜底：若无音频直接触发结束，走向下一句
+        this.next(true);
         return;
       }
       this.callbacks.onStatusChange('听英文');
-      this.audioCtx.src = current.audio;
-      this.audioCtx.play();
+      this.playCountedTask(task);
       return;
     }
 
     // 2. 只听中文模式
     if (this.config.playOrder === 'zh_only') {
-      if (!current.audio_zh) {
+      const task = this.buildAudioTask(current, 'zh');
+      if (!task) {
         console.warn('当前句子无中文音频，跳过');
-        this.handleAudioEnded(); // 兜底：若无音频直接触发结束，走向下一句
+        this.next(true);
         return;
       }
       this.callbacks.onStatusChange('听中文');
-      this.audioCtx.src = current.audio_zh;
-      this.audioCtx.play();
+      this.playCountedTask(task);
       return;
     }
 
-    // 3. 测试模式：只播放单侧音频 (中文或英文)
+    // 3. 测试模式：只播放单侧音频一次，播完挂起等待作答
     if (this.config.playMode === 'test') {
       const isListenZh = this.config.playOrder === 'zh_first';
-      const audioUrl = isListenZh ? current.audio_zh : current.audio;
+      const task = this.buildAudioTask(current, isListenZh ? 'zh' : 'en');
 
-      if (!audioUrl) {
-        this.handleAudioEnded();
+      if (!task) {
+        this.next(true);
         return;
       }
 
       this.callbacks.onStatusChange(isListenZh ? '听中文' : '听英文');
-      this.audioCtx.src = audioUrl;
-      this.audioCtx.play();
+      this.player.play(task);
       return;
     }
 
-    // 4. 学习/全量模式：根据 repeatCount 和 order 进行中英文组合
-    // repeatCount = 0 表示"无限"：英文无限重复，直到用户手动切句
+    // 4. 学习/全量模式：repeatCount = 0 表示"无限"：英文无限重复，直到用户手动切句
+    const rc = this.config.repeatCount;
     const isZhFirst = this.config.playOrder === 'zh_first';
-    const zhStep = isZhFirst
-      ? 0
-      : (this.config.repeatCount === 0 ? Number.POSITIVE_INFINITY : this.config.repeatCount);
 
-    if (this.step === zhStep) {
-      if (!current.audio_zh) {
-        // 如果没有中文音频，跳过当前步骤
+    // 中文轮次：zh_first 为第一步；en_first 则等英文读满之后
+    const zhTurn = isZhFirst
+      ? !this.zhPlayed
+      : (rc > 0 && this.readsDone >= rc && !this.zhPlayed);
+
+    if (zhTurn) {
+      // 无论有无音频都标记已处理，避免无中文音频时反复进入该轮次
+      this.zhPlayed = true;
+      const task = this.buildAudioTask(current, 'zh');
+      if (!task) {
         this.handleAudioEnded();
         return;
       }
       this.callbacks.onStatusChange('中文');
-      this.audioCtx.src = current.audio_zh;
-    } else {
-      if (!current.audio) {
-        // 如果没有英文音频，跳过当前步骤
-        this.handleAudioEnded();
-        return;
-      }
-      const enIndex = isZhFirst ? this.step : this.step + 1;
-      this.callbacks.onStatusChange(`英文 (${enIndex}/${this.config.repeatCount || '∞'})`);
-      this.audioCtx.src = current.audio;
+      this.player.play(task);
+      return;
     }
 
-    this.audioCtx.play();
+    // 英文轮次：按剩余次数裁剪片段，使累计朗读次数恰好等于 repeatCount
+    const enTask = this.buildAudioTask(current, 'en');
+    if (!enTask) {
+      console.warn('当前句子无英文音频，跳过');
+      if (rc > 0) {
+        this.readsDone = rc; // 视为已读满，走向中文/下一句
+        this.handleAudioEnded();
+      } else {
+        this.next(true); // 无限模式无音频：直接下一句，避免死循环
+      }
+      return;
+    }
+    this.playCountedTask(enTask);
+    this.callbacks.onStatusChange(
+      rc > 0
+        ? `英文 (${Math.min(this.readsDone + this.lastTaskSegments, rc)}/${rc})`
+        : '英文 (∞)'
+    );
+  }
+
+  /**
+   * 下发一个计入 repeatCount 的任务：按剩余次数裁剪片段
+   * （如剩 1 次而任务含快/慢 2 段，只播第 1 段）
+   */
+  private playCountedTask(task: AudioTask): void {
+    const rc = this.config.repeatCount;
+    const remaining = rc > 0 ? Math.max(1, rc - this.readsDone) : Infinity;
+    let trimmed = task;
+    if (task.segments && task.segments.length > 1 && remaining < task.segments.length) {
+      trimmed = { url: task.url, segments: task.segments.slice(0, remaining) };
+    }
+    this.lastTaskSegments = trimmed.segments ? trimmed.segments.length : 1;
+    this.countThisTask = true;
+    this.player.play(trimmed);
   }
 
   private sleep(ms: number): Promise<void> {
@@ -286,6 +357,12 @@ export class PlayEngine {
    */
   private async handleAudioEnded(): Promise<void> {
     if (!this.playing) return;
+
+    // 统计刚播任务的朗读次数（英文多段 = 多次朗读）
+    if (this.countThisTask) {
+      this.readsDone += this.lastTaskSegments;
+      this.countThisTask = false;
+    }
 
     const token = this.playToken;
     this.awaitingNextStep = true;
@@ -306,17 +383,26 @@ export class PlayEngine {
    * 推进至单句内的下一个步骤或直接进入下一句
    */
   private advanceStep(): void {
-    this.step += 1;
+    // 测试模式：单句（单侧音频）播完即挂起，等待用户作答
+    if (this.config.playMode === 'test') {
+      this.next(true);
+      return;
+    }
     // 无限模式（repeatCount = 0）：英文永远重复，不切下一句
     if (this.config.repeatCount === 0) {
       this.playStep();
       return;
     }
-    // 当步骤数超过 repeatCount（即中英文均已播放完毕）时切到下一句
-    if (this.step > this.config.repeatCount) {
+    // 朗读次数已读满
+    if (this.readsDone >= this.config.repeatCount) {
+      // en_first：中文还没播过 → 轮到中文，播完再切句
+      if (this.config.playOrder === 'en_first' && !this.zhPlayed) {
+        this.playStep();
+        return;
+      }
       this.next(true);
-    } else {
-      this.playStep();
+      return;
     }
+    this.playStep();
   }
 }

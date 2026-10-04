@@ -1,5 +1,6 @@
 import appStore from "./app-store"
 import sentenceFileStore from "../utils/sentence-file-store"
+import audioFileStore from "../utils/audio-file-store"
 
 /**
  * 播放列表构建（本地计算，不再查云端）：
@@ -157,28 +158,65 @@ export class SentencePlayList {
   }
 
   private async prepareSentences(list: Sentence[]) {
-    const fullList = list.map(item => ({ ...item, audio: this.toFullFileId(item.audio), audio_zh: this.toFullFileId(item.audio_zh) }))
+    // 新结构：整本书共用的大 mp3 先本地化（网络流 seek 会卡顿，本地 seek 即时精确）
+    const localized = await this.localizeAudioUrl(list)
+    const fullList = localized.map(item => ({
+      ...item,
+      audio: this.toFullFileId(item.audio),
+      audio_zh: this.toFullFileId(item.audio_zh),
+      audioUrl: item.audioUrl ? this.toFullFileId(item.audioUrl) : item.audioUrl
+    }))
     return this.getAudioUrls(fullList)
+  }
+
+  /**
+   * 新结构句子（audioUrl + audioSegments 共存）的音频本地化：
+   * 把共享大 mp3 下载到本地并把 audioUrl 替换为本地路径。
+   * 返回新数组，不修改入参（入参可能是文件缓存的原始对象）。
+   * 下载失败时保持原值，回退网络流播放。
+   */
+  private async localizeAudioUrl(list: Sentence[]): Promise<Sentence[]> {
+    const keys = [...new Set(
+      list.filter(s => s.audioUrl && s.audioSegments).map(s => s.audioUrl as string)
+    )]
+    if (!keys.length) return list
+
+    const map = new Map<string, string>()
+    for (const key of keys) {
+      try {
+        map.set(key, await audioFileStore.ensure(key, this.toFullFileId(key)))
+      } catch (err) {
+        console.warn('[SentencePlayList] 音频本地化失败，回退网络流:', key, err)
+      }
+    }
+    if (!map.size) return list
+    return list.map(s =>
+      s.audioUrl && map.has(s.audioUrl)
+        ? { ...s, audioUrl: map.get(s.audioUrl) as string }
+        : s
+    )
   }
 
   private toFullFileId(path: string = ''): string {
     const STORAGE_PREFIX = 'cloud://cloud1-d0gyvvq93ab34b8b7.636c-cloud1-d0gyvvq93ab34b8b7-1333600691/'
     if (!path) return ''
-    if (path.startsWith('cloud://') || path.startsWith('http')) return path
+    // 已是完整地址（cloud://、http(s) 临时链接、本地缓存路径）直接返回
+    if (path.startsWith('cloud://') || path.startsWith('http') || path.startsWith(wx.env.USER_DATA_PATH)) return path
 
     const cleanPath = path.startsWith('/') ? path.substring(1) : path
     return `${STORAGE_PREFIX}${cleanPath}`
   }
 
   // 音频临时链接：cloud:// 转 temp URL（约 2 小时有效期，播放前批量转换）
-  private async getAudioUrls<T extends { audio?: string; audio_zh?: string }>(
+  private async getAudioUrls<T extends { audio?: string; audio_zh?: string; audioUrl?: string }>(
     list: T[]
   ): Promise<T[]> {
 
     const ids = [...new Set(
       list.flatMap(item => [
         item.audio,
-        item.audio_zh
+        item.audio_zh,
+        item.audioUrl
       ]).filter((x): x is string => !!x?.startsWith('cloud://'))
     )]
 
@@ -199,7 +237,8 @@ export class SentencePlayList {
     return list.map(item => ({
       ...item,
       audio: map.get(item.audio || '') || item.audio,
-      audio_zh: map.get(item.audio_zh || '') || item.audio_zh
+      audio_zh: map.get(item.audio_zh || '') || item.audio_zh,
+      audioUrl: item.audioUrl ? (map.get(item.audioUrl) || item.audioUrl) : item.audioUrl
     }))
   }
 }

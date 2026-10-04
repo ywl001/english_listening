@@ -18,8 +18,9 @@ const CLOUD_PAGE = 100
 // 全量分页拉取的并发数（微信并发网络请求上限 10）
 const CONCURRENCY = 10
 // 缓存结构版本：v<2 曾按 PAGE=100 分页被客户端 20 条上限截断；
-// v=3 起走 syncSentence 云函数拉取，audio 为公有读长期 URL 并附带原始 fileID
-const SCHEMA_VERSION = 3
+// v=3 起走 syncSentence 云函数拉取，audio 为公有读长期 URL 并附带原始 fileID；
+// v=4 修正线上 audioUrl 拼写（englist -> english），字段被原地更新需强制重拉
+const SCHEMA_VERSION = 4
 
 class SentenceFileStore {
   private dir = `${wx.env.USER_DATA_PATH}/sentences`
@@ -56,15 +57,22 @@ class SentenceFileStore {
   private load(bookId: string): SentenceFileData | null {
     const cached = this.cache.get(bookId)
     if (cached) return cached
+    // 先探测存在性再读：直接 readFileSync 不存在的路径，原生层会往控制台打错误日志
+    const path = this.filePath(bookId)
     try {
-      const raw = this.fs().readFileSync(this.filePath(bookId), 'utf-8') as string
+      this.fs().accessSync(path)
+    } catch (e) {
+      return null // 文件不存在：视为未同步，走全量
+    }
+    try {
+      const raw = this.fs().readFileSync(path, 'utf-8') as string
       const data = JSON.parse(raw) as SentenceFileData
       if (data && Array.isArray(data.list)) {
         this.cache.set(bookId, data)
         return data
       }
     } catch (e) {
-      // 文件不存在或损坏：视为未同步，走全量
+      // 文件损坏：视为未同步，走全量
     }
     return null
   }

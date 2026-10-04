@@ -26,6 +26,12 @@ type PlayOrder = "zh_first" | "en_first" | "zh_only" | "en_only";
 
 type WordBoundary = { text: string; start: number; duration: number };
 
+/** 大文件内的时间片段（秒） */
+interface AudioSegment {
+  start: number;
+  end: number;
+}
+
 interface UserDefaultBooks {
   originBook: Book;
   favoriteBook: Book;
@@ -43,6 +49,14 @@ interface Sentence {
   // 原始 cloud:// fileID（删文件等云存储管理场景使用）
   audioFileId?: string;
   audioZhFileId?: string;
+
+  // ---- 新结构：整本书共用一个音频文件 + 每句时间片段（与上面旧字段共存） ----
+  audioUrl?: string; // 整本书共用的音频文件链接
+  audioGroupId?: string; // 音频分组名（同组共用同一 audioUrl）
+  order?: number; // 组内序号
+  // 英文可能含多段（快/慢速），依次播完算"播放一次英文"
+  audioSegments?: { en?: AudioSegment[]; zh?: AudioSegment[] };
+
   createdAt: number;
 
   // 下面附加属性表示句子的学习记录

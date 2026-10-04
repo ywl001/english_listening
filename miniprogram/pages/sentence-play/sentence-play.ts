@@ -2,6 +2,7 @@ import { computed } from "@preact/signals-core";
 import { AppEvent } from "../../services/event-type";
 import eventBus from "../../services/EventBus";
 import { PlayEngine } from "../../services/sentence-play-engine";
+import { SegmentAudioPlayer } from "../../services/segment-audio-player";
 import sentencePlayManager from "../../services/sentence-play-manager";
 import appStore from "../../services/app-store";
 import { bindSignal } from "../../utils/signal-bind";
@@ -103,7 +104,7 @@ Page({
   },
 
   initEngine() {
-    const audioCtx = wx.createInnerAudioContext();
+    const player = new SegmentAudioPlayer();
 
     // 读取保存的播放设置，与底部胶囊按钮保持同一数据源，避免"显示1次实际播2次"
     // playOrder 存胶囊的 key（大写 ZH_EN/EN_ZH/EN_ONLY），恢复时统一转小写校验
@@ -117,7 +118,7 @@ Page({
     this.setData({ playOrder, repeatCount, limitCount });
 
     this.playEngine = new PlayEngine(
-      audioCtx,
+      player,
       sentencePlayManager,
       {
         playMode: 'sequence',
@@ -183,7 +184,7 @@ Page({
     displayList[prevSwiper] = list[prevReal] ? { ...list[prevReal] } : null;
     displayList[nextSwiper] = list[nextReal] ? { ...list[nextReal] } : null;
 
-    console.log('displayList',displayList)
+    // console.log('displayList',displayList)
 
     this.setData({ displayList });
   },

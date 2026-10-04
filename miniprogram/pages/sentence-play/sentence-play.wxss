@@ -8,6 +8,8 @@ page {
 .container {
   display: flex;
   flex-direction: column;
+  /* 覆盖 app.wxss 全局 .container 的 align-items: center，防止 flex 子元素水平收缩 */
+  align-items: stretch;
   height: 100vh;
   padding: 0 32rpx 30rpx 32rpx; /* 适当调小底部 padding */
   box-sizing: border-box;

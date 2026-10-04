@@ -20,13 +20,22 @@ export class ArticleService {
   }
 
   private readCache<T>(key: string): T | null {
+    const fs = wx.getFileSystemManager();
+    const path = this.cachePath(key);
+    // 先探测存在性再读：直接 readFileSync 不存在的路径，原生层会往控制台打
+    // "no such file or directory" 错误日志（异常虽被 catch，日志仍会输出）
     try {
-      const raw = wx.getFileSystemManager().readFileSync(this.cachePath(key), 'utf8') as string;
+      fs.accessSync(path);
+    } catch (e) {
+      return null; // 缓存不存在，按未命中处理
+    }
+    try {
+      const raw = fs.readFileSync(path, 'utf8') as string;
       const data = JSON.parse(raw);
       if (data && data.v === CACHE_VERSION) return data.payload as T;
       return null;
     } catch (e) {
-      return null; // 文件不存在或损坏都按未命中处理
+      return null; // 文件损坏按未命中处理
     }
   }
 

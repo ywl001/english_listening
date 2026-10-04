@@ -27,8 +27,7 @@ Page({
     isPlaying: false,
     currentTimeText: '0:00',
     durationText: '0:00',
-    sliderValue: 0,
-    sliderMax: 0,
+    progressPercent: 0, // 自绘进度条百分比 0-100
     isFavorite: false,
     rate: 1,
     rateLabel: '1x',
@@ -44,10 +43,17 @@ Page({
   startTimes: [] as number[],
   timeUnitChecked: false,
   lastUiTick: -1,
+  // 已确认有效的音频总时长（秒），onTimeUpdate 拿到后缓存
+  durationSec: 0,
+  // 进度条拖动状态
+  dragging: false,
+  trackRect: null as { left: number; width: number } | null,
   favPending: false,
   // 音频可播前 seek 无效，缓存到 canplay 后再执行
   audioReady: false,
   pendingSeek: null as number | null,
+  // 播放瞬时错误自动重试计数（onPlay 成功后清零）
+  playRetryCount: 0,
 
   onLoad(options: { articleId?: string; title?: string }) {
     this.articleId = options.articleId || '';
@@ -110,7 +116,11 @@ Page({
     });
     // 播放中缓冲（大 mp3 播放到未下载部分）：显示 loading，恢复后去掉
     audio.onWaiting(() => this.setData({ audioLoading: true }));
-    audio.onPlay(() => this.setData({ isPlaying: true, audioLoading: false }));
+    audio.onPlay(() => {
+      // 播放成功：重置错误重试计数
+      this.playRetryCount = 0;
+      this.setData({ isPlaying: true, audioLoading: false });
+    });
     audio.onPause(() => this.setData({ isPlaying: false }));
     audio.onEnded(() => {
       this.setData({ isPlaying: false });
@@ -123,7 +133,18 @@ Page({
       // audio.play() 自动重新播放
     });
     audio.onError((err) => {
-      console.error('[article-play] 音频错误:', err);
+      console.warn('[article-play] 音频错误:', err);
+      // cloud:// 直连首播常见瞬时错误（10001 / 602 not found param / -1），
+      // 重试即可恢复：递增延迟自动重试，最多 3 次，全部失败才提示用户
+      if (this.playRetryCount < 3) {
+        this.playRetryCount++;
+        const delay = 600 * this.playRetryCount;
+        this.setData({ isPlaying: false, audioLoading: true });
+        setTimeout(() => {
+          if (this.audio && !this.data.isPlaying) this.audio.play();
+        }, delay);
+        return;
+      }
       this.setData({ isPlaying: false, audioLoading: false });
       wx.showToast({ title: '播放失败', icon: 'none' });
     });
@@ -162,7 +183,9 @@ Page({
 
   onTimeUpdate(audio: WechatMiniprogram.InnerAudioContext) {
     const t = audio.currentTime || 0;
-    const duration = audio.duration || 0;
+    // 网络音频 duration 可能返回 0 / NaN / Infinity，无效时不能写入 sliderMax
+    const rawDur = audio.duration;
+    const duration = isFinite(rawDur) && rawDur > 0 ? rawDur : 0;
     this.checkTimeUnit(duration);
 
     const patch: Record<string, any> = {};
@@ -180,10 +203,18 @@ Page({
     const tick = Math.floor(t * 2);
     if (tick !== this.lastUiTick) {
       this.lastUiTick = tick;
-      patch.sliderValue = t;
-      patch.sliderMax = duration;
-      patch.currentTimeText = fmtSec(t);
-      patch.durationText = fmtSec(duration);
+      // 缓存有效总时长，供进度条百分比与拖动 seek 使用
+      if (duration > 0) {
+        this.durationSec = duration;
+        patch.durationText = fmtSec(duration);
+      }
+      // 拖动中不覆盖 UI，松手后由 seek 流程接管
+      if (!this.dragging) {
+        patch.currentTimeText = fmtSec(t);
+        patch.progressPercent = this.durationSec > 0
+          ? Math.min(100, (t / this.durationSec) * 100)
+          : 0;
+      }
     }
     if (Object.keys(patch).length) this.setData(patch);
     if (patch.realIndex !== undefined) {
@@ -262,13 +293,57 @@ Page({
     if (this.data.isPlaying) {
       audio.pause();
     } else {
+      this.playRetryCount = 0; // 手动重播：重新给自动重试留额度
       audio.play();
     }
   },
 
-  /** 拖动进度条 */
-  onSeek(e: WechatMiniprogram.CustomEvent) {
-    this.seekTo(Number(e.detail.value) || 0);
+  /* ---------------- 自绘进度条：拖动 / 点按 seek ---------------- */
+
+  onTrackTouchStart() {
+    this.dragging = true;
+    // 拖动开始时量一次轨道的位置和宽度
+    wx.createSelectorQuery()
+      .select('.progress-track')
+      .boundingClientRect((rect) => {
+        if (rect) this.trackRect = { left: rect.left, width: rect.width };
+      })
+      .exec();
+  },
+
+  onTrackTouchMove(e: WechatMiniprogram.TouchEvent) {
+    const rect = this.trackRect;
+    if (!rect || !this.durationSec) return;
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    const ratio = this.ratioFromX(touch.clientX, rect);
+    // lastUiTick 置 -1，避免 onTimeUpdate 的节流更新覆盖拖动中的 UI
+    this.lastUiTick = -1;
+    this.setData({
+      progressPercent: ratio * 100,
+      currentTimeText: fmtSec(ratio * this.durationSec)
+    });
+  },
+
+  onTrackTouchEnd(e: WechatMiniprogram.TouchEvent) {
+    this.dragging = false;
+    const rect = this.trackRect;
+    this.trackRect = null;
+    if (!rect || !this.durationSec) return;
+    const touch = e.changedTouches && e.changedTouches[0];
+    if (!touch) return;
+    const sec = this.ratioFromX(touch.clientX, rect) * this.durationSec;
+    this.seekTo(sec);
+  },
+
+  ratioFromX(x: number, rect: { left: number; width: number }): number {
+    if (rect.width <= 0) return 0;
+    return Math.min(1, Math.max(0, (x - rect.left) / rect.width));
+  },
+
+  /** 进度百分比换算（seek 后立即刷新显示用） */
+  percentOf(sec: number): number {
+    return this.durationSec > 0 ? Math.min(100, (sec / this.durationSec) * 100) : 0;
   },
 
   seekTo(sec: number) {
@@ -279,7 +354,7 @@ Page({
       this.pendingSeek = sec;
       this.lastUiTick = -1;
       this.setData({
-        sliderValue: sec,
+        progressPercent: this.percentOf(sec),
         currentTimeText: fmtSec(sec)
       });
       return;
@@ -289,7 +364,7 @@ Page({
     if (!this.data.isPlaying) {
       this.lastUiTick = -1;
       this.setData({
-        sliderValue: sec,
+        progressPercent: this.percentOf(sec),
         currentTimeText: fmtSec(sec)
       });
     }
