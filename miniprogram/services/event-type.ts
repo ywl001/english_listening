@@ -1,7 +1,9 @@
 export interface FavoritePayload {
   sentenceId: string;
+  /** 句集（引用书）维度的目标状态：true=加入该句集，false=从该句集移除；不影响其他句集 */
   isFavorite: boolean;
   bookId: string;
+  /** 目标句集（引用书）id；不传则默认当前收藏夹 */
   refBookId?: string;
 }
 

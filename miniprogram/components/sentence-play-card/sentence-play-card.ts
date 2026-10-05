@@ -1,5 +1,3 @@
-import appStore from "../../services/app-store";
-import { bindSignal } from "../../utils/signal-bind";
 
 Component({
   properties: {
@@ -55,21 +53,6 @@ Component({
         sentence: this.properties.sentence,
       });
     },
-    onTapMastered() {
-      this.triggerEvent("toggleMastered", {
-        sentence: this.properties.sentence,
-      });
-    },
-
-    // 忘记 / 熟悉：直接设置 stage（忘记=0，熟悉=8）
-    onActionTap(e: WechatMiniprogram.TouchEvent) {
-      const type = e.currentTarget.dataset.type as string;
-      const stage = type === "forgot" ? 0 : 8;
-      this.triggerEvent("setStage", {
-        sentence: this.properties.sentence,
-        stage,
-      });
-    },
 
     onLongtapFavorite() {
       this.triggerEvent("longtapFavorite", {
@@ -77,6 +60,14 @@ Component({
       });
     },
 
+    // 统一标记入口：已会=stage+1 / 忘记=0 / 熟悉=8（wxml 通过 data-stage 传入）
+    onActionTap(e: WechatMiniprogram.TouchEvent) {
+      const stage = e.currentTarget.dataset.stage as number;
+      this.triggerEvent("setStage", {
+        sentence: this.properties.sentence,
+        stage,
+      });
+    },
     toggleEnglish() {
       this.triggerEvent("toggleEnglish");
     },

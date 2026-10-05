@@ -68,36 +68,37 @@ export class SentenceService {
 
   /**
    * 切换收藏状态（一个句子可同时被多本引用书收藏）
-   * @param targetFavoriteState true=收藏，false=取消收藏
+   * @param targetFavoriteState true=收藏，false=取消收藏（仅作用于目标引用书，其他夹子不受影响）
    * @param refBookId 可选：目标引用书（长按选夹子场景传入），默认当前收藏夹
+   * @returns 操作后该句子仍被收藏的引用书 id 列表（跨夹子）
    */
-  toggleFavorite(sentenceId: string, bookId: string, targetFavoriteState: boolean, refBookId?: string) {
+  toggleFavorite(sentenceId: string, bookId: string, targetFavoriteState: boolean, refBookId?: string): string[] {
     const favStore = appStore.favStore.value as LocalShardStore<SentenceFavorite>
     const ref = refBookId || appStore.currentFavoriteBook.value?._id as string
     if (!ref) {
       console.warn('[toggleFavorite] 没有可用的收藏夹，跳过')
-      return
+      return []
     }
 
     // 该句子当前所有收藏记录（跨夹子）
     const records = favStore.getAll().filter(x => x.sentenceId === sentenceId)
+    const target = records.find(x => x.refBookId === ref && !x.deleted)
 
-    if (!targetFavoriteState) {
-      // 取消收藏：从所有引用书中移除
-      for (const rec of records) {
-        if (!rec.deleted) {
-          this.upsert(favStore, sentenceId, rec.bookId, { deleted: true, refBookId: rec.refBookId }, rec._id)
-        }
+    if (targetFavoriteState) {
+      // 收藏：仅写入目标引用书，其他引用书的记录保持不变（支持多夹子共存）
+      if (!target) {
+        const recordId = `${appStore._openid.value}__${ref}__${sentenceId}`
+        this.upsert(favStore, sentenceId, bookId, { deleted: false, refBookId: ref }, recordId)
       }
-      return
+    } else if (target) {
+      // 取消收藏：只移除目标引用书的记录，其他夹子的收藏保持不变
+      this.upsert(favStore, sentenceId, target.bookId, { deleted: true, refBookId: ref }, target._id)
     }
 
-    // 收藏：仅写入目标引用书，其他引用书的记录保持不变（支持多夹子共存）
-    const target = records.find(x => x.refBookId === ref && !x.deleted)
-    if (target) return // 已在该引用书中，无需重复写
-
-    const recordId = `${appStore._openid.value}__${ref}__${sentenceId}`
-    this.upsert(favStore, sentenceId, bookId, { deleted: false, refBookId: ref }, recordId)
+    // 重新读取：操作后仍收藏该句子的夹子列表（本地写入是同步的）
+    return favStore.getAll()
+      .filter(x => x.sentenceId === sentenceId && !x.deleted && x.refBookId)
+      .map(x => x.refBookId)
   }
 
   /**

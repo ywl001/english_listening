@@ -1,6 +1,6 @@
 import appStore from "./app-store";
 import bookService from "./book-service";
-import { BookType } from "../enums/app-enums";
+import { BookType, LocalStorageKey } from "../enums/app-enums";
 import { AppEvent, AddSentenceToBookPayload, CreateBookPayload, CreateSentencePayload, DeleteBookPayload, DeleteSentencePayload, FavoritePayload, FindSentencePayload, MarkPayload, NeedMorePayload, RebuildPlaylistPayload, RemoveFavoritePayload } from "./event-type";
 import eventBus from "./EventBus";
 import sentencePlayList from "./sentence-play-list";
@@ -37,9 +37,35 @@ export class AppController {
     try {
       const books = await bookService.getBooks();
       appStore.books.value = books;
+      this.validateCurrentFavoriteBook(books);
     } catch (err) {
       // 真机网络抖动等场景：不打断流程，下次 onShow 触发时自动重试
       console.error('[AppController] 拉取书籍列表失败:', err);
+    }
+  }
+
+  /**
+   * 校验默认收藏夹是否仍存活（storage 恢复的引用可能已随书删除成为悬空引用）：
+   * 失效时回退到默认"我的收藏"（fav_<openid>），再不行取用户第一本引用书。
+   * currentFavoriteBook 尚未从 storage 恢复时跳过（冷启动竞态，避免覆盖用户偏好）。
+   */
+  private validateCurrentFavoriteBook(books: Book[]): void {
+    const cur = appStore.currentFavoriteBook.value;
+    if (!cur) return;
+    if (books.some(b => b._id === cur._id)) return;
+
+    const openid = appStore._openid.value;
+    const fallback = books.find(b => b._id === `fav_${openid}`)
+      || books.find(b => b.type === 'ref' && b._openid === openid);
+
+    if (fallback) {
+      console.warn('[AppController] 默认收藏夹已失效，回退到:', fallback.name);
+      appStore.currentFavoriteBook.value = fallback;
+      wx.setStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK, fallback);
+    } else {
+      console.warn('[AppController] 默认收藏夹已失效且无可用回退，清空');
+      appStore.currentFavoriteBook.value = undefined;
+      wx.removeStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK);
     }
   }
 
@@ -224,33 +250,37 @@ export class AppController {
 
   private favoriteSentence(payload: FavoritePayload) {
     try {
-      console.log("listener payload:", payload);
-      const favoriteBookId = appStore.currentFavoriteBook.value?._id as string;
-      console.log("favorite book id");
-
-      sentenceService.toggleFavorite(
+      // 夹子维度的切换：返回操作后该句子仍被收藏的夹子列表（多夹子共存）
+      const remainingRefs = sentenceService.toggleFavorite(
         payload.sentenceId,
         payload.bookId,
         payload.isFavorite,
         payload.refBookId
       );
-      // 同步回管理器队列
+      // 同步回管理器队列：星标 = 是否仍被任一夹子收藏
       sentencePlayManager.updateSentence(payload.sentenceId, {
-        isFavorite: payload.isFavorite,
+        isFavorite: remainingRefs.length > 0,
+        favorites: remainingRefs,
       });
+      // 正在播放的收藏夹中移除了该句子 -> 从队列移除并刷新列表（其他夹子的收藏不受影响）
       if (
-        sentencePlayManager.bookId === favoriteBookId &&
-        payload.isFavorite === false
+        payload.refBookId &&
+        sentencePlayManager.bookId === payload.refBookId &&
+        !remainingRefs.includes(payload.refBookId)
       ) {
-        console.log("收藏列表删除数据了");
+        console.log("收藏列表移除该句子");
         sentencePlayManager.removeSentence(payload.sentenceId);
         eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
       }
     } catch (err) {
       console.error("[EventListener] 切换收藏失败，尝试回滚状态:", err);
-      // 失败时回滚
+      // 失败时回滚：以本地存储实际状态为准（favorites 一并还原，避免 UI 残留半套状态）
+      const remainingRefs = (appStore.favStore.value?.getAll() || [])
+        .filter((x: SentenceFavorite) => x.sentenceId === payload.sentenceId && !x.deleted && x.refBookId)
+        .map((x: SentenceFavorite) => x.refBookId);
       sentencePlayManager.updateSentence(payload.sentenceId, {
-        isFavorite: !payload.isFavorite,
+        isFavorite: remainingRefs.length > 0,
+        favorites: remainingRefs,
       });
       wx.showToast({ title: "收藏同步失败", icon: "none" });
     }

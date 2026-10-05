@@ -13,7 +13,7 @@ interface IAppOption {
   openidReady: Promise<void>;
 
   getPlayConfig(): PlayConfig;
-  ensureUserBook(): void;
+  ensureUserBook(): Promise<void>;
   updatePlayConfig(config: Partial<PlayConfig>): void;
 
   initOpenid(): void;

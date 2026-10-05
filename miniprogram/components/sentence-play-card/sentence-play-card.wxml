@@ -39,19 +39,19 @@
     </view>
 
     <!-- 2. 已会 -->
-    <view class="action-item {{ sentence.mark.stage > 0 ? 'active-mastered' : '' }}" catchtap="onTapMastered" data-type="mastered">
+    <view class="action-item {{ sentence.mark.stage > 0 ? 'active-mastered' : '' }}" catchtap="onActionTap" data-stage="{{sentence.mark.stage+1}}">
       <van-icon name="passed" size="22px" />
       <text class="action-label">已会{{sentence.mark.stage>0 ? '+'+sentence.mark.stage:''}}</text>
     </view>
 
     <!-- 3. 忘记：stage 归零，马上重新进入复习队列 -->
-    <view class="action-item {{ sentence.mark && sentence.mark.stage === 0 ? 'active-forgot' : '' }}" catchtap="onActionTap" data-type="forgot">
+    <view class="action-item {{ sentence.mark && sentence.mark.stage === 0 ? 'active-forgot' : '' }}" catchtap="onActionTap" data-stage="0">
       <van-icon name="warning-o" size="22px" />
       <text class="action-label">忘记</text>
     </view>
 
     <!-- 4. 熟悉：stage 直接拉满，长期不再复习 -->
-    <view class="action-item {{ sentence.mark && sentence.mark.stage === 8 ? 'active-familiar' : '' }}" catchtap="onActionTap" data-type="familiar">
+    <view class="action-item {{ sentence.mark && sentence.mark.stage === 8 ? 'active-familiar' : '' }}" catchtap="onActionTap" data-stage="8">
       <van-icon name="star-o" size="22px" />
       <text class="action-label">熟悉</text>
     </view>

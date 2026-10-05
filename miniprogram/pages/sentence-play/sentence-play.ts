@@ -24,7 +24,7 @@ const ENGINE_ORDER_MAP: Record<string, string> = {
 
 Page({
   data: {
-    showModal: false,
+    showBookSelectSheet: false,
     autoSavePreference: false,
     bookTitle: '',
     currentIndex: 0,
@@ -63,17 +63,7 @@ Page({
     );
     bindSignal(this, favoriteBookName, 'favoriteBookName');
 
-    // 长按收藏弹窗的书籍列表：来源于 appStore.refBooks，并标记当前收藏本
-    const selectableBooks = computed(() => {
-      const currentId = appStore.currentFavoriteBook.value?._id;
-      return appStore.refBooks.value.map((b) => ({
-        id: b._id,
-        name: b.name,
-        cover: (b as any).cover,
-        isSelected: b._id === currentId
-      }));
-    });
-    bindSignal(this, selectableBooks, 'myBooks');
+    // 长按收藏弹窗的书籍列表：在 onLongTapFavorite 时按句子实际收藏状态构建（勾选 = 已收藏的句集）
 
     // 夹子 id -> 名称 映射（含当前默认收藏夹），供卡片显示句子所在夹子名
     const bookNames = computed(() => {
@@ -233,92 +223,111 @@ Page({
     const sentence = e.detail.sentence || e.target.dataset.data;
     if (!sentence) return;
 
-    const nextState = !sentence.isFavorite;
-    const refBookId = appStore.currentFavoriteBook.value?._id;
-    // 同步维护句子的 favorites 列表（多夹子共存），卡片标签据此显示夹子名
-    let favs: string[] = sentence.favorites || [];
-    if (nextState) {
-      if (refBookId && !favs.includes(refBookId)) favs = [...favs, refBookId];
-    } else {
-      favs = [];
-    }
-    sentencePlayManager.updateSentence(sentence._id, {
-      isFavorite: nextState,
-      favorites: favs
-    });
+    // 目标夹子：正在播放收藏夹（引用书）时作用于该夹子，否则作用于默认收藏夹
+    const playingBook = appStore.books.value.find((b) => b._id === sentencePlayManager.bookId) as Book;
+    const fallback = appStore.currentFavoriteBook.value as Book;
+    const targetRef = playingBook?.type === 'ref' ? sentencePlayManager.bookId : fallback?._id;
+    if (!targetRef) return;
 
-    const updatedList = [...sentencePlayManager.sentenceList];
-    this.setData({ sentenceList: updatedList });
-    this.updateDisplayList(this.data.realIndex); // 刷新卡片 UI
-
-    const bookName = appStore.currentFavoriteBook.value?.name || '';
-    wx.showToast({
-      title: nextState ? `已收藏到 ${bookName}` : '已取消收藏',
-      icon: 'none',
-      duration: 1500
-    });
-
-    eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
-      sentenceId: sentence._id,
-      isFavorite: nextState,
-      bookId: sentence.bookId
-    });
+    this.applyFavoriteToggle(sentence, targetRef, playingBook?.type === 'ref' ? playingBook.name : fallback?.name);
   },
 
   onLongTapFavorite(e: WechatMiniprogram.CustomEvent) {
     console.log('onLongTapFavorite', e);
+    const sentence = e.detail.sentence || e.target.dataset.data;
+    if (!sentence) return;
     // 记录长按时所在的句子，供选择收藏本后使用
-    (this as any).pendingFavoriteSentence = e.detail.sentence || e.target.dataset.data;
-    this.setData({ showModal: true });
+    (this as any).pendingFavoriteSentence = sentence;
+    // 弹窗会话内的收藏快照：取消收藏可能把句子移出播放队列，
+    // 之后队列数据不可靠，以这份快照作为弹窗内连续勾选/取消的基准
+    (this as any).pendingFavs = [...(sentence.favorites || [])];
+
+    // 弹窗勾选状态 = 该句子已收藏在哪些句集（而非默认收藏夹）
+    const favs = new Set((this as any).pendingFavs);
+    this.setData({
+      myBooks: appStore.refBooks.value.map((b) => ({
+        id: b._id,
+        name: b.name,
+        cover: (b as any).cover,
+        isSelected: favs.has(b._id)
+      })),
+      showBookSelectSheet: true
+    });
   },
 
   /* ---------------- 收藏本选择弹窗 ---------------- */
 
+  /**
+   * 句集维度收藏切换的公共流程（短按星标 / 长按弹窗选书共用）：
+   * 增删目标句集 → 同步队列 favorites/isFavorite → 刷新卡片 → toast → 发 FAVORITE_SENTENCE。
+   * 其他句集的收藏一律不动（多夹子共存）。
+   * @returns 操作后的 favorites 列表
+   */
+  applyFavoriteToggle(sentence: Sentence, refBookId: string, bookName: string): string[] {
+    const favs: string[] = sentence.favorites || [];
+    const inTarget = favs.includes(refBookId);
+    const nextFavs = inTarget ? favs.filter((id) => id !== refBookId) : [...favs, refBookId];
+
+    sentencePlayManager.updateSentence(sentence._id, {
+      isFavorite: nextFavs.length > 0,
+      favorites: nextFavs
+    });
+
+    this.setData({ sentenceList: [...sentencePlayManager.sentenceList] });
+    this.updateDisplayList(this.data.realIndex); // 刷新卡片 UI
+
+    wx.showToast({
+      title: inTarget
+        ? (nextFavs.length ? `已从 ${bookName} 移除（其他句集保留）` : `已从 ${bookName} 取消收藏`)
+        : `已收藏到 ${bookName}`,
+      icon: 'none',
+      duration: 1200
+    });
+
+    eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
+      sentenceId: sentence._id,
+      isFavorite: !inTarget, // 句集维度的目标状态：只作用于 refBookId 这一个句集
+      bookId: sentence.bookId,
+      refBookId
+    });
+
+    return nextFavs;
+  },
+
   handleCloseModal() {
     (this as any).pendingFavoriteSentence = null;
-    this.setData({ showModal: false });
+    (this as any).pendingFavs = null;
+    this.setData({ showBookSelectSheet: false });
   },
 
   handleSelectBook(e: WechatMiniprogram.CustomEvent) {
     const { bookId } = e.detail;
     const book = appStore.refBooks.value.find((b) => b._id === bookId);
-    if (book) {
+    const pending = (this as any).pendingFavoriteSentence as Sentence | null;
+    if (!book || !pending) return;
+
+    // 以弹窗会话内的快照为准（取消收藏可能已把句子移出播放队列，队列数据不可靠）
+    const favs: string[] = (this as any).pendingFavs || pending.favorites || [];
+    const wasIn = favs.includes(bookId);
+    const snapshot: Sentence = { ...pending, favorites: favs };
+
+    // toggle 语义：已勾选 = 从该句集移除，未勾选 = 收藏进该句集（其他句集不受影响）
+    const nextFavs = this.applyFavoriteToggle(snapshot, bookId, book.name);
+    (this as any).pendingFavs = nextFavs;
+
+    // 新增收藏时切换默认收藏夹 = "上次添加句子的句集"（短按收藏将进入该夹子）
+    if (!wasIn) {
       appStore.currentFavoriteBook.value = book;
       wx.setStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK, book);
-
-      // 长按场景：把长按的那句话收藏到所选夹子（保留其他夹子的收藏）
-      const pending = (this as any).pendingFavoriteSentence as Sentence | null;
-      if (pending) {
-        const favs = pending.favorites || [];
-        if (!favs.includes(bookId)) {
-          sentencePlayManager.updateSentence(pending._id, {
-            isFavorite: true,
-            favorites: [...favs, bookId]
-          });
-        }
-
-        const updatedList = [...sentencePlayManager.sentenceList];
-        this.setData({ sentenceList: updatedList });
-        this.updateDisplayList(this.data.realIndex);
-
-        wx.showToast({
-          title: `已收藏到 ${book.name}`,
-          icon: 'none',
-          duration: 1500
-        });
-
-        eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
-          sentenceId: pending._id,
-          isFavorite: true,
-          bookId: pending.bookId,
-          refBookId: bookId
-        });
-      } else {
-        wx.showToast({ title: `收藏本：${book.name}`, icon: 'none' });
-      }
     }
-    (this as any).pendingFavoriteSentence = null;
-    this.setData({ showModal: false });
+
+    // 同步弹窗勾选状态：不关闭弹窗，可连续勾选/取消多个句集
+    this.setData({
+      myBooks: this.data.myBooks.map((b) => ({
+        ...b,
+        isSelected: b.id === bookId ? !wasIn : b.isSelected
+      }))
+    });
   },
 
   handleCreateBook() {
@@ -330,64 +339,44 @@ Page({
     this.setData({ autoSavePreference: e.detail.value });
   },
 
-  onMarkLearned(e: WechatMiniprogram.CustomEvent) {
+  /**
+   * 统一的掌握度标记入口（卡片三个按钮都走 setStage）：
+   * 忘记=0（留在当前句重听）、熟悉=8（长期不再复习）、已会=当前 stage+1（封顶 8）
+   */
+  onSetStage(e: WechatMiniprogram.CustomEvent) {
     const sentence = e.detail.sentence || e.target.dataset.data;
     if (!sentence) return;
 
     const currentStage = sentence.mark?.stage || 0;
-    const nextStage = currentStage + 1;
-    const newMark = { ...sentence.mark, stage: nextStage };
+    // 卡片传来的 stage：0 / 8 / stage+1；mark 为空时兜底按 +1 处理，统一封顶 8
+    let stage = Number(e.detail.stage);
+    if (!Number.isFinite(stage)) stage = currentStage + 1;
+    stage = Math.max(0, Math.min(stage, 8));
+    if (stage === currentStage && stage !== 0) return; // 已在目标档位，幂等跳过
 
+    const newMark = { ...(sentence.mark || {}), stage };
     sentencePlayManager.updateSentence(sentence._id, { mark: newMark });
     const updatedList = [...sentencePlayManager.sentenceList];
     this.setData({ sentenceList: updatedList });
     this.updateDisplayList(this.data.realIndex); // 刷新卡片 UI
 
     wx.showToast({
-      title: `掌握度 +1 (Level ${nextStage})`,
-      icon: 'none',
-      duration: 1500
-    });
-
-    eventBus.emit(AppEvent.MARK_SENTENCE, {
-      sentenceId: sentence._id,
-      currentStage: currentStage,
-      bookId:sentence.bookId
-    });
-
-    // 已会：停留 500ms 让用户看清卡片上数字变化，再切下一句
-    this.advanceAfterMark();
-  },
-
-  /**
-   * 忘记 / 熟悉：直接设置目标 stage（忘记=0 马上重新复习，熟悉=8 长期不再复习）
-   */
-  onSetStage(e: WechatMiniprogram.CustomEvent) {
-    const sentence = e.detail.sentence;
-    const stage = e.detail.stage as number;
-    if (!sentence || (stage !== 0 && stage !== 8)) return;
-
-    const newMark = { ...(sentence.mark || {}), stage };
-    sentencePlayManager.updateSentence(sentence._id, { mark: newMark });
-    const updatedList = [...sentencePlayManager.sentenceList];
-    this.setData({ sentenceList: updatedList });
-    this.updateDisplayList(this.data.realIndex);
-
-    wx.showToast({
-      title: stage === 0 ? '已标记：忘记' : '已标记：熟悉',
+      title: stage === 0 ? '已标记：忘记'
+        : stage === 8 ? '已标记：熟悉'
+          : `掌握度 +1 (Level ${stage})`,
       icon: 'none',
       duration: 1200
     });
 
     eventBus.emit(AppEvent.MARK_SENTENCE, {
       sentenceId: sentence._id,
-      currentStage: sentence.mark?.stage || 0,
+      currentStage,
       targetStage: stage,
       bookId: sentence.bookId
     });
 
-    // 熟悉：停留 500ms 让用户看清卡片反馈，再切下一句（忘记留在当前句重听）
-    if (stage === 8) {
+    // 已会 / 熟悉：停留 500ms 让用户看清卡片反馈，再切下一句（忘记留在当前句重听）
+    if (stage > 0) {
       this.advanceAfterMark();
     }
   },

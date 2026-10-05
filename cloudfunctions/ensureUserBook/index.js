@@ -35,13 +35,19 @@ exports.main = async (event, context) => {
       const { data } = await bookRef.get().catch(() => ({ data: null }));
 
       if (data) {
+        // 存量数据补丁：老版本创建的默认书缺 content 字段，
+        // 不满足 refBooks/userBooks 的 content 过滤条件（收藏弹窗、书列表都会看不到）
+        if (!data.content) {
+          await bookRef.update({ data: { content: config.content } }).catch(() => null);
+          return { ...data, content: config.content };
+        }
         return data;
       }
 
       const newBook = {
         name: config.name,
         type: config.type,
-        role: config.role,
+        content: config.content, // 必须带 content，否则不出现在 userBooks/refBooks 列表
         _openid: OPENID,
         itemCount: 0,
         createdAt: now,

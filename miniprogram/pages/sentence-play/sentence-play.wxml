@@ -37,7 +37,6 @@
             show-chinese="{{ showChinese }}"
             data-data="{{item}}" 
             bind:toggleFavorite="onToggleFavorite"
-            bind:toggleMastered="onMarkLearned"
             bind:setStage="onSetStage"
             bind:longtapFavorite="onLongTapFavorite"
             bind:toggleEnglish="onToggleEnglish"
@@ -66,7 +65,7 @@
   </view>
 
   <book-select-sheet 
-    show="{{ showModal }}" 
+    show="{{ showBookSelectSheet }}" 
     book-list="{{ myBooks }}" 
     auto-save="{{ autoSavePreference }}" 
     bind:close="handleCloseModal" 

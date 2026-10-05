@@ -43,11 +43,26 @@ export class Sync {
     return fetched;
   }
 
-  async flushQueue(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<void> {
-    const meta = store.getMeta();
+  // 进行中的 flush（同一 store 串行执行，防止并发快照互相覆盖丢任务）
+  private flushing = new Map<LocalShardStore<SentenceMark | SentenceFavorite>, Promise<void>>();
 
-    while (meta.pendingQueue.length > 0) {
+  async flushQueue(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<void> {
+    const running = this.flushing.get(store);
+    if (running) return running;
+
+    const task = this.doFlush(store).finally(() => this.flushing.delete(store));
+    this.flushing.set(store, task);
+    return task;
+  }
+
+  private async doFlush(store: LocalShardStore<SentenceMark | SentenceFavorite>): Promise<void> {
+    // 每轮重新读取 meta（await 期间可能有新任务入队），成功一条持久化一条，
+    // 避免旧代码"循环结束才保存"导致并发调用时用过期快照清掉对方的任务
+    while (true) {
+      const meta = store.getMeta();
       const task = meta.pendingQueue[0];
+      if (!task) return;
+
       try {
         const { _id, _openid, ...data } = task.data as any;
         await wx.cloud
@@ -57,19 +72,20 @@ export class Sync {
           .set({ data });
 
         meta.pendingQueue.shift(); // 成功才出队
+        store.saveMeta(meta);
       } catch (e) {
         task.retry += 1;
         if (task.retry >= 5) {
           console.error('[sync] 任务重试超限，丢弃', task.data._id, e);
           meta.pendingQueue.shift();
+          store.saveMeta(meta);
         } else {
           console.warn('[sync] 队列任务写入失败，停止本轮', e);
+          store.saveMeta(meta);
           break;
         }
       }
     }
-
-    store.saveMeta(meta);
   }
 
   private syncState = {
