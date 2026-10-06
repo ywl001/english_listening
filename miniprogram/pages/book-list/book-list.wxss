@@ -89,20 +89,6 @@ page {
   padding: 10rpx 0;
 }
 
-/* 右侧全局搜索入口 */
-.search-btn {
-  flex-shrink: 0;
-  width: 72rpx;
-  height: 72rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.search-btn:active {
-  opacity: .6;
-}
-
 /* 两个 Tab 选项卡：平分左侧空间 */
 .tab-item {
   flex: 1;

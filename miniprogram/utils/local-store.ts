@@ -59,6 +59,30 @@ export class LocalShardStore<T extends SentenceMark | SentenceFavorite> {
     );
   }
 
+  /**
+   * 清除某句子在本仓库的全部记录（跨所有分片）。
+   * 删除句子时调用：云端已删 sentence + sentenceFavorite，本地 mark/favorite
+   * 若不清会成为幽灵记录（搜索防重、列表构建、toggleFavorite 都会把已删句子当有效数据）。
+   * @returns 实际删除的记录数
+   */
+  removeBySentenceId(sentenceId: string): number {
+    let removed = 0;
+    for (const bookId of this.getIndex()) {
+      const list = this.get(bookId);
+      const next = list.filter((x) => {
+        const match = x.sentenceId === sentenceId;
+        if (match) removed++;
+        return !match;
+      });
+      if (next.length !== list.length) {
+        // 空分片连索引一起清掉，避免残留空 key
+        if (next.length) this.save(bookId, next);
+        else this.removeBook(bookId);
+      }
+    }
+    return removed;
+  }
+
   // ---------- 合并（同步拉取 + 乐观更新共用） ----------
   merge(items: T[]): number {
     if (!Array.isArray(items) || items.length === 0) return 0;

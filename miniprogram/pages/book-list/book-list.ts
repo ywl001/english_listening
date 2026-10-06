@@ -16,8 +16,7 @@ Page({
     systemBooks: [] as Book[],
     userBooks: [] as Book[],
     articleBooks: [] as Book[],
-    showBookCreate: false,
-    showSearch: false
+    showBookCreate: false
   },
 
   books:[] as Book[],
@@ -66,16 +65,6 @@ Page({
 
   closeBookCreate() {
     this.setData({ showBookCreate: false });
-  },
-
-  /* ---------------- 全局句子搜索 ---------------- */
-
-  onOpenSearch() {
-    this.setData({ showSearch: true });
-  },
-
-  onCloseSearch() {
-    this.setData({ showSearch: false });
   },
 
   async onTapBook(e: any) {

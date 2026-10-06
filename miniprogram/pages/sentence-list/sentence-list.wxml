@@ -7,10 +7,36 @@
     </movable-view>
   </movable-area>
 
-  <!-- 搜索 -->
-  <van-search value="{{keyword}}" placeholder="搜索收藏的句子" shape="round" bind:change="onSearchInput" />
+  <!-- 搜索区（固定顶部）：输入框内右侧图标切换模式（过滤=本地过滤 / 搜索=云端搜句加入本书，仅引用书可切） -->
+  <view class="search-row">
+    <view class="search-input-wrap">
+      <input
+        class="search-input"
+        value="{{keyword}}"
+        placeholder="{{searchMode === 'filter' ? '过滤列表中的句子' : '搜索英文 / 中文句子加入本书'}}"
+        placeholder-class="input-placeholder"
+        confirm-type="search"
+        bindinput="onSearchInput"
+        bindfocus="onInputFocus"
+        bindconfirm="onConfirmInput"
+      />
+      <view wx:if="{{keyword}}" class="clear-btn" catchtap="onClearKeyword">
+        <van-icon name="clear" size="16px" color="#CBD5E0" />
+      </view>
+      <view class="mode-icon {{bookKind === 'ref' ? 'switchable' : 'disabled'}}" catchtap="onToggleSearchMode">
+        <van-icon name="{{searchMode === 'filter' ? 'filter-o' : 'search'}}" size="16px" color="{{searchMode === 'filter' ? '#718096' : '#2f80ed'}}" />
+      </view>
+    </view>
+  </view>
 
-  <!-- 句子列表 -->
+  <!-- 搜索结果浮层：覆盖句子列表（hidden 隐藏不销毁，重展开复用上次结果，关键词未变不重搜） -->
+  <view class="search-overlay" hidden="{{!(searchMode === 'search' && showResults)}}">
+    <scroll-view scroll-y class="overlay-scroll">
+      <sentence-search id="searchPanel" inline keyword="{{keyword}}" book-id="{{bookId}}" book-name="{{bookName}}" bind:close="onSearchClose" />
+    </scroll-view>
+  </view>
+
+  <!-- 句子列表（浮层展开时被覆盖） -->
   <view wx:if="{{displayList.length > 0}}" class="list">
 
     <view wx:for="{{displayList}}" wx:key="_id" class="swipe-item">

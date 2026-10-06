@@ -95,6 +95,16 @@ export class AppController {
       const result = await bookService.deleteBook(payload.bookId, payload.confirm)
 
       if (payload.confirm && result?.deleted) {
+        // 实体书：云端 delUserBook 连"其他夹子对这些句子的收藏/mark"一起删了，
+        // 本地也要按句子维度清理所有分片的幽灵记录（须在句子文件缓存删除前取 id 列表）
+        const book = appStore.books.value.find(b => b._id === payload.bookId);
+        if (book && book.type !== 'ref') {
+          const sentenceIds = sentenceFileStore.getSentences(payload.bookId).map(s => s._id);
+          for (const sid of sentenceIds) {
+            appStore.favStore.value?.removeBySentenceId(sid);
+            appStore.markStore.value?.removeBySentenceId(sid);
+          }
+        }
         // 本地缓存清理：收藏/mark 分片 + 句子文件
         appStore.onBookDeleted(payload.bookId)
         sentenceFileStore.removeBook(payload.bookId)
@@ -154,6 +164,14 @@ export class AppController {
       if (payload.confirm && result?.deleted) {
         // 同步清理本地文件缓存
         sentenceFileStore.removeSentence(payload.bookId, payload.sentenceId)
+        // 清理本地幽灵记录：favStore 的收藏（跨所有夹子）+ markStore 的掌握度标记。
+        // 云端 deleteSentence 已删 sentenceFavorite 集合记录，这里只需清本地分片，
+        // 否则残留记录会污染搜索防重判断和 toggleFavorite（给已删句子写新收藏）
+        const favRemoved = appStore.favStore.value?.removeBySentenceId(payload.sentenceId) || 0
+        const markRemoved = appStore.markStore.value?.removeBySentenceId(payload.sentenceId) || 0
+        if (favRemoved || markRemoved) {
+          console.log('[AppController] 清理已删句子的本地记录:', { favRemoved, markRemoved })
+        }
         sentencePlayManager.removeSentence(payload.sentenceId)
         eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
         wx.showToast({ title: '已删除', icon: 'success' })
@@ -271,6 +289,18 @@ export class AppController {
         console.log("收藏列表移除该句子");
         sentencePlayManager.removeSentence(payload.sentenceId);
         eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
+      }
+
+      // 把新句子加入了当前打开的收藏夹（列表页搜索添加场景，句子原本不在队列中）
+      // -> 重建播放队列刷新列表；句子已在队列中（播放页短按收藏）则不重建，避免打断播放位置
+      if (
+        payload.isFavorite &&
+        payload.refBookId &&
+        sentencePlayManager.bookId === payload.refBookId &&
+        !sentencePlayManager.sentenceList.some(s => s._id === payload.sentenceId)
+      ) {
+        console.log("收藏夹新增句子，重建列表");
+        eventBus.emit(AppEvent.REBUILD_PLAYLIST, { bookId: payload.refBookId });
       }
     } catch (err) {
       console.error("[EventListener] 切换收藏失败，尝试回滚状态:", err);

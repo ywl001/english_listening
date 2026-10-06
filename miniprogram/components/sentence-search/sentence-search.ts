@@ -13,26 +13,45 @@ Component({
     show: {
       type: Boolean,
       value: false
+    },
+    // 目标句集（引用书）：搜索结果将加入这本书；不传则默认当前收藏夹
+    bookId: {
+      type: String,
+      value: ''
+    },
+    // 目标句集名称（用于提示文案），不传则取当前收藏夹名
+    bookName: {
+      type: String,
+      value: ''
+    },
+    // 内联模式：嵌入页面列表区渲染结果（无遮罩/面板/动画/自身输入框），keyword 由外部传入
+    inline: {
+      type: Boolean,
+      value: false
+    },
+    // 搜索关键词（内联模式下由页面传入，变化时自动防抖搜索）
+    keyword: {
+      type: String,
+      value: ''
     }
   },
 
   data: {
     animShow: false,   // 滑入/滑出动画开关
     rendering: false,  // 节点是否渲染（动画结束后移除）
-    keyword: '',
     results: [] as SearchResult[],
     searching: false,
     searched: false,
-    favoriteBookName: '收藏'
+    targetBookName: '收藏'
   },
 
   observers: {
     show(v: boolean) {
+      if (this.properties.inline) return;
       if (v) {
         // 先渲染节点，下一帧再触发滑入动画
         this.setData({ rendering: true });
         setTimeout(() => this.setData({ animShow: true }), 30);
-        this.setData({ favoriteBookName: appStore.currentFavoriteBook.value?.name || '收藏' });
       } else {
         // 先执行滑出动画，动画结束后移除节点
         this.setData({ animShow: false });
@@ -41,6 +60,28 @@ Component({
           this.setData({ rendering: false });
         }, ANIM_MS);
       }
+    },
+
+    // 目标书名：面板/内联两种模式统一在此计算
+    'bookName'() {
+      this.setData({
+        targetBookName: this.properties.bookName
+          || appStore.currentFavoriteBook.value?.name
+          || '收藏'
+      });
+    },
+
+    // 内联模式：keyword 由页面传入，变化时防抖搜索（与面板模式 onInput 行为一致）
+    keyword(v: string) {
+      if (!this.properties.inline) return;
+      this.clearSearchTimer();
+      const kw = (v || '').trim();
+      if (!kw) {
+        this.setData({ results: [], searched: false, searching: false });
+        return;
+      }
+      this.setData({ searching: true });
+      (this as any).searchTimer = setTimeout(() => this.doSearch(), DEBOUNCE_MS);
     }
   },
 
@@ -113,10 +154,11 @@ Component({
       this.setData({ searching: true });
       try {
         const res = await sentenceService.searchSentences(keyword);
-        // 标记本地已收藏（含跨夹子）
+        // 标记是否已在目标句集（按 refBookId 精确匹配，而非全局收藏过——句子可能收藏在其他夹子）
+        const targetBookId = this.properties.bookId;
         const favIds = new Set(
           (appStore.favStore.value?.getAll() || [])
-            .filter((x: any) => !x.deleted)
+            .filter((x: any) => !x.deleted && (!targetBookId || x.refBookId === targetBookId))
             .map((x: any) => x.sentenceId)
         );
         const results = ((res || []) as SearchResult[]).map(s => ({
@@ -133,17 +175,20 @@ Component({
       }
     },
 
-    /* ---------------- 添加到收藏夹 ---------------- */
+    /* ---------------- 加入目标句集 ---------------- */
 
     onAdd(e: WechatMiniprogram.CustomEvent) {
       const sentence = e.currentTarget.dataset.sentence as SearchResult;
+      // isFavorite = 已在目标句集中（多夹子收藏不影响），重复点击无效
       if (!sentence || sentence.isFavorite) return;
 
       // 走统一的收藏事件：controller 负责写库 + 队列同步
+      // refBookId = 目标句集（未传时 controller 默认当前收藏夹）
       eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
         sentenceId: sentence._id,
         isFavorite: true,
-        bookId: sentence.bookId
+        bookId: sentence.bookId,
+        refBookId: this.properties.bookId || undefined
       });
 
       const results = this.data.results.map(r =>
@@ -152,16 +197,13 @@ Component({
       this.setData({ results });
 
       wx.showToast({
-        title: `已收藏到 ${this.data.favoriteBookName}`,
+        title: `已加入 ${this.data.targetBookName}`,
         icon: 'none',
         duration: 1200
       });
 
-      // 添加完成后自动收起（延迟一下让用户看到反馈）
-      this.clearHideTimer();
-      (this as any).hideTimer = setTimeout(() => {
-        this.triggerEvent('close');
-      }, 800);
+      // 保持结果列表展开（方案 A）：加入不触发关闭，用户通过 ✕清空 / 图标切回过滤 主动收起，
+      // 可连续加入多条；结果保留在组件内，重展开时关键词未变则不重新搜索
     }
   }
 });

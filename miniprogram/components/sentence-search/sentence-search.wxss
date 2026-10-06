@@ -1,3 +1,8 @@
+/* 内联模式容器：嵌入页面列表区 */
+.inline-wrap {
+  padding: 0;
+}
+
 /* 遮罩：淡入淡出 */
 .search-mask {
   position: fixed;

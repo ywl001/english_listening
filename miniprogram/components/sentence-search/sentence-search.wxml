@@ -1,5 +1,31 @@
-<!-- 顶部下滑搜索面板：mask 淡入 + panel 从顶部滑入 -->
-<view wx:if="{{rendering}}" class="search-mask {{animShow ? 'show' : ''}}" catchtap="onMaskTap">
+<!-- 内联模式：嵌入页面列表区，只渲染结果 -->
+<view wx:if="{{inline}}" class="inline-wrap">
+  <view wx:if="{{searching}}" class="tip">搜索中...</view>
+
+  <block wx:elif="{{results.length}}">
+    <view wx:for="{{results}}" wx:key="_id" class="result-card">
+      <view class="card-main">
+        <text class="en">{{item.en}}</text>
+        <text class="zh">{{item.zh}}</text>
+        <text wx:if="{{item.bookName}}" class="book">{{item.bookName}}</text>
+      </view>
+      <view
+        class="add-btn {{item.isFavorite ? 'added' : ''}}"
+        catchtap="onAdd"
+        data-sentence="{{item}}"
+      >
+        <van-icon name="star" size="20px" color="{{item.isFavorite ? '#F6AD55' : '#CBD5E0'}}" />
+        <text class="add-label">{{item.isFavorite ? '已加入' : '加入'}}</text>
+      </view>
+    </view>
+  </block>
+
+  <view wx:elif="{{searched}}" class="tip">没有找到相关句子</view>
+  <view wx:else class="tip">输入关键词，搜索句子加入「{{targetBookName}}」</view>
+</view>
+
+<!-- 面板模式：顶部下滑搜索面板：mask 淡入 + panel 从顶部滑入 -->
+<view wx:elif="{{rendering}}" class="search-mask {{animShow ? 'show' : ''}}" catchtap="onMaskTap">
   <view class="search-panel {{animShow ? 'show' : ''}}" catchtap="noop">
     <!-- 搜索栏 + 关闭按钮 -->
     <view class="search-header">
@@ -39,13 +65,13 @@
             data-sentence="{{item}}"
           >
             <van-icon name="star" size="20px" color="{{item.isFavorite ? '#F6AD55' : '#CBD5E0'}}" />
-            <text class="add-label">{{item.isFavorite ? '已收藏' : '收藏'}}</text>
+            <text class="add-label">{{item.isFavorite ? '已加入' : '加入'}}</text>
           </view>
         </view>
       </block>
 
       <view wx:elif="{{searched}}" class="tip">没有找到相关句子</view>
-      <view wx:else class="tip">输入关键词，搜索句子加入「{{favoriteBookName}}」</view>
+      <view wx:else class="tip">输入关键词，搜索句子加入「{{targetBookName}}」</view>
     </scroll-view>
   </view>
 </view>

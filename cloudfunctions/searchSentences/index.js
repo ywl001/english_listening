@@ -3,7 +3,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
-const MAX_RESULTS = 30
+const MAX_RESULTS = 100
 const MAX_VISIBLE_BOOKS = 200 // 简化处理：假设用户可见词书数量不会大到需要再分页
 const IN_CHUNK_SIZE = 20 // command.in() 单次数组长度上限，超过要分片查询
 

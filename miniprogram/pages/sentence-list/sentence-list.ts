@@ -12,6 +12,10 @@ Page({
     sentenceList: [] as Sentence[],
     displayList: [] as Sentence[],
     keyword: '',
+    // 搜索区模式：filter=本地过滤列表，search=云端搜索句子加入本书（仅引用书可切）
+    searchMode: 'filter' as 'filter' | 'search',
+    // 搜索结果浮层是否展开（加入成功/手动收起后折叠，露出句子列表）
+    showResults: false,
     showDeleteDialog: false,
     deleteSentence: null as Sentence | null,
     deleteDialogText: '',
@@ -44,6 +48,11 @@ Page({
   onLoad(options: { bookName: string, bookId: string }) {
     const bookId = options.bookId || '';
     const bookName = options.bookName || ''
+
+    // 导航栏标题 = 当前书名
+    if (bookName) {
+      wx.setNavigationBarTitle({ title: bookName })
+    }
 
     // 判断书类型，决定删除行为（系统书理论上进不了此页，做兜底保护）
     const book = appStore.books.value.find(b => b._id === bookId);
@@ -98,11 +107,10 @@ Page({
     if (!sentence) return
 
     if (this.data.bookKind === 'ref') {
-      // 引用书：取消该句子在本书的收藏
-      this.setData({
-        deleteSentence: sentence,
-        deleteDialogText: '确定要取消收藏该句子吗？',
-        showDeleteDialog: true
+      // 引用书：取消收藏无需确认，直接移除（仅作用于本书维度，其他夹子的收藏保留）
+      eventBus.emit(AppEvent.REMOVE_FAVORITE, {
+        sentenceId: sentence._id,
+        refBookId: this.data.bookId
       })
     } else {
       // 用户实体书：先查收藏情况（controller 回传），弹窗文案带提示
@@ -130,13 +138,7 @@ Page({
 
     this.setData({ showDeleteDialog: false, deleteSentence: null })
 
-    if (this.data.bookKind === 'ref') {
-      // 引用书：仅标记本书维度的收藏记录 deleted（controller 处理并刷新列表）
-      eventBus.emit(AppEvent.REMOVE_FAVORITE, {
-        sentenceId: sentence._id,
-        refBookId: this.data.bookId
-      })
-    } else if (this.data.bookKind === 'user') {
+    if (this.data.bookKind === 'user') {
       // 用户实体书：controller 负责云端删除、本地缓存清理、队列移除、列表刷新与提示
       eventBus.emit(AppEvent.DELETE_SENTENCE, { sentenceId: sentence._id, bookId: sentence.bookId, confirm: true })
     }
@@ -149,12 +151,58 @@ Page({
     })
   },
 
-  // 本地搜索过滤
+  // 输入统一入口：filter 模式实时本地过滤；search 模式只更新 keyword 并展开结果浮层（组件监听变化自动防抖搜索）
   onSearchInput(e: WechatMiniprogram.Input) {
     const keyword = e.detail.value;
+    const patch: any = { keyword };
+    if (this.data.searchMode === 'filter') {
+      patch.displayList = this.filterList(this.data.sentenceList, keyword);
+    } else {
+      patch.showResults = true; // 继续输入时重新展开搜索结果
+    }
+    this.setData(patch);
+  },
+
+  // input 重新聚焦：搜索模式下重新展开结果浮层（组件未销毁，关键词未变直接复用上次结果，不重搜）
+  onInputFocus() {
+    if (this.data.searchMode === 'search' && !this.data.showResults) {
+      this.setData({ showResults: true });
+    }
+  },
+
+  /* ---------------- 搜索区模式切换（过滤 / 搜索添加，互斥，仅引用书） ---------------- */
+
+  onToggleSearchMode() {
+    if (this.data.bookKind !== 'ref') return; // 实体书（我的录入）不支持收藏模型，只有过滤
+    const searchMode = this.data.searchMode === 'filter' ? 'search' : 'filter';
     this.setData({
-      keyword,
-      displayList: this.filterList(this.data.sentenceList, keyword)
+      searchMode,
+      // 切到搜索即展开结果浮层（空关键词显示输入提示）；切回过滤则浮层条件失效自动折叠
+      showResults: searchMode === 'search',
+      displayList: searchMode === 'filter'
+        ? this.filterList(this.data.sentenceList, this.data.keyword)
+        : this.data.displayList
+    });
+  },
+
+  // 搜索结果浮层收起（组件加入成功后触发 close）：露出底下的句子列表
+  onSearchClose() {
+    this.setData({ showResults: false });
+  },
+
+  // 回车：搜索模式下跳过防抖立即查询（调内联搜索组件的 doSearch）
+  onConfirmInput() {
+    if (this.data.searchMode !== 'search') return;
+    const panel = this.selectComponent('#searchPanel') as any;
+    panel?.doSearch?.();
+  },
+
+  // 清空关键词：过滤模式恢复完整列表；搜索模式清空结果并收起浮层（"不搜了"）
+  onClearKeyword() {
+    this.setData({
+      keyword: '',
+      showResults: this.data.searchMode === 'search' ? false : this.data.showResults,
+      displayList: this.filterList(this.data.sentenceList, '')
     });
   },
 
