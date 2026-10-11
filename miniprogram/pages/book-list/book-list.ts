@@ -1,4 +1,4 @@
-import { BookContent, Pages } from '../../enums/app-enums';
+import { BookContent, Pages, LocalStorageKey } from '../../enums/app-enums';
 import sentenceService from '../../services/sentence-service';
 import articleService from '../../services/article-service';
 import eventBus from '../../services/EventBus';
@@ -7,6 +7,7 @@ import { initManagerAndNavigate } from '../../utils/util';
 import { bindSignal } from '../../utils/signal-bind';
 import appStore from '../../services/app-store';
 import { computed } from '@preact/signals-core';
+import bookService from '../../services/book-service';
 
 Page({
   data: {
@@ -16,7 +17,9 @@ Page({
     systemBooks: [] as Book[],
     userBooks: [] as Book[],
     articleBooks: [] as Book[],
-    showBookCreate: false
+    showBookCreate: false,
+    // 编辑模式：正在改名的书（null=新建模式）
+    editingBook: null as Book | null
   },
 
   books:[] as Book[],
@@ -60,11 +63,11 @@ Page({
   },
 
   openCreateBook() {
-    this.setData({ showBookCreate: true });
+    this.setData({ showBookCreate: true, editingBook: null });
   },
 
   closeBookCreate() {
-    this.setData({ showBookCreate: false });
+    this.setData({ showBookCreate: false, editingBook: null });
   },
 
   async onTapBook(e: any) {
@@ -104,9 +107,11 @@ Page({
     }
   },
 
+  // 编辑（重命名）句子书：复用 book-create 弹窗，预填旧名
   onEditBook(e: any) {
     const { book } = e.detail;
-    console.log('编辑句子书:', book);
+    if (!book || !book._openid) return; // 系统书不可编辑
+    this.setData({ showBookCreate: true, editingBook: book });
   },
 
   onDeleteBook(e: any) {
@@ -137,10 +142,33 @@ Page({
     })
   },
 
-  onCreateBook(e: any) {
+  // book-create 弹窗确认（新建 / 重命名共用入口）
+  async onCreateBook(e: any) {
     const { name } = e.detail
-    // 新建句子书 = 引用书（ref）：controller 创建成功后会刷新书列表并提示
-    eventBus.emit(AppEvent.CREATE_BOOK, { name })
+    const editing = this.data.editingBook
+
+    try {
+      if (editing) {
+        // 重命名：service 直调更新，成功后刷新书列表
+        await bookService.renameBook(editing._id, name)
+        // 改名的是默认收藏夹时同步 signal + storage，避免播放页/卡片显示旧名
+        if (appStore.currentFavoriteBook.value?._id === editing._id) {
+          const updated = { ...appStore.currentFavoriteBook.value, name: name.trim() }
+          appStore.currentFavoriteBook.value = updated
+          wx.setStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK, updated)
+        }
+        eventBus.emit(AppEvent.GET_BOOKS)
+        wx.showToast({ title: '修改成功', icon: 'success' })
+      } else {
+        // 新建句子书 = 引用书（ref）：service 直调创建，成功后刷新书列表（books 更新 -> computed 自动生效）
+        await bookService.createBook(name)
+        eventBus.emit(AppEvent.GET_BOOKS)
+        wx.showToast({ title: '创建成功', icon: 'success' })
+      }
+    } catch (err) {
+      console.error('[book-list] 保存词书失败:', err)
+      wx.showToast({ title: err instanceof Error ? err.message : '操作失败', icon: 'none' })
+    }
   }
 
 });

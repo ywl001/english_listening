@@ -29,8 +29,14 @@
     <view wx:if="{{!articleBooks.length}}" class="empty-tip">暂无文章书</view>
   </scroll-view>
 
-  <!-- 新建句子书弹窗 -->
-  <book-create bind:confirm="onCreateBook" bind:close="closeBookCreate" visible="{{showBookCreate}}" />
+  <!-- 新建 / 重命名句子书弹窗（复用同一组件，编辑模式预填旧名） -->
+  <book-create
+    visible="{{showBookCreate}}"
+    title="{{editingBook ? '重命名句子书' : '新建句子书'}}"
+    initial-name="{{editingBook ? editingBook.name : ''}}"
+    bind:confirm="onCreateBook"
+    bind:close="closeBookCreate"
+  />
 
   <!-- 底部悬浮内容切换：两个独立按钮 -->
   <view class="fab-btn {{activeContent === 'sentence' ? 'active' : ''}}" bindtap="switchContent" data-content="sentence">

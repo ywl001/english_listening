@@ -3,9 +3,9 @@ import appStore from "../../services/app-store";
 import { AppEvent } from "../../services/event-type";
 import eventBus from "../../services/EventBus";
 import sentencePlayManager from "../../services/sentence-play-manager";
+import audioPlayerService from "../../services/audio-player-service";
+import { bindSignal } from "../../utils/signal-bind";
 
-
-const audioCtx = wx.createInnerAudioContext();
 
 Page({
   data: {
@@ -47,7 +47,7 @@ Page({
 
   onLoad(options: { bookName: string, bookId: string }) {
     const bookId = options.bookId || '';
-    const bookName = options.bookName || ''
+    const bookName = decodeURIComponent(options.bookName || '')|| ''
 
     // 导航栏标题 = 当前书名
     if (bookName) {
@@ -63,19 +63,19 @@ Page({
       bookKind = 'user'; // 我的句子（默认实体书）
     }
 
-    this.setData(
-      {
-        sentenceList: sentencePlayManager.sentenceList,
-        bookId,
-        bookName,
-        bookKind,
-        canDelete: bookKind !== 'system',
-        displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
+    this.setData({ bookId, bookName, bookKind, canDelete: bookKind !== 'system' });
+
+    // 队列 signal 绑定：Manager 是单一事实源，队列任何变更自动同步列表，
+    // 页面不再手动 setData 拷贝，也不再监听 REFRESH_SENTENCE_LIST 事件
+    (this as any).queueDisposer = bindSignal(
+      this,
+      sentencePlayManager.queue,
+      'sentenceList',
+      (list) => {
+        // 列表变化时按当前关键词重新过滤显示列表
+        this.setData({ displayList: this.filterList(list, this.data.keyword) });
       }
     );
-    // strict 模式下方法引用脱离实例调用 this 为 undefined，必须用箭头函数包装
-    (this as any).refreshDataHandler = () => this.refreshData();
-    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST, (this as any).refreshDataHandler)
   },
 
   onShow() {
@@ -89,15 +89,8 @@ Page({
   },
 
   onUnload() {
-    audioCtx.stop();
-    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST, (this as any).refreshDataHandler)
-  },
-
-  refreshData() {
-    this.setData({
-      sentenceList: sentencePlayManager.sentenceList,
-      displayList: this.filterList(sentencePlayManager.sentenceList, this.data.keyword),
-    })
+    audioPlayerService.stop();
+    (this as any).queueDisposer?.();
   },
 
   // 删除入口：按书类型弹不同文案的确认框（统计数据由 controller 回传）
@@ -223,16 +216,18 @@ Page({
 
   // 触发全部播放/暂停
   togglePlayAll() {
-    wx.navigateTo({ url: Pages.sentencePlay })
+    wx.navigateTo({ url: `${Pages.sentencePlay}?bookId=${this.data.bookId}&bookName=${this.data.bookName}` })
   },
 
-  // 播放指定索引位置的句子音频
+  // 播放指定索引位置的句子音频（统一走 audioPlayerService：新旧结构兼容，多路互斥不叠播）
   playCurrentIndexAudio(index: number) {
     const target = this.data.displayList[index];
     this.setData({ currentIndex: index });
-    audioCtx.stop();
-    audioCtx.src = target.audio;
-    audioCtx.play();
+    if (!target) return;
+    // 起播失败（无音频等）时复位高亮
+    if (!audioPlayerService.playSentence(target, 'en')) {
+      this.setData({ currentIndex: -1 });
+    }
   },
 
   // 真正的添加逻辑（从 touchend 调用）
@@ -248,8 +243,8 @@ Page({
   onSentenceSaved(e: WechatMiniprogram.CustomEvent) {
     console.log('list e', e)
     const s = e.detail.sentence
-    sentencePlayManager.sentenceList.push(s)
-    this.refreshData()
+    // 新句子进队列（manager signal 通知列表自动刷新）
+    sentencePlayManager.append([s])
     this.closeGenerator()
   }
 });

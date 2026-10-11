@@ -29,6 +29,22 @@ export interface AudioTask {
   segments?: AudioSegment[];
 }
 
+/**
+ * 统一的"句子 → 音频任务"解析出口（全应用唯一，新旧结构兼容）：
+ * - 新结构（audioUrl + audioSegments）：整本书 URL + 对应语言的时间片段
+ * - 旧结构（audio / audio_zh）：单句文件 URL，无片段
+ * - 无可用音频：返回 null
+ */
+export function resolveTrack(sentence: Sentence, lang: 'en' | 'zh'): AudioTask | null {
+  if (sentence.audioUrl && sentence.audioSegments) {
+    const segs = sentence.audioSegments[lang];
+    if (!segs || segs.length === 0) return null;
+    return { url: sentence.audioUrl, segments: segs };
+  }
+  const url = lang === 'en' ? sentence.audio : sentence.audio_zh;
+  return url ? { url } : null;
+}
+
 type PlayerState = 'idle' | 'loading' | 'playing' | 'paused';
 
 export class SegmentAudioPlayer {

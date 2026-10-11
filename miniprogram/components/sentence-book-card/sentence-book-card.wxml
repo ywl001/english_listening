@@ -1,4 +1,4 @@
-<van-swipe-cell right-width="{{70}}" disabled="{{!book.isCustom}}">
+<van-swipe-cell id="swipeCell" right-width="{{140}}" disabled="{{!book.isCustom}}">
   <view class="book-card" bindtap="onTap">
     <view class="cover {{coverTheme}}">
       <text class="cover-title">{{book.alias || book.name}}</text>
@@ -25,7 +25,8 @@
     <text class="arrow">›</text>
   </view>
 
-  <view wx:if="{{isUserBook}}" slot="right" class="delete-btn" catchtap="onDelete">
-    删除
+  <view wx:if="{{isUserBook}}" slot="right" class="swipe-actions">
+    <view class="edit-btn" catchtap="onEdit">编辑</view>
+    <view class="delete-btn" catchtap="onDelete">删除</view>
   </view>
 </van-swipe-cell>

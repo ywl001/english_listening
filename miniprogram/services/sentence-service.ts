@@ -68,11 +68,11 @@ export class SentenceService {
 
   /**
    * 切换收藏状态（一个句子可同时被多本引用书收藏）
-   * @param targetFavoriteState true=收藏，false=取消收藏（仅作用于目标引用书，其他夹子不受影响）
+   * @param targetFavoriteState 目标状态：true=确保加入，false=确保移除，不传=按存储现状 toggle（推荐）
    * @param refBookId 可选：目标引用书（长按选夹子场景传入），默认当前收藏夹
    * @returns 操作后该句子仍被收藏的引用书 id 列表（跨夹子）
    */
-  toggleFavorite(sentenceId: string, bookId: string, targetFavoriteState: boolean, refBookId?: string): string[] {
+  toggleFavorite(sentenceId: string, bookId: string, targetFavoriteState?: boolean, refBookId?: string): string[] {
     const favStore = appStore.favStore.value as LocalShardStore<SentenceFavorite>
     const ref = refBookId || appStore.currentFavoriteBook.value?._id as string
     if (!ref) {
@@ -83,8 +83,10 @@ export class SentenceService {
     // 该句子当前所有收藏记录（跨夹子）
     const records = favStore.getAll().filter(x => x.sentenceId === sentenceId)
     const target = records.find(x => x.refBookId === ref && !x.deleted)
+    // 方向由存储现状判定（单一事实源）：不传目标状态时按"是否已在该句集"取反
+    const want = targetFavoriteState === undefined ? !target : targetFavoriteState
 
-    if (targetFavoriteState) {
+    if (want) {
       // 收藏：仅写入目标引用书，其他引用书的记录保持不变（支持多夹子共存）
       if (!target) {
         const recordId = `${appStore._openid.value}__${ref}__${sentenceId}`

@@ -102,12 +102,25 @@
   flex-shrink: 0;
 }
 
-.delete-btn {
+.swipe-actions {
+  display: flex;
+  height: 100%;
+}
+
+.swipe-actions .edit-btn,
+.swipe-actions .delete-btn {
   width: 70px;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ee0a24;
   color: #fff;
+}
+
+.swipe-actions .edit-btn {
+  background: #2f80ed;
+}
+
+.swipe-actions .delete-btn {
+  background: #ee0a24;
 }

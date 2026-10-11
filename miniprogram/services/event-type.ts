@@ -1,7 +1,13 @@
 export interface FavoritePayload {
   sentenceId: string;
-  /** 句集（引用书）维度的目标状态：true=加入该句集，false=从该句集移除；不影响其他句集 */
-  isFavorite: boolean;
+  /**
+   * 句集（引用书）维度的目标状态：
+   * - true = 确保加入该句集（已存在则幂等）
+   * - false = 确保从该句集移除
+   * - 不传 = 由存储现状决定方向（toggle）——推荐的纯意图用法，单一事实源由 service 判定
+   * 三种取法都只作用于 refBookId 这一个句集，不影响其他句集。
+   */
+  isFavorite?: boolean;
   bookId: string;
   /** 目标句集（引用书）id；不传则默认当前收藏夹 */
   refBookId?: string;
@@ -48,17 +54,6 @@ export interface CreateSentencePayload {
   callback?: EventCallback<Sentence>;
 }
 
-export interface AddSentenceToBookPayload {
-  sentenceId: string;
-  bookId: string;
-  callback?: EventCallback;
-}
-
-export interface FindSentencePayload {
-  en: string;
-  callback?: EventCallback<Sentence | null>;
-}
-
 export interface RemoveFavoritePayload {
   sentenceId: string;
   refBookId: string;
@@ -72,20 +67,13 @@ export interface RebuildPlaylistPayload {
 export enum AppEvent {
   MARK_SENTENCE = "markSentence",
   FAVORITE_SENTENCE = "favoriteSentence",
-  REFRESH_SENTENCE_LIST = "refreshSentenceList",
-  GET_PLAYLIST = "getPlaylist",
-  GET_PLAYLIST_SUCCESS = "getPlaylistSuccess",
   NEED_MORE_SENTENCES = "needMoreSentences",
 
   GET_BOOKS = "getBook",
-  GET_BOOK_SUCCESS = "getBookSuccess",
 
-  CREATE_BOOK = "createBook",
   DELETE_BOOK = "deleteBook",
   CREATE_SENTENCE = "createSentence",
   DELETE_SENTENCE = "deleteSentence",
-  ADD_SENTENCE_TO_BOOK = "addSentenceToBook",
-  FIND_SENTENCE = "findSentence",
   REMOVE_FAVORITE = "removeFavoriteFromBook",
   REBUILD_PLAYLIST = "rebuildPlaylist",
 }
@@ -93,19 +81,12 @@ export enum AppEvent {
 export interface EventPayloadMap {
   [AppEvent.MARK_SENTENCE]: any;
   [AppEvent.FAVORITE_SENTENCE]: FavoritePayload;
-  [AppEvent.REFRESH_SENTENCE_LIST]: void;
-  [AppEvent.GET_BOOK_SUCCESS]: Book[];
   [AppEvent.GET_BOOKS]: void;
-  [AppEvent.GET_PLAYLIST]: string;
-  [AppEvent.GET_PLAYLIST_SUCCESS]: Sentence[];
   [AppEvent.NEED_MORE_SENTENCES]: NeedMorePayload;
 
-  [AppEvent.CREATE_BOOK]: CreateBookPayload;
   [AppEvent.DELETE_BOOK]: DeleteBookPayload;
   [AppEvent.CREATE_SENTENCE]: CreateSentencePayload;
   [AppEvent.DELETE_SENTENCE]: DeleteSentencePayload;
-  [AppEvent.ADD_SENTENCE_TO_BOOK]: AddSentenceToBookPayload;
-  [AppEvent.FIND_SENTENCE]: FindSentencePayload;
   [AppEvent.REMOVE_FAVORITE]: RemoveFavoritePayload;
   [AppEvent.REBUILD_PLAYLIST]: RebuildPlaylistPayload;
 }

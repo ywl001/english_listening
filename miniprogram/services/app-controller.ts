@@ -1,7 +1,7 @@
 import appStore from "./app-store";
 import bookService from "./book-service";
-import { BookType, LocalStorageKey } from "../enums/app-enums";
-import { AppEvent, AddSentenceToBookPayload, CreateBookPayload, CreateSentencePayload, DeleteBookPayload, DeleteSentencePayload, FavoritePayload, FindSentencePayload, MarkPayload, NeedMorePayload, RebuildPlaylistPayload, RemoveFavoritePayload } from "./event-type";
+import { LocalStorageKey } from "../enums/app-enums";
+import { AppEvent, CreateSentencePayload, DeleteBookPayload, DeleteSentencePayload, FavoritePayload, MarkPayload, NeedMorePayload, RebuildPlaylistPayload, RemoveFavoritePayload } from "./event-type";
 import eventBus from "./EventBus";
 import sentencePlayList from "./sentence-play-list";
 import sentencePlayManager from "./sentence-play-manager";
@@ -10,25 +10,21 @@ import { TtsService } from "./tts-service";
 import sentenceFileStore from "../utils/sentence-file-store";
 
 export class AppController {
-  private cursor?: SentencePlayCursor;
   // 引用书（收藏夹）播放分页游标：bookId -> updatedAt 游标
   private favCursor = new Map<string, number | undefined>();
 
   init() {
-    eventBus.on(AppEvent.GET_BOOKS, (e) => this.onGetBooks());
+    eventBus.on(AppEvent.GET_BOOKS, () => this.onGetBooks());
     eventBus.on(AppEvent.FAVORITE_SENTENCE, (e) => this.favoriteSentence(e));
     eventBus.on(AppEvent.MARK_SENTENCE, (e) => this.markSentence(e));
-    eventBus.on(AppEvent.GET_PLAYLIST, (e) => this.onGetPlaylist(e));
     // 播放队列见底，Manager 发事件通知加载数据
     eventBus.on(AppEvent.NEED_MORE_SENTENCES, (e) => this.onNeedMore(e));
 
-    // ---- 数据写操作：UI 发意图事件，这里统一处理 ----
-    eventBus.on(AppEvent.CREATE_BOOK, (e) => this.onCreateBook(e));
+    // ---- 数据写操作（含跨模块编排）：UI 发意图事件，这里统一处理 ----
+    // 纯查询/单步 RPC（查重、加书、建书、拉播放列表）已改为页面直调 service
     eventBus.on(AppEvent.DELETE_BOOK, (e) => this.onDeleteBook(e));
     eventBus.on(AppEvent.CREATE_SENTENCE, (e) => this.onCreateSentence(e));
     eventBus.on(AppEvent.DELETE_SENTENCE, (e) => this.onDeleteSentence(e));
-    eventBus.on(AppEvent.ADD_SENTENCE_TO_BOOK, (e) => this.onAddSentenceToBook(e));
-    eventBus.on(AppEvent.FIND_SENTENCE, (e) => this.onFindSentence(e));
     eventBus.on(AppEvent.REMOVE_FAVORITE, (e) => this.onRemoveFavorite(e));
     eventBus.on(AppEvent.REBUILD_PLAYLIST, (e) => this.onRebuildPlaylist(e));
   }
@@ -66,22 +62,6 @@ export class AppController {
       console.warn('[AppController] 默认收藏夹已失效且无可用回退，清空');
       appStore.currentFavoriteBook.value = undefined;
       wx.removeStorageSync(LocalStorageKey.CURRENT_FAVORITE_BOOK);
-    }
-  }
-
-  /**
-   * 新建引用书（用于收藏句子），成功后刷新书列表
-   */
-  private async onCreateBook(payload: CreateBookPayload): Promise<void> {
-    try {
-      await bookService.createBook(payload.name, BookType.ref)
-      // userBooks 由 bindSignal 绑定 computed，通过刷新 books 数据源更新
-      eventBus.emit(AppEvent.GET_BOOKS)
-      wx.showToast({ title: '创建成功', icon: 'success' })
-      payload.callback?.(null)
-    } catch (err) {
-      console.error('[AppController] 创建词书失败:', err)
-      payload.callback?.(null, err)
     }
   }
 
@@ -173,7 +153,6 @@ export class AppController {
           console.log('[AppController] 清理已删句子的本地记录:', { favRemoved, markRemoved })
         }
         sentencePlayManager.removeSentence(payload.sentenceId)
-        eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
         wx.showToast({ title: '已删除', icon: 'success' })
       }
       payload.callback?.(result as any)
@@ -184,40 +163,12 @@ export class AppController {
   }
 
   /**
-   * 把已有句子加入引用书（写收藏记录）
-   */
-  private async onAddSentenceToBook(payload: AddSentenceToBookPayload): Promise<void> {
-    try {
-      await bookService.addSentenceToBook(payload.sentenceId, payload.bookId)
-      wx.showToast({ title: '已添加到词书', icon: 'success' })
-      payload.callback?.(null)
-    } catch (err) {
-      console.error('[AppController] 加入词书失败:', err)
-      payload.callback?.(null, err)
-    }
-  }
-
-  /**
-   * 按英文原文查重（忽略大小写），命中回传已有句子，未命中回传 null
-   */
-  private async onFindSentence(payload: FindSentencePayload): Promise<void> {
-    try {
-      const sentence = await sentenceService.findSentence(payload.en)
-      payload.callback?.(sentence)
-    } catch (err) {
-      console.error('[AppController] 查重失败:', err)
-      payload.callback?.(null, err)
-    }
-  }
-
-  /**
    * 从指定引用书移除收藏（列表滑动删除）：本地标记 + 推上云 + 队列移除 + 列表刷新
    */
   private onRemoveFavorite(payload: RemoveFavoritePayload): void {
     try {
       sentenceService.removeFavoriteFromBook(payload.sentenceId, payload.refBookId)
       sentencePlayManager.removeSentence(payload.sentenceId)
-      eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
       wx.showToast({ title: '已取消收藏', icon: 'none' })
     } catch (err) {
       console.error('[AppController] 取消收藏失败:', err)
@@ -256,7 +207,6 @@ export class AppController {
 
       sentencePlayManager.init(book, result as any)
 
-      eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST)
       payload.callback?.(result)
     } catch (err) {
       console.error('[AppController] 重建播放队列失败:', err)
@@ -288,7 +238,6 @@ export class AppController {
       ) {
         console.log("收藏列表移除该句子");
         sentencePlayManager.removeSentence(payload.sentenceId);
-        eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
       }
 
       // 把新句子加入了当前打开的收藏夹（列表页搜索添加场景，句子原本不在队列中）
@@ -346,14 +295,6 @@ export class AppController {
     }
   }
 
-  private async onGetPlaylist(bookId: string) {
-    console.log("发送了事件 get play list");
-    const res = await sentencePlayList.getPlayList(bookId, 20, this.cursor);
-    this.cursor = res.cursor;
-    console.log("appController res", res);
-    eventBus.emit(AppEvent.GET_PLAYLIST_SUCCESS, res.list);
-  }
-
   /**
    * 播放队列见底：分页加载更多句子追加进队列
    * 实体书走 getPlayList（复习优先 + 水位线），引用书（收藏夹）走 getFavoritePlayList
@@ -383,7 +324,6 @@ export class AppController {
 
       if (list && list.length > 0) {
         sentencePlayManager.append(list, hasMore);
-        eventBus.emit(AppEvent.REFRESH_SENTENCE_LIST);
       } else {
         sentencePlayManager.setNoMore();
       }

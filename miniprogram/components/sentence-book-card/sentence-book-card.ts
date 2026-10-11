@@ -40,15 +40,23 @@ Component({
   },
 
   methods: {
+    // 点击滑动菜单按钮后主动收起单元格（vant swipe-cell 实例提供 close 方法）
+    collapseSwipe() {
+      const cell = this.selectComponent('#swipeCell') as any;
+      cell?.close?.();
+    },
+
     onTap() {
       this.triggerEvent("tapcard", { book: this.data.book });
     },
 
     onEdit() {
+      this.collapseSwipe();
       this.triggerEvent("edit", { book: this.data.book });
     },
 
     onDelete() {
+      this.collapseSwipe();
       this.triggerEvent("delete", { book: this.data.book });
     },
   },

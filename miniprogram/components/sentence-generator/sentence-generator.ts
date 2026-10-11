@@ -1,9 +1,11 @@
 import { TranslateService } from "../../services/translate-service"
 import { TtsService } from "../../services/tts-service"
-import sentenceStore from "../../utils/sentenceStore"
 import appStore from "../../services/app-store"
 import eventBus from "../../services/EventBus"
 import { AppEvent } from "../../services/event-type"
+import audioPlayerService from "../../services/audio-player-service"
+import sentenceService from "../../services/sentence-service"
+import bookService from "../../services/book-service"
 
 const EMPTY_RESULT = {
   zh: '',
@@ -91,10 +93,8 @@ Component({
 
         this.setData({ zh, en })
 
-        // 查重：库里已有相同英文句子则不再生成（controller 查询并回传）
-        const existing = await new Promise<Sentence | null>(resolve => {
-          eventBus.emit(AppEvent.FIND_SENTENCE, { en, callback: (s: Sentence | null) => resolve(s) })
-        })
+        // 查重：库里已有相同英文句子则不再生成（service 直调）
+        const existing = await sentenceService.findSentence(en)
         if (this.data.inputText.trim() !== trimmed) return
 
         if (existing) {
@@ -151,26 +151,23 @@ Component({
 
     /**
      * 库中已有相同句子时的处理：
-     * - 目标是引用书：把已有句子加入该引用书（controller 写收藏记录），随后走 saved 事件刷新列表
+     * - 目标是引用书：把已有句子加入该引用书（service 直调），随后走 saved 事件刷新列表
      * - 目标是实体书（我的句子等）：提示已存在，什么都不做，关闭弹层
      */
-    handleExistingSentence(existing: Sentence) {
+    async handleExistingSentence(existing: Sentence) {
       const bookId = this.data.selectedBookId
       const book = appStore.books.value.find(b => b._id === bookId)
       const isRefBook = book?.type === 'ref'
 
       if (isRefBook && bookId) {
-        // controller 负责加入词书并提示；成功后刷新列表并关闭弹层
-        eventBus.emit(AppEvent.ADD_SENTENCE_TO_BOOK, {
-          sentenceId: existing._id,
-          bookId,
-          callback: (_: any, err?: any) => {
-            if (!err) {
-              this.triggerEvent('saved', { sentence: existing })
-            }
-            this.triggerEvent('close')
-          }
-        })
+        try {
+          await bookService.addSentenceToBook(existing._id, bookId)
+          wx.showToast({ title: '已添加到词书', icon: 'success' })
+          this.triggerEvent('saved', { sentence: existing })
+        } catch (err) {
+          console.error('[sentence-generator] 加入词书失败:', err)
+        }
+        this.triggerEvent('close')
         return
       }
 
@@ -193,21 +190,11 @@ Component({
       this.playAudio(this.data.tempAudioUrl)
     },
 
+    // 统一走 audioPlayerService：单实例互斥播放，不再每次 new InnerAudioContext（泄漏 + 可叠播）
     playAudio(url: string) {
       if (!url) return
-
-      const audioCtx = wx.createInnerAudioContext()
-
-      audioCtx.src = url
-      audioCtx.play()
-
-      audioCtx.onError(res => {
-        console.error('音频播放失败', res)
-        wx.showToast({
-          title: '音频播放失败',
-          icon: 'none'
-        })
-      })
+      ;(this as any).playedByMe = true
+      audioPlayerService.playUrl(url)
     },
 
     async onSave() {
@@ -295,6 +282,11 @@ Component({
   },
 
   detached() {
+    // 只停自己发起的预览，避免误停列表页等其他来源的播放
+    if ((this as any).playedByMe) {
+      ;(this as any).playedByMe = false
+      audioPlayerService.stop()
+    }
     this.discardPendingAudio()
   }
 })

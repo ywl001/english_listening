@@ -3,6 +3,7 @@ import { AppEvent } from "../../services/event-type";
 import eventBus from "../../services/EventBus";
 import { PlayEngine } from "../../services/sentence-play-engine";
 import { SegmentAudioPlayer } from "../../services/segment-audio-player";
+import audioPlayerService from "../../services/audio-player-service";
 import sentencePlayManager from "../../services/sentence-play-manager";
 import appStore from "../../services/app-store";
 import { bindSignal } from "../../utils/signal-bind";
@@ -55,6 +56,7 @@ Page({
     const name = options.bookName;
     if (name) {
       this.setData({ bookTitle: decodeURIComponent(name) });
+      wx.setNavigationBarTitle({ title: decodeURIComponent(name) });
     }
 
     // 收藏本名称：跟随 appStore.currentFavoriteBook
@@ -75,22 +77,22 @@ Page({
     });
     bindSignal(this, bookNames, 'bookNames');
 
-    // strict 模式下方法引用脱离实例调用 this 为 undefined，必须用箭头函数包装
-    (this as any).listRefreshHandler = () => this.onSentenceListRefresh();
-    eventBus.on(AppEvent.REFRESH_SENTENCE_LIST, (this as any).listRefreshHandler);
+    // 队列 signal 绑定：Manager 是单一事实源，队列任何变更（init/append/update/remove）
+    // 自动同步页面 sentenceList/totalCount，页面不再手动拷贝，也不需要监听 REFRESH 事件
+    (this as any).signalDisposers = [
+      bindSignal(this, sentencePlayManager.queue, 'sentenceList', () => {
+        // 队列变化时同步刷新当前 3 卡片渲染数据
+        this.updateDisplayList(this.data.realIndex);
+      }),
+      bindSignal(this, computed(() => sentencePlayManager.queueLength), 'totalCount'),
+    ];
 
     // 1. 初始化播放引擎
     this.initEngine();
-    // 2. 自动开启播放
+    // 2. 停掉列表页试听等短音频，再自动开启播放（跨系统互斥，不叠播）
+    audioPlayerService.stop();
+    // 3. 自动开启播放
     this.playEngine?.start();
-  },
-
-  onSentenceListRefresh() {
-    console.log('play refresh');
-    const list = sentencePlayManager.sentenceList;
-    this.setData({ sentenceList: [...list] });
-    // 刷新列表时同步刷新当前卡片
-    this.updateDisplayList(this.data.realIndex);
   },
 
   initEngine() {
@@ -119,7 +121,6 @@ Page({
       },
       {
         onCurrentChange: (sentence, index) => {
-          const list = sentencePlayManager.sentenceList;
           const stage = sentence?.mark?.stage || 0;
 
           // 自动切句时的滑动方向：前进 +1 / 后退 -1（首次回调 index 不变则不动画）
@@ -134,8 +135,6 @@ Page({
             currentIndex: index,      // 驱动进度条与 Header (1/20)
             realIndex: index,         // 同步真实索引
             swiperCurrent,            // 驱动 swiper 滑动动画
-            sentenceList: list,
-            totalCount: sentencePlayManager.queueLength,
             isFavorite: !!sentence?.isFavorite,
             stage: stage
           });
@@ -219,24 +218,58 @@ Page({
 
   /* ---------------- 纯 UI 事件：触发 EventBus ---------------- */
 
+  /**
+   * 短按收藏，按句子现有收藏数分流：
+   * - 0 个收藏 → 收藏进默认收藏夹
+   * - 1 个收藏 → 取消该唯一收藏（toggle 语义）
+   * - 2+ 个收藏 → 打开句集选择面板，让用户决定加/删哪个夹子
+   */
   onToggleFavorite(e: WechatMiniprogram.CustomEvent) {
     const sentence = e.detail.sentence || e.target.dataset.data;
     if (!sentence) return;
 
-    // 目标夹子：正在播放收藏夹（引用书）时作用于该夹子，否则作用于默认收藏夹
-    const playingBook = appStore.books.value.find((b) => b._id === sentencePlayManager.bookId) as Book;
-    const fallback = appStore.currentFavoriteBook.value as Book;
-    const targetRef = playingBook?.type === 'ref' ? sentencePlayManager.bookId : fallback?._id;
-    if (!targetRef) return;
+    const favs: string[] = sentence.favorites || [];
 
-    this.applyFavoriteToggle(sentence, targetRef, playingBook?.type === 'ref' ? playingBook.name : fallback?.name);
+    if (favs.length >= 2) {
+      this.openFavoriteSheet(sentence);
+      return;
+    }
+
+    if (favs.length === 1) {
+      // 唯一收藏：取消它（即使它是当前播放的句集，controller 会同步移出队列）
+      const refBookId = favs[0];
+      this.applyFavoriteToggle(sentence, refBookId, this.getRefBookName(refBookId), false);
+      return;
+    }
+
+    // 未收藏：收藏进默认收藏夹
+    const fallback = appStore.currentFavoriteBook.value;
+    if (!fallback) {
+      wx.showToast({ title: '暂无可用收藏夹', icon: 'none' });
+      return;
+    }
+    this.applyFavoriteToggle(sentence, fallback._id, fallback.name, true);
   },
 
-  onLongTapFavorite(e: WechatMiniprogram.CustomEvent) {
-    console.log('onLongTapFavorite', e);
-    const sentence = e.detail.sentence || e.target.dataset.data;
-    if (!sentence) return;
-    // 记录长按时所在的句子，供选择收藏本后使用
+  /** 引用书 id → 名称（含默认收藏夹兜底） */
+  getRefBookName(refBookId: string): string {
+    const book = appStore.refBooks.value.find(b => b._id === refBookId)
+      || appStore.currentFavoriteBook.value;
+    return book?.name || '收藏夹';
+  },
+
+  /**
+   * 打开句集选择面板（长按入口 / 多夹子短按入口共用）：
+   * 打开时暂停播放（记录暂停前状态），关闭面板后恢复，避免弹窗期间音频继续跑
+   */
+  openFavoriteSheet(sentence: Sentence) {
+    // 弹窗期间暂停播放：仅记录"因弹窗而暂停"，关闭时才恢复（原本就暂停的不动）
+    (this as any).pausedForSheet = !!this.playEngine?.isPlaying;
+    if ((this as any).pausedForSheet) {
+      this.playEngine?.pauseToggle();
+    }
+
+    // 记录弹窗会话针对的句子，供选择收藏本后使用
     (this as any).pendingFavoriteSentence = sentence;
     // 弹窗会话内的收藏快照：取消收藏可能把句子移出播放队列，
     // 之后队列数据不可靠，以这份快照作为弹窗内连续勾选/取消的基准
@@ -255,40 +288,50 @@ Page({
     });
   },
 
+  onLongTapFavorite(e: WechatMiniprogram.CustomEvent) {
+    console.log('onLongTapFavorite', e);
+    const sentence = e.detail.sentence || e.target.dataset.data;
+    if (!sentence) return;
+    this.openFavoriteSheet(sentence);
+  },
+
   /* ---------------- 收藏本选择弹窗 ---------------- */
 
   /**
-   * 句集维度收藏切换的公共流程（短按星标 / 长按弹窗选书共用）：
-   * 增删目标句集 → 同步队列 favorites/isFavorite → 刷新卡片 → toast → 发 FAVORITE_SENTENCE。
-   * 其他句集的收藏一律不动（多夹子共存）。
-   * @returns 操作后的 favorites 列表
+   * 句集维度收藏切换的公共入口（短按 / 弹窗选书共用）：
+   * 显式传目标状态（isFavorite），方向由调用方的 UI 判定，
+   * 不再依赖"快照与 store 一致"的隐式假设（纯 toggle 模式下二者错位会导致方向反转）。
+   * controller 同步完成"写存储 + 更新队列"，页面从队列读回权威 favorites。
+   * @returns 操作后的 favorites 列表（权威值；句子已移出队列时按快照推算兜底）
    */
-  applyFavoriteToggle(sentence: Sentence, refBookId: string, bookName: string): string[] {
+  applyFavoriteToggle(sentence: Sentence, refBookId: string, bookName: string, targetState: boolean): string[] {
     const favs: string[] = sentence.favorites || [];
-    const inTarget = favs.includes(refBookId);
-    const nextFavs = inTarget ? favs.filter((id) => id !== refBookId) : [...favs, refBookId];
-
-    sentencePlayManager.updateSentence(sentence._id, {
-      isFavorite: nextFavs.length > 0,
-      favorites: nextFavs
-    });
-
-    this.setData({ sentenceList: [...sentencePlayManager.sentenceList] });
-    this.updateDisplayList(this.data.realIndex); // 刷新卡片 UI
-
-    wx.showToast({
-      title: inTarget
-        ? (nextFavs.length ? `已从 ${bookName} 移除（其他句集保留）` : `已从 ${bookName} 取消收藏`)
-        : `已收藏到 ${bookName}`,
-      icon: 'none',
-      duration: 1200
-    });
 
     eventBus.emit(AppEvent.FAVORITE_SENTENCE, {
       sentenceId: sentence._id,
-      isFavorite: !inTarget, // 句集维度的目标状态：只作用于 refBookId 这一个句集
       bookId: sentence.bookId,
-      refBookId
+      refBookId,
+      isFavorite: targetState
+    });
+
+    // EventBus 同步派发：此刻 controller 已写完 favStore 并更新队列，读回权威 favorites
+    // （取消收藏且正在播该句集时，句子可能已被移出队列，find 不到则用快照推算兜底）
+    const updated = sentencePlayManager.sentenceList.find(s => s._id === sentence._id);
+    const nextFavs = updated?.favorites
+      ?? (targetState
+        ? [...favs.filter(id => id !== refBookId), refBookId]
+        : favs.filter(id => id !== refBookId));
+
+    // 队列已由 controller 经 manager（单一事实源）同步更新，signal 绑定自动刷新列表；
+    // 这里同步补刷当前 3 卡片（signal effect 同步 flush，data.sentenceList 已是最新）
+    this.updateDisplayList(this.data.realIndex);
+
+    wx.showToast({
+      title: targetState
+        ? `已收藏到 ${bookName}`
+        : (nextFavs.length ? `已从 ${bookName} 移除（其他句集保留）` : `已从 ${bookName} 取消收藏`),
+      icon: 'none',
+      duration: 1200
     });
 
     return nextFavs;
@@ -298,6 +341,11 @@ Page({
     (this as any).pendingFavoriteSentence = null;
     (this as any).pendingFavs = null;
     this.setData({ showBookSelectSheet: false });
+    // 恢复因弹窗而暂停的播放（原本就处于暂停状态的不动）
+    if ((this as any).pausedForSheet) {
+      (this as any).pausedForSheet = false;
+      this.playEngine?.pauseToggle();
+    }
   },
 
   handleSelectBook(e: WechatMiniprogram.CustomEvent) {
@@ -312,7 +360,8 @@ Page({
     const snapshot: Sentence = { ...pending, favorites: favs };
 
     // toggle 语义：已勾选 = 从该句集移除，未勾选 = 收藏进该句集（其他句集不受影响）
-    const nextFavs = this.applyFavoriteToggle(snapshot, bookId, book.name);
+    // 显式传目标状态，方向以弹窗勾选状态为准（与用户所见一致）
+    const nextFavs = this.applyFavoriteToggle(snapshot, bookId, book.name, !wasIn);
     (this as any).pendingFavs = nextFavs;
 
     // 新增收藏时切换默认收藏夹 = "上次添加句子的句集"（短按收藏将进入该夹子）
@@ -348,17 +397,18 @@ Page({
     if (!sentence) return;
 
     const currentStage = sentence.mark?.stage || 0;
-    // 卡片传来的 stage：0 / 8 / stage+1；mark 为空时兜底按 +1 处理，统一封顶 8
-    let stage = Number(e.detail.stage);
-    if (!Number.isFinite(stage)) stage = currentStage + 1;
+    // 卡片传来的 stage：0 / 8 / stage+1；mark 为空时卡片可能绑定出 NaN/空串
+    // （空串 Number('')=0 会误判为忘记），一律兜底按 currentStage+1 处理，统一封顶 8
+    const raw = e.detail.stage;
+    const parsed = (typeof raw === 'string' && raw.trim() === '') ? NaN : Number(raw);
+    let stage = Number.isFinite(parsed) ? parsed : currentStage + 1;
     stage = Math.max(0, Math.min(stage, 8));
     if (stage === currentStage && stage !== 0) return; // 已在目标档位，幂等跳过
 
     const newMark = { ...(sentence.mark || {}), stage };
     sentencePlayManager.updateSentence(sentence._id, { mark: newMark });
-    const updatedList = [...sentencePlayManager.sentenceList];
-    this.setData({ sentenceList: updatedList });
-    this.updateDisplayList(this.data.realIndex); // 刷新卡片 UI
+    // 队列由 manager 不可变更新（signal 自动同步列表），这里补刷当前卡片
+    this.updateDisplayList(this.data.realIndex);
 
     wx.showToast({
       title: stage === 0 ? '已标记：忘记'
@@ -455,7 +505,7 @@ Page({
   },
 
   onUnload() {
-    eventBus.off(AppEvent.REFRESH_SENTENCE_LIST, (this as any).listRefreshHandler);
+    ((this as any).signalDisposers || []).forEach((dispose: any) => dispose?.());
     if ((this as any).advanceTimer) {
       clearTimeout((this as any).advanceTimer);
       (this as any).advanceTimer = null;

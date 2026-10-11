@@ -32,16 +32,16 @@
 
   <!-- 底部状态操作栏 (收藏 / 已会 / 忘记 / 熟悉) -->
   <view class="action-bar">
-    <!-- 1. 收藏 -->
-    <view class="action-item {{ sentence.isFavorite ? 'active-favorite' : '' }}" catchtap="onTapFavorite" catch:longtap="onLongtapFavorite" data-type="favorite">
+    <!-- 1. 收藏：longpress（非废弃的 longtap）触发后保证抑制 tap，避免长按松手又触发一次短按收藏 -->
+    <view class="action-item {{ sentence.isFavorite ? 'active-favorite' : '' }}" catchtap="onTapFavorite" catchlongpress="onLongtapFavorite" data-type="favorite">
       <van-icon name="{{ sentence.isFavorite ? 'like' : 'like-o' }}" size="22px" />
       <text class="action-label">{{favLabel}}</text>
     </view>
 
-    <!-- 2. 已会 -->
-    <view class="action-item {{ sentence.mark.stage > 0 ? 'active-mastered' : '' }}" catchtap="onActionTap" data-stage="{{sentence.mark.stage+1}}">
+    <!-- 2. 已会（mark 为空时兜底 stage+1=1，避免绑定出 NaN → dataset 空串 → Number('')=0 误判为忘记） -->
+    <view class="action-item {{ sentence.mark && sentence.mark.stage > 0 ? 'active-mastered' : '' }}" catchtap="onActionTap" data-stage="{{sentence.mark ? sentence.mark.stage + 1 : 1}}">
       <van-icon name="passed" size="22px" />
-      <text class="action-label">已会{{sentence.mark.stage>0 ? '+'+sentence.mark.stage:''}}</text>
+      <text class="action-label">已会{{sentence.mark && sentence.mark.stage > 0 ? '+' + sentence.mark.stage : ''}}</text>
     </view>
 
     <!-- 3. 忘记：stage 归零，马上重新进入复习队列 -->

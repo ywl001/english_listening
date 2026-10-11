@@ -47,6 +47,31 @@ export class BookService {
   }
 
   /**
+   * 重命名用户自建书（引用书/句集）。
+   * 同名校验排除自身；系统书无 _openid，调用方需保证只传用户书。
+   */
+  async renameBook(bookId: string, name: string): Promise<void> {
+    const bookName = name.trim()
+    if (!bookName) throw new Error('词书名称不能为空')
+
+    const db = wx.cloud.database()
+
+    // 同名防重（同 type 下）：命中除自身以外的同名书则拒绝
+    const { data } = await dbRequest(
+      db.collection('book').where({ name: bookName, type: BookType.ref }).limit(2).get(),
+      '查询词书失败'
+    )
+    if (data.some((b: any) => b._id !== bookId)) {
+      throw new Error('已存在同名句子书')
+    }
+
+    await dbRequest(
+      db.collection('book').doc(bookId).update({ data: { name: bookName } }),
+      '重命名失败'
+    )
+  }
+
+  /**
    * 把一个已存在的句子加入某本词书（不复制内容，只建立引用关系）。
    * 用于"搜索句子 -> 点收藏 -> 选词书"这个场景。
    */
