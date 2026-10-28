@@ -13,11 +13,17 @@
   <van-cell-group  wx:if="{{zh || en}}">
 
     <van-cell wx:if="{{zh}}" title="中文" label="{{zh}}"  bind:click="playZh" size="large">
-      <van-icon slot="right-icon" name="volume-o" size="20" />
+      <van-icon slot="right-icon"
+        name="{{tempAudioZhUrl === playingUrl ? 'volume' : 'volume-o'}}"
+        size="20"
+        class="speaker-icon {{tempAudioZhUrl === playingUrl ? 'is-playing' : ''}}" />
     </van-cell>
 
     <van-cell wx:if="{{en}}" title="英文" label="{{en}}"  bind:click="playEn" size = 'large'>
-      <van-icon slot="right-icon" name="volume-o" size="20" />
+      <van-icon slot="right-icon"
+        name="{{tempAudioUrl === playingUrl ? 'volume' : 'volume-o'}}"
+        size="20"
+        class="speaker-icon {{tempAudioUrl === playingUrl ? 'is-playing' : ''}}" />
     </van-cell>
 
   </van-cell-group>

@@ -1,0 +1,15 @@
+{
+  "name": "xfTts",
+  "version": "1.0.0",
+  "description": "科大讯飞在线语音合成",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "wx-server-sdk": "latest",
+    "ws": "^8.18.0"
+  }
+}

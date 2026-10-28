@@ -1,0 +1,12 @@
+{
+  "timeout": 10,
+  "envVariables": {
+    "XF_APPID": "fe5c0457",
+    "XF_API_KEY": "a56e6b977aeefd295c9f34bb9b7a1ab4",
+    "XF_API_SECRET": "NTQwZmQ2Y2QxOTZlYTA1MDBlNWVjOTY5"
+  },
+  "permissions": {
+    "openapi": [
+    ]
+  }
+}

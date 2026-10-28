@@ -3,6 +3,7 @@
   "usingComponents": {
     "sentence-book-card": "/components/sentence-book-card/sentence-book-card",
     "book-create":"/components/book-create/book-create",
-    "van-icon": "@vant/weapp/icon/index"
+    "van-icon": "@vant/weapp/icon/index",
+    "van-loading": "@vant/weapp/loading/index"
   }
 }

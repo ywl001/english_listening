@@ -32,6 +32,7 @@ export enum Pages {
 
 export enum cloudFunctionName {
   edgeTts = 'edgeTts',
+  xfTts = 'xfTts',
   getOpenId = 'getOpenId',
   translate = 'translate',
   getBooks = 'getBooks',

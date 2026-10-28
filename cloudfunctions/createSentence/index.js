@@ -40,6 +40,7 @@ exports.main = async (event) => {
     const { _id: sentenceId } = await transaction.collection('sentence').add({
       data: s
     })
+    s._id = sentenceId
 
     if (bookId !== originBookId) {
       s.favorites = [bookId]

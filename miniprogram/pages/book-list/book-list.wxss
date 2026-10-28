@@ -10,7 +10,10 @@ page {
 .container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* 固定为视口高度，让 .book-list (scroll-view) 通过 flex:1 拿到确定的剩余高度，
+     滚动只发生在 scroll-view 内部，顶部 tab-header 始终固定不被滚走 */
+  height: 100vh;
+  overflow: hidden;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -66,6 +69,14 @@ page {
   text-align: center;
   color: #A0AEC0;
   font-size: 28rpx;
+  padding: 120rpx 0;
+}
+
+/* 首次加载提示 */
+.loading-tip {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 120rpx 0;
 }
 

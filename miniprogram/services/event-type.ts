@@ -19,6 +19,11 @@ export interface MarkPayload {
   bookId: string;
   /** 目标阶段：忘记=0、熟悉=8；不传则按 currentStage+1 递增（已会按钮） */
   targetStage?: number;
+  /**
+   * 阶段已到顶（8）后再点已会/熟悉：stage 不变，把 nextReviewAt 顺延 15 天
+   * 由 sentence-play.onSetStage 检测 currentStage===8 && 目标 stage===8 时置 true
+   */
+  extendReview?: boolean;
 }
 export interface NeedMorePayload {
   bookId: string;

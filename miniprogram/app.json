@@ -14,5 +14,11 @@
     "navigationBarBackgroundColor": "#ffffff"
   },
   "componentFramework": "glass-easel",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "plugins": {
+    "WechatSI": {
+      "version": "0.3.10",
+      "provider": "wx069ba97219f66d99"
+    }
+  }
 }

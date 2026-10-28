@@ -116,6 +116,26 @@ export class SentenceService {
   }
 
   /**
+   * 仅写入本地收藏分片（不推云、不入待同步队列）：
+   * 用于"云端收藏记录已由其他接口创建"的场景（createSentence 同事务写入、addSentenceToBook 写库），
+   * 此时补写本地分片，保证重进引用书时 getFavoritePlayList 能立即读到，而不是等下次冷启动全量同步。
+   * @param entityBookId 句子所属实体书 id（用于本地文件缓存命中，缺省回退 refBookId）
+   */
+  cacheLocalFavorite(sentenceId: string, refBookId: string, entityBookId?: string): void {
+    const openid = appStore._openid.value
+    if (!openid || !sentenceId || !refBookId) return
+    appStore.favStore.value?.upsert({
+      _id: `${openid}__${refBookId}__${sentenceId}`,
+      _openid: openid,
+      sentenceId,
+      bookId: entityBookId || refBookId,
+      refBookId,
+      deleted: false,
+      updatedAt: Date.now(),
+    })
+  }
+
+  /**
    * 删除用户句子（云端两阶段：confirm=false 仅统计收藏，confirm=true 执行删除）
    * 返回 { needConfirm, favoriteCount } 或 { deleted: true }
    */

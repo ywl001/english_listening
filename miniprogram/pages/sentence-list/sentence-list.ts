@@ -2,6 +2,7 @@ import { Pages } from "../../enums/app-enums";
 import appStore from "../../services/app-store";
 import { AppEvent } from "../../services/event-type";
 import eventBus from "../../services/EventBus";
+import sentencePlayList from "../../services/sentence-play-list";
 import sentencePlayManager from "../../services/sentence-play-manager";
 import audioPlayerService from "../../services/audio-player-service";
 import { bindSignal } from "../../utils/signal-bind";
@@ -240,11 +241,15 @@ Page({
     this.setData({ showGenerator: false })
   },
 
-  onSentenceSaved(e: WechatMiniprogram.CustomEvent) {
+  async onSentenceSaved(e: WechatMiniprogram.CustomEvent) {
     console.log('list e', e)
     const s = e.detail.sentence
+    // 新句子进队列前必须经过 prepareSentences：把 cloud:// 音频 fileID 转成
+    // 可播放的 tempFileURL。否则直接 append 会让 audio/audio_zh 字段仍是 cloud:// 协议，
+    // InnerAudioContext 不支持该协议，立即点击播放会触发 errCode:602 / not found param。
+    const prepared = await sentencePlayList.prepareSentences([s])
     // 新句子进队列（manager signal 通知列表自动刷新）
-    sentencePlayManager.append([s])
+    sentencePlayManager.append(prepared)
     this.closeGenerator()
   }
 });

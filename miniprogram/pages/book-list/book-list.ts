@@ -19,7 +19,9 @@ Page({
     articleBooks: [] as Book[],
     showBookCreate: false,
     // 编辑模式：正在改名的书（null=新建模式）
-    editingBook: null as Book | null
+    editingBook: null as Book | null,
+    // 首次拉取书籍完成前的 loading 提示
+    loading: true
   },
 
   books:[] as Book[],
@@ -28,6 +30,8 @@ Page({
   onLoad() {
     bindSignal(this, appStore.userBooks, 'userBooks')
     bindSignal(this, appStore.systemBooks, 'systemBooks')
+    // 书籍首次加载完成前显示 loading（booksLoaded 由 controller 在 onGetBooks 结束时置位）
+    bindSignal(this, computed(() => !appStore.booksLoaded.value), 'loading')
 
     // 文章 tab 列表 = 虚拟收藏书（置顶）+ 系统文章书
     const articleList = computed<Book[]>(() => {

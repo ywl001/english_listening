@@ -391,6 +391,9 @@ Page({
   /**
    * 统一的掌握度标记入口（卡片三个按钮都走 setStage）：
    * 忘记=0（留在当前句重听）、熟悉=8（长期不再复习）、已会=当前 stage+1（封顶 8）
+   *
+   * 顶档（stage=8）时再点已会/熟悉：stage 保持 8，但标记 extendReview=true，
+   * controller 收到后把 nextReviewAt 顺延 15 天（用户主动"再推一轮"的语义）。
    */
   onSetStage(e: WechatMiniprogram.CustomEvent) {
     const sentence = e.detail.sentence || e.target.dataset.data;
@@ -403,7 +406,11 @@ Page({
     const parsed = (typeof raw === 'string' && raw.trim() === '') ? NaN : Number(raw);
     let stage = Number.isFinite(parsed) ? parsed : currentStage + 1;
     stage = Math.max(0, Math.min(stage, 8));
-    if (stage === currentStage && stage !== 0) return; // 已在目标档位，幂等跳过
+
+    // 顶档时再点已会/熟悉：不跳过，把 nextReviewAt 顺延 15 天
+    const isExtendReview = currentStage === 8 && stage === 8;
+
+    if (!isExtendReview && stage === currentStage && stage !== 0) return; // 已在目标档位，幂等跳过
 
     const newMark = { ...(sentence.mark || {}), stage };
     sentencePlayManager.updateSentence(sentence._id, { mark: newMark });
@@ -412,8 +419,9 @@ Page({
 
     wx.showToast({
       title: stage === 0 ? '已标记：忘记'
-        : stage === 8 ? '已标记：熟悉'
-          : `掌握度 +1 (Level ${stage})`,
+        : isExtendReview ? '已顺延 15 天'
+          : stage === 8 ? '已标记：熟悉'
+            : `掌握度 +1 (Level ${stage})`,
       icon: 'none',
       duration: 1200
     });
@@ -422,6 +430,7 @@ Page({
       sentenceId: sentence._id,
       currentStage,
       targetStage: stage,
+      extendReview: isExtendReview || undefined,
       bookId: sentence.bookId
     });
 

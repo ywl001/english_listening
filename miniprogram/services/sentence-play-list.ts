@@ -157,7 +157,16 @@ export class SentencePlayList {
     return new Set(validFavoriteIds)
   }
 
-  private async prepareSentences(list: Sentence[]) {
+  /**
+   * 把"原始 sentence 列表"转换为"可播放 sentence 列表"：
+   * - 旧结构：cloud:// audio/audio_zh -> tempFileURL（约 2 小时有效期）
+   * - 新结构：audioUrl 本地化 + cloud:// 字段补全 + tempFileURL
+   *
+   * 公开给上层（列表页 onSentenceSaved 等）使用，确保进入播放队列的
+   * 句子都已经是可播放状态（避免 cloud:// 直接喂给 InnerAudioContext 报错）。
+   * 返回新数组，不修改入参。
+   */
+  public async prepareSentences(list: Sentence[]) {
     // 新结构：整本书共用的大 mp3 先本地化（网络流 seek 会卡顿，本地 seek 即时精确）
     const localized = await this.localizeAudioUrl(list)
     const fullList = localized.map(item => ({

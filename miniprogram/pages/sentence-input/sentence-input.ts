@@ -2,6 +2,7 @@ import sentenceService from "../../services/sentence-service"
 import { TranslateService } from "../../services/translate-service"
 import { TtsService } from "../../services/tts-service"
 import sentenceStore from "../../utils/sentenceStore"
+import audioPlayerService from "../../services/audio-player-service"
 
 // 页面生成结果的初始状态
 const EMPTY_RESULT = {
@@ -20,7 +21,8 @@ Page({
     generating: false,
     saving: false,
     selectedBookId: '',
-    selectedBookName: ''
+    selectedBookName: '',
+    playingUrl: ''
   },
 
   bookId: '',

@@ -37,6 +37,9 @@ export class AppController {
     } catch (err) {
       // 真机网络抖动等场景：不打断流程，下次 onShow 触发时自动重试
       console.error('[AppController] 拉取书籍列表失败:', err);
+    } finally {
+      // 首次拉取结束（成功或失败）后关闭列表页 loading 提示，避免一直转圈
+      appStore.booksLoaded.value = true;
     }
   }
 
@@ -123,6 +126,13 @@ export class AppController {
 
       // 新句子写入本地文件缓存（sentence.bookId 为 origin 书）
       sentenceFileStore.upsertSentence(sentence)
+
+      // 目标为引用书（非"我的句子"）：云端 createSentence 已在同事务写入 sentenceFavorite，
+      // 这里补写本地收藏分片，否则重进本书时本地收藏列表为空（要等下次冷启动全量同步才恢复）
+      const originBookId = `origin_${appStore._openid.value}`
+      if (payload.bookId && payload.bookId !== originBookId) {
+        sentenceService.cacheLocalFavorite(sentence._id, payload.bookId, sentence.bookId)
+      }
 
       wx.showToast({ title: '保存成功', icon: 'success' })
       payload.callback?.(sentence)
@@ -271,7 +281,11 @@ export class AppController {
       const nextStage = payload.targetStage !== undefined
         ? payload.targetStage
         : (payload.currentStage < 8 ? payload.currentStage + 1 : 8);
-      const nextReviewAt = this.calculateNextReviewAt(nextStage);
+      // 顶档（8）后再点已会/熟悉：stage 不变，nextReviewAt 直接顺延 15 天
+      // （与 calculateNextReviewAt(8) 间隔一致，便于用户感知"再推一轮"）
+      const nextReviewAt = payload.extendReview
+        ? Date.now() + 15 * 24 * 60 * 60 * 1000
+        : this.calculateNextReviewAt(nextStage);
 
       const updatedMark = {
         stage: nextStage,

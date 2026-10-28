@@ -34,7 +34,8 @@ Component({
     ...EMPTY_RESULT,
     generating: false,
     saving: false,
-    selectedBookId: ''
+    selectedBookId: '',
+    playingUrl: ''
   },
 
   observers: {
@@ -162,6 +163,8 @@ Component({
       if (isRefBook && bookId) {
         try {
           await bookService.addSentenceToBook(existing._id, bookId)
+          // 云端已写入引用记录，补写本地收藏分片，否则重进本书时列表为空
+          sentenceService.cacheLocalFavorite(existing._id, bookId, existing.bookId)
           wx.showToast({ title: '已添加到词书', icon: 'success' })
           this.triggerEvent('saved', { sentence: existing })
         } catch (err) {
@@ -252,7 +255,8 @@ Component({
 
           this.setData({
             audioFileID: '',
-            audioZhFileID: ''
+            audioZhFileID: '',
+            inputText:''
           })
 
           this.triggerEvent('saved', { sentence })
@@ -287,6 +291,14 @@ Component({
       ;(this as any).playedByMe = false
       audioPlayerService.stop()
     }
+    ;(this as any)._unsubAudio?.()
     this.discardPendingAudio()
+  },
+
+  attached() {
+    // 订阅全局"当前播放 url"，用于小喇叭高亮
+    ;(this as any)._unsubAudio = audioPlayerService.onChange((url) => {
+      this.setData({ playingUrl: url || '' })
+    })
   }
 })

@@ -7,6 +7,9 @@ export class AppStore {
   
   books = signal<Book[]>([]);
 
+  /** 书籍列表是否已完成首次加载（列表页据此显示 loading 提示） */
+  booksLoaded = signal(false);
+
   userBooks = computed(() => {
     // 必须读响应式信号 this._openid（initOpenid 写入），不能用 globalData._openid：
     // globalData 不是依赖，openid 晚于 books 到达时 computed 不会重算（冷启动竞态）

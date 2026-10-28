@@ -61,3 +61,16 @@
 .bottom-bar van-button {
   flex: 1;
 }
+
+/* 小喇叭播放高亮：颜色变蓝 + 脉冲放大 */
+.speaker-icon {
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+.speaker-icon.is-playing {
+  color: #1989fa;
+  animation: speaker-pulse 1s ease-in-out infinite;
+}
+@keyframes speaker-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.25); }
+}

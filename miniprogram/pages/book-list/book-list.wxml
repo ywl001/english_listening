@@ -9,24 +9,36 @@
 
   <!-- 句子书列表滚动区 -->
   <scroll-view scroll-y class="book-list" wx:if="{{activeContent === 'sentence'}}">
-    <!-- 新建按钮 -->
-    <view wx:if="{{activeTab === 'user'}}" class="create-card" bindtap="openCreateBook">
-      <text class="plus">+</text>
-      <text>新建句子书</text>
+    <!-- 首次加载中 -->
+    <view wx:if="{{loading}}" class="loading-tip">
+      <van-loading size="40rpx" color="#3182CE" text-color="#718096">加载中...</van-loading>
     </view>
 
-    <!-- 句子书卡片组件 -->
-    <block wx:for="{{activeTab === 'system' ? systemBooks : userBooks}}" wx:key="_id">
-      <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{activeTab === 'user'}}" bind:tapcard="onTapBook" bind:edit="onEditBook" bind:delete="onDeleteBook" />
+    <block wx:else>
+      <!-- 新建按钮 -->
+      <view wx:if="{{activeTab === 'user'}}" class="create-card" bindtap="openCreateBook">
+        <text class="plus">+</text>
+        <text>新建句子书</text>
+      </view>
+
+      <!-- 句子书卡片组件 -->
+      <block wx:for="{{activeTab === 'system' ? systemBooks : userBooks}}" wx:key="_id">
+        <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{activeTab === 'user'}}" bind:tapcard="onTapBook" bind:edit="onEditBook" bind:delete="onDeleteBook" />
+      </block>
     </block>
   </scroll-view>
 
   <!-- 文章书列表 -->
   <scroll-view scroll-y class="book-list" wx:if="{{activeContent === 'article'}}">
-    <block wx:for="{{articleBooks}}" wx:key="_id">
-      <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{false}}" bind:tapcard="onTapBook" />
+    <view wx:if="{{loading}}" class="loading-tip">
+      <van-loading size="40rpx" color="#3182CE" text-color="#718096">加载中...</van-loading>
+    </view>
+    <block wx:else>
+      <block wx:for="{{articleBooks}}" wx:key="_id">
+        <sentence-book-card book="{{item}}" index="{{index}}" isUserBook="{{false}}" bind:tapcard="onTapBook" />
+      </block>
+      <view wx:if="{{!articleBooks.length}}" class="empty-tip">暂无文章书</view>
     </block>
-    <view wx:if="{{!articleBooks.length}}" class="empty-tip">暂无文章书</view>
   </scroll-view>
 
   <!-- 新建 / 重命名句子书弹窗（复用同一组件，编辑模式预填旧名） -->
