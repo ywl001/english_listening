@@ -10,9 +10,6 @@ import { TtsService } from "./tts-service";
 import sentenceFileStore from "../utils/sentence-file-store";
 
 export class AppController {
-  // 引用书（收藏夹）播放分页游标：bookId -> updatedAt 游标
-  private favCursor = new Map<string, number | undefined>();
-
   init() {
     eventBus.on(AppEvent.GET_BOOKS, () => this.onGetBooks());
     eventBus.on(AppEvent.FAVORITE_SENTENCE, (e) => this.favoriteSentence(e));
@@ -202,9 +199,8 @@ export class AppController {
     try {
       wx.showLoading({ title: '刷新列表...', mask: true })
 
-      // 新会话：清已服务名单 + 收藏夹分页游标
+      // 新会话：清已服务名单 + 收藏夹分页游标（都在 startNewSession 里重置）
       sentencePlayList.startNewSession(bookId)
-      this.favCursor.delete(bookId)
 
       // 实体书：增量对账（一次轻量查询，追上云端新增/删除的句子）
       if (book.type !== 'ref') {
@@ -324,11 +320,10 @@ export class AppController {
       let hasMore = false;
 
       if (book?.type === 'ref') {
-        // 引用书：按收藏记录的 updatedAt 游标分页
-        const favRes = await sentencePlayList.getFavoritePlayList(bookId, 20, this.favCursor.get(bookId));
-        this.favCursor.set(bookId, favRes.cursor ?? undefined);
+        // 引用书：游标由 sentencePlayList 内部维护，直接续页；hasMore 决定后续是否继续预加载
+        const favRes = await sentencePlayList.getFavoritePlayList(bookId, 20);
         list = favRes.list;
-        hasMore = false; // getFavoritePlayList 不返回 hasMore，以 cursor 是否为 null 判断
+        hasMore = !!favRes.hasMore;
       } else {
         // 实体书：会话游标由 SentencePlayList 内部维护，直接续页
         const res = await sentencePlayList.getPlayList(bookId, 20);

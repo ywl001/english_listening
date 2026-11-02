@@ -13,13 +13,17 @@ export class SentencePlayList {
 
   // 会话内已服务的句子（分页去重），startNewSession 清空
   private served = new Map<string, Set<string>>()
+  // 引用书（收藏夹）分页游标：bookId -> 上一页最后一条收藏记录的 updatedAt
+  // 收归本服务管理，startNewSession 时一并清空，避免重进书时带着旧游标跳页/重复
+  private favCursor = new Map<string, number | undefined>()
 
   /**
    * 开始新的学习会话（重新初始化播放队列时调用）：
-   * 清空已服务名单，下次 getPlayList 从头构建
+   * 清空已服务名单与收藏分页游标，下次 getPlayList / getFavoritePlayList 从头构建
    */
   public startNewSession(bookId: string): void {
     this.served.delete(bookId)
+    this.favCursor.delete(bookId)
   }
 
   async getPlayList(bookId: string, limit = 20, cursor?: SentencePlayCursor): Promise<SentencePlaylistResult> {
@@ -72,18 +76,22 @@ export class SentencePlayList {
     }
   }
 
-  async getFavoritePlayList(bookId: string, limit = 20, cursor?: number) {
+  async getFavoritePlayList(bookId: string, limit = 20, cursor?: number): Promise<SentencePlaylistResult> {
     // 1. 收藏记录：过滤已删除，按 updatedAt 降序
     const favorites = (appStore.favStore.value?.get(bookId) || [])
       .filter(x => !x.deleted)
       .sort((a, b) => b.updatedAt - a.updatedAt)
 
-    // 2. 游标分页
-    const filteredFavorites = favorites.filter(x => !cursor || x.updatedAt < cursor)
+    // 2. 游标分页（外部未传游标时，用本服务维护的会话游标）
+    const startCursor = cursor ?? this.favCursor.get(bookId)
+    const filteredFavorites = favorites.filter(x => !startCursor || x.updatedAt < startCursor)
     const page = filteredFavorites.slice(0, limit)
 
+    const hasMore = filteredFavorites.length > limit
+    const nextCursor = hasMore ? page[page.length - 1].updatedAt : null
+
     if (!page.length) {
-      return { list: [], cursor: null }
+      return { list: [], cursor: undefined, hasMore: false }
     }
 
     // 3. 句子解析：优先本地文件缓存（句子所在实体书），缺的按 _id 拉云端并回写缓存
@@ -129,10 +137,10 @@ export class SentencePlayList {
       mark: markMap.get(sentence._id) || null
     }))
 
-    const hasMore = filteredFavorites.length > limit
-    const nextCursor = hasMore ? page[page.length - 1].updatedAt : null
+    // 记录游标，供下一次续页（hasMore=false 时置空，避免重复拉取同一页）
+    this.favCursor.set(bookId, nextCursor ?? undefined)
 
-    return { list, cursor: nextCursor }
+    return { list, cursor: undefined, hasMore }
   }
 
   // 每个句子当前被收藏在哪些夹子里：sentenceId -> refBookId[]
