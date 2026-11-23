@@ -246,7 +246,12 @@ export class SentencePlayList {
 
       res.fileList.forEach(item => {
         if (item.status === 0) {
-          map.set(item.fileID, item.tempFileURL)
+          map.set(item.fileID, this.safeEncodeUrl(item.tempFileURL))
+        } else {
+          // 转换失败（通常是文件在云存储中不存在）：不替换，保持 cloud://，
+          // 由 resolveTrack 识别为无音频并跳句，避免喂给播放器报错停播
+          console.warn('[SentencePlayList] 临时链接转换失败:',
+            item.fileID, `status=${item.status}`, item.errMsg)
         }
       })
     }
@@ -257,6 +262,23 @@ export class SentencePlayList {
       audio_zh: map.get(item.audio_zh || '') || item.audio_zh,
       audioUrl: item.audioUrl ? (map.get(item.audioUrl) || item.audioUrl) : item.audioUrl
     }))
+  }
+
+  /**
+   * 真机 InnerAudioContext 无法解析含原始中文等非 ASCII 字符的 URL
+   * （开发者工具会自动处理，真机报 play audio fail）。
+   * 已编码的 URL 是纯 ASCII，直接原样返回，避免 encodeURI 二次编码。
+   */
+  private safeEncodeUrl(url: string): string {
+    if (!/[^\x00-\x7F]/.test(url)) return url
+    try {
+      const qIndex = url.indexOf('?')
+      const base = qIndex >= 0 ? url.slice(0, qIndex) : url
+      const query = qIndex >= 0 ? url.slice(qIndex) : ''
+      return encodeURI(base) + query
+    } catch (e) {
+      return url
+    }
   }
 }
 

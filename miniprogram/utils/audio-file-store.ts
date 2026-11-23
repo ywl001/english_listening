@@ -51,6 +51,22 @@ class AudioFileStore {
   }
 
   /**
+   * 缓存有效性校验：accessSync 只能探测"存在"，无法发现内容损坏的文件
+   * （如上次会话中途被杀导致 saveFileSync 留下半截/空文件）。
+   * 坏文件一旦落盘，后续每次 accessSync 都会命中，播放器对其报
+   * errCode:10001 / "not found param" / play audio fail，且整本书共用
+   * 同一文件会导致连续播放失败。这里用 statSync 校验 size > 0 兜底。
+   */
+  private isValidCache(path: string): boolean {
+    try {
+      const stat = this.fs().statSync(path, false)
+      return stat.size > 0
+    } catch (e) {
+      return false
+    }
+  }
+
+  /**
    * 获取音频的本地路径；未缓存则下载后落盘。
    * @param key    稳定标识（DB 中的相对路径）
    * @param fileID 完整 cloud:// fileID
@@ -59,12 +75,14 @@ class AudioFileStore {
   public async ensure(key: string, fileID: string): Promise<string> {
     this.ensureDir()
     const path = this.localPath(key)
-    try {
-      this.fs().accessSync(path)
+    if (this.isValidCache(path)) {
       return path
-    } catch (e) {
-      // 未缓存，走下载
     }
+
+    // 缓存不存在或已损坏：清掉坏文件后重新下载
+    try {
+      this.fs().unlinkSync(path)
+    } catch (e) { /* 文件本就不存在，忽略 */ }
 
     const inflight = this.pending.get(key)
     if (inflight) return inflight

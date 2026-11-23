@@ -59,7 +59,11 @@ export class PlayEngine {
 
     // 监听音频播放异常
     this.player.onError(err => {
-      console.error('[PlayEngine] 播放出错:', err);
+      console.error('[PlayEngine] 播放出错:', err, '当前音源:', {
+        audioUrl: this.currentSentence?.audioUrl,
+        audio: this.currentSentence?.audio,
+        audio_zh: this.currentSentence?.audio_zh
+      });
       // 连续 3 句失败：不再继续跳句，避免死循环刷屏
       this.errorStreak += 1;
       if (this.errorStreak >= 3) {

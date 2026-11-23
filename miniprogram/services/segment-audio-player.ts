@@ -42,7 +42,11 @@ export function resolveTrack(sentence: Sentence, lang: 'en' | 'zh'): AudioTask |
     return { url: sentence.audioUrl, segments: segs };
   }
   const url = lang === 'en' ? sentence.audio : sentence.audio_zh;
-  return url ? { url } : null;
+  // cloud:// fileID 不能直接作为 InnerAudioContext 的 src（真机报
+  // errCode:10001 "not found param"）。走到这里说明临时链接转换失败
+  // （通常是云存储中不存在该文件），视为无音频，由引擎跳句兜底
+  if (!url || url.startsWith('cloud://')) return null;
+  return { url };
 }
 
 type PlayerState = 'idle' | 'loading' | 'playing' | 'paused';
