@@ -16,12 +16,12 @@
   </view>
 
   <!-- 中文句子区域 -->
-  <view class="text-section chinese-section" catchtap="toggleChinese">
+  <view class="text-section chinese-section" >
     <block wx:if="{{ showChinese }}">
       <text class="chinese-text">{{ sentence.zh }}</text>
     </block>
     <block wx:else>
-      <text class="placeholder-text">点击显示中文</text>
+      <text class="placeholder-text" catchtap="toggleChinese">点击显示中文</text>
     </block>
   </view>
 

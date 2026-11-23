@@ -184,8 +184,11 @@ export class PlayEngine {
       // 如果暂停发生于 sleep 句间停顿期间，直接触发下一步
       this.awaitingNextStep = false;
       this.advanceStep();
-    } else {
-      this.player.resume();
+    } else if (!this.player.resume()) {
+      // 播放器已无法续播（如暂停瞬间音频恰好自然结束，真机上 onEnded
+      // 事件晚于暂停到达，播放器已被复位为 idle）：重播当前步骤兜底，
+      // 否则引擎显示播放中但实际无声，永久卡死
+      this.playStep();
     }
   }
 
@@ -363,8 +366,9 @@ export class PlayEngine {
       await this.sleep(this.config.gapMs);
     }
 
-    // 防止在 sleep 期间用户切歌或暂停导致 token 发生改变
-    if (token !== this.playToken || !this.playing) return;
+    // 防止在 sleep 期间用户切歌、暂停或已提前恢复（pauseToggle 会在恢复时
+    // 直接 advanceStep）导致重复推进
+    if (token !== this.playToken || !this.playing || !this.awaitingNextStep) return;
 
     this.awaitingNextStep = false;
     this.advanceStep();

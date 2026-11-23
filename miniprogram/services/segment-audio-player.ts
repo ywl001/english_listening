@@ -142,15 +142,33 @@ export class SegmentAudioPlayer {
     }
   }
 
-  /** 从暂停位置恢复（startTime 设为暂停点：平台无论是否应用该值结果都正确） */
-  public resume(): void {
-    if (this.state === 'paused') {
-      const at = this.resumeAt ?? this.audioCtx.currentTime;
-      if (at > 0) this.audioCtx.startTime = at;
-      this.audioCtx.play();
-      this.state = 'playing';
-      this.resumeAt = null;
+  /**
+   * 从暂停位置恢复。
+   * @returns 是否成功触发续播；false = 当前无可续播任务（状态已复位），
+   *          调用方（引擎）应重播当前步骤兜底，否则会永久卡死。
+   */
+  public resume(): boolean {
+    if (this.state !== 'paused' || !this.task) return false;
+    const at = this.resumeAt ?? this.audioCtx.currentTime;
+    this.resumeAt = null;
+
+    const segments = this.task.segments;
+    const cur = segments ? segments[this.segIndex] : null;
+    const taskStart = cur ? cur.start : 0;
+
+    if (at <= taskStart) {
+      // 暂停发生在音频真正起播前（真机 loading 阶段 currentTime 恒为 0）：
+      // "loading 中 pause → 再 play" 在部分真机上会静默失效（无 onPlay/无声音），
+      // 走重建实例的全新起播路径最可靠
+      this.startFrom(taskStart);
+      return true;
     }
+
+    // 正常续播：startTime 设为暂停点（平台无论是否应用该值结果都正确）
+    if (at > 0) this.audioCtx.startTime = at;
+    this.audioCtx.play();
+    this.state = 'playing';
+    return true;
   }
 
   /** 停止并复位 */
@@ -287,10 +305,14 @@ export class SegmentAudioPlayer {
   // ==================== 内部事件处理 ====================
 
   private handlePlay(): void {
-    if (this.state === 'loading' || this.state === 'paused') {
+    // 仅接受 loading → playing 的正常起播确认。
+    // 真机上 onPlay 事件可能迟到：若在 loading 阶段用户已按暂停（state='paused'），
+    // 迟到的 onPlay 会把状态错误翻回 'playing'，导致后续 resume() 因
+    // "state !== 'paused'" 守卫而 no-op，播放器永久卡死（模拟器时序紧，难复现）。
+    if (this.state === 'loading') {
       this.state = 'playing';
+      this.resumeAt = null;
     }
-    this.resumeAt = null;
   }
 
   /** 旧结构整文件自然播完 */
